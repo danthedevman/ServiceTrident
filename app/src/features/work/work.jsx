@@ -35,7 +35,12 @@ import { fieldChoices, recordFields } from '../../../../shared/forms/form-option
 import { displayValue } from '../../lib/display-value.js';
 import React, { useContext, useEffect, useState, lazy, Suspense } from 'react';
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { PlusIcon, ArrowUpTrayIcon, ArrowDownTrayIcon, ArchiveBoxIcon } from '@heroicons/react/24/outline';
+import {
+  PlusIcon,
+  ArrowUpTrayIcon,
+  ArrowDownTrayIcon,
+  ArchiveBoxIcon,
+} from '@heroicons/react/24/outline';
 import { writeApi } from '../../data/query-client.js';
 import { TASK_STATUSES, ARTICLE_STATUSES } from '../../../../shared/forms/work-options.js';
 import { useResource } from '../../data/use-resource.js';
@@ -367,10 +372,21 @@ export function WorkDetail({ kind = 'tasks' }) {
         articleSchema.data.fields.find((field) => field.id === 'status'),
       ).find((option) => !option.hidden && option.base === 'published')
     : null;
-  const articleStatuses = articleSchema.data ? fieldChoices('knowledge', articleSchema.data.fields.find((field) => field.id === 'status')) : [];
+  const articleStatuses = articleSchema.data
+    ? fieldChoices(
+        'knowledge',
+        articleSchema.data.fields.find((field) => field.id === 'status'),
+      )
+    : [];
   const draftOption = articleStatuses.find((option) => !option.hidden && option.base === 'draft');
-  const archiveOption = articleStatuses.find((option) => !option.hidden && option.base === 'archived');
-  const changeArticleStatus = (option) => writeApi(`/knowledge/${item.id}`, { method: 'PATCH', body: { revision: item.revision, statusOption: option.value } });
+  const archiveOption = articleStatuses.find(
+    (option) => !option.hidden && option.base === 'archived',
+  );
+  const changeArticleStatus = (option) =>
+    writeApi(`/knowledge/${item.id}`, {
+      method: 'PATCH',
+      body: { revision: item.revision, statusOption: option.value },
+    });
   const [formVersion, setFormVersion] = useState(0);
   const [editingId, setEditingId] = useState(null);
   const editing = editingId === useParams().id;
@@ -390,10 +406,34 @@ export function WorkDetail({ kind = 'tasks' }) {
           <RecordWorkspace
             item={item}
             kind={kind}
-            secondaryActions={!task && canEdit && !editing && item.status !== 'archived' && archiveOption ? <ConfirmDeleteButton title="Archive Article?" confirmLabel="Archive Article" confirmation={`Archive “${item.title}”? It will leave the active article list. Its content and history will be retained.`} disabled={publish.busy} onConfirm={() => changeArticleStatus(archiveOption)}><ArchiveBoxIcon className="h-5 w-5" aria-hidden="true" />Archive Article</ConfirmDeleteButton> : undefined}
+            secondaryActions={
+              !task && canEdit && !editing && item.status !== 'archived' && archiveOption ? (
+                <ConfirmDeleteButton
+                  title="Archive Article?"
+                  confirmLabel="Archive Article"
+                  confirmation={`Archive “${item.title}”? It will leave the active article list. Its content and history will be retained.`}
+                  disabled={publish.busy}
+                  onConfirm={() => changeArticleStatus(archiveOption)}
+                >
+                  <ArchiveBoxIcon className="h-5 w-5" aria-hidden="true" />
+                  Archive Article
+                </ConfirmDeleteButton>
+              ) : undefined
+            }
             actions={
               !task && canEdit && !editing && item.status === 'published' && draftOption ? (
-                <ConfirmDeleteButton className="btn-secondary" title="Unpublish Article?" confirmLabel="Unpublish Article" confirmClassName="btn-primary" confirmation={`Unpublish “${item.title}” and return it to Draft? Its content will be retained.`} disabled={publish.busy} onConfirm={() => changeArticleStatus(draftOption)}><ArrowDownTrayIcon className="h-4 w-4" aria-hidden="true" />Unpublish</ConfirmDeleteButton>
+                <ConfirmDeleteButton
+                  className="btn-secondary"
+                  title="Unpublish Article?"
+                  confirmLabel="Unpublish Article"
+                  confirmClassName="btn-primary"
+                  confirmation={`Unpublish “${item.title}” and return it to Draft? Its content will be retained.`}
+                  disabled={publish.busy}
+                  onConfirm={() => changeArticleStatus(draftOption)}
+                >
+                  <ArrowDownTrayIcon className="h-4 w-4" aria-hidden="true" />
+                  Unpublish
+                </ConfirmDeleteButton>
               ) : !task && canEdit && !editing && item.status !== 'published' && publishedOption ? (
                 <button
                   type="button"
@@ -736,6 +776,7 @@ function WorkForm({
   const set = (name, next) => setValue((old) => ({ ...old, [name]: next }));
   const references = (field, options, selectedValue, change, extra = {}) => (
     <ReferenceField
+      assignToMe={field.id === 'assigneeId'}
       groupId={field.id === 'assigneeId' ? value.assignmentGroupId : undefined}
       referenceType={
         field.id === 'serviceId' ? 'services' : field.id === 'incidentId' ? 'incidents' : 'members'

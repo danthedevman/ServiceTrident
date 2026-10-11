@@ -28,6 +28,7 @@ import { ErrorNotice } from '../components/feedback.jsx';
 /** Private application shell with navigation and sign-out. */
 export function Layout() {
   const location = useLocation();
+  const [tabHeight, setTabHeight] = useState(0);
   const dashboardPage = ['/', '/dashboard'].includes(location.pathname);
   const recordPage =
     location.pathname === '/profile' ||
@@ -86,6 +87,7 @@ export function Layout() {
     >
       <div
         data-app-shell
+        style={{ '--record-tabs-height': `${tabHeight}px` }}
         data-nav-collapsed={collapsed}
         className={`min-h-screen ${collapsed ? 'md:pl-20' : 'md:pl-72'}`}
       >
@@ -107,12 +109,12 @@ export function Layout() {
           }
         >
           <RolePreview banner />
+          <RecordNavigationBar onHeightChange={setTabHeight} />
           <div className={`record-sticky-header${dashboardPage ? ' dashboard-header' : ''}`}>
             {!dashboardPage && <Breadcrumbs resolveNames={!sessionLoading} />}
             <div ref={setRecordHeader} />
           </div>
           <ErrorNotice>{error}</ErrorNotice>
-          <RecordNavigationBar />
           <RecordRailContext.Provider value={registerRail}>
             <BreadcrumbTitleContext.Provider value={!dashboardPage}>
               <RecordTabOutlet

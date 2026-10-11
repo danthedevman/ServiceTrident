@@ -535,7 +535,7 @@ await context.route('**/api/**', async (route) => {
       page: Number(url.searchParams.get('page') || 1),
       pageSize: Number(url.searchParams.get('pageSize') || 10),
     };
-  } else if (path.startsWith('/references/')) data = { items: [], hasMore: false };
+  } else if (path.startsWith('/references/')) data = { options: [], selected: [], hasMore: false };
   else if (path === '/auth/preferences') {
     user.uiPreferences = uiPreferences({ ...user.uiPreferences, ...request.postDataJSON() });
     data = { preferences: user.uiPreferences };
@@ -801,6 +801,11 @@ try {
   await page.setViewportSize({ width: 1440, height: 960 });
   await page.evaluate(() => sessionStorage.removeItem('servicetrident-record-tabs'));
   await page.goto(`${base}/tasks/${tasks[0].id}`);
+  assert.equal(await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', { name: 'Settings', exact: true }).count(), 0);
+  await page.locator('.sidebar-profile summary:visible').click();
+  await page.getByRole('link', { name: 'Profile', exact: true }).waitFor();
+  await page.getByRole('link', { name: 'Settings', exact: true }).waitFor();
+  await page.locator('.sidebar-profile summary:visible').click();
   assert.equal(await page.getByRole('navigation', { name: 'Open record tabs' }).count(), 0);
   const serviceLink = page.getByRole('link', {
     name: 'Demo Customer Portal (opens in an app record tab)',
@@ -825,6 +830,13 @@ try {
   user.role = 'admin';
   await page.reload();
   await page.getByRole('button', { name: 'Edit Record', exact: true }).click();
+  const assignSelf = page.getByRole('button', { name: 'Assign to Me', exact: true });
+  assert.equal(await assignSelf.isDisabled(), true, 'Selected group excludes the signed-in user');
+  await page.getByRole('combobox', { name: 'Assignment group', exact: true }).locator('..').getByRole('button', { name: /^Clear / }).click();
+  await assignSelf.click();
+  assert.equal(await page.getByRole('combobox', { name: 'Assigned to', exact: true }).inputValue(), user.displayName);
+  assert.equal(await assignSelf.isDisabled(), true, 'Already assigned to the signed-in user');
+  await page.screenshot({ path: `${output}/assign-to-me.png` });
   const draftTitle = page.getByLabel('Title *', { exact: true });
   await draftTitle.fill('Demo unsaved tab draft');
   await draftTitle.blur();
@@ -840,6 +852,9 @@ try {
   assert.equal(context.pages().length, 1);
   const recordTabs = page.getByRole('tablist', { name: 'Record tabs', exact: true });
   assert.equal(await recordTabs.getByRole('tab').count(), 2);
+  const tabPosition = await recordTabs.boundingBox();
+  const headerPosition = await page.locator('.record-sticky-header').boundingBox();
+  assert.ok(tabPosition.y + tabPosition.height <= headerPosition.y, 'Record tabs sit above the header');
   await recordTabs.getByRole('tab').first().click();
   await page.waitForURL(`${base}/tasks/${tasks[0].id}`);
   assert.equal(
@@ -865,6 +880,10 @@ try {
       .evaluate((element) => getComputedStyle(element).whiteSpace),
     'nowrap',
   );
+  const fullTabBar = await page.locator('.record-navigation-bar').boundingBox();
+  const railPosition = await page.locator('.record-sidebar:visible').boundingBox();
+  assert.ok(Math.abs(fullTabBar.x + fullTabBar.width - 1440) < 2, 'Tab bar spans the right panel');
+  assert.ok(railPosition.y >= fullTabBar.y + fullTabBar.height - 1, 'Right panel starts beneath tabs');
   await page.screenshot({ path: `${output}/record-tabs.png` });
   await page.evaluate(() => {
     const root = document.documentElement;
@@ -958,6 +977,7 @@ try {
     .getByRole('button', { name: 'Cancel', exact: true })
     .click();
 
+  await page.getByRole('tablist', { name: 'Record tabs', exact: true }).getByRole('tab').last().click();
   await page
     .getByRole('navigation', { name: 'Open record tabs' })
     .getByRole('button', { name: 'Close All Tabs', exact: true })
@@ -970,6 +990,12 @@ try {
     await page.getByRole('tablist', { name: 'Record tabs', exact: true }).getByRole('tab').count(),
     2,
   );
+  await page.getByRole('tablist', { name: 'Record tabs', exact: true }).getByRole('tab').first().click();
+  await page.waitForURL(`${base}/tasks/${tasks[0].id}`);
+  await page.getByRole('navigation', { name: 'Open record tabs' }).getByRole('button', { name: 'Close All Tabs', exact: true }).click();
+  assert.equal(await page.getByRole('dialog', { name: 'Close All Record Tabs?', exact: true }).count(), 0);
+  assert.equal(await page.getByLabel('Title *', { exact: true }).inputValue(), 'Demo unsaved tab draft');
+  assert.equal(await page.getByRole('navigation', { name: 'Open record tabs' }).count(), 0);
   await page.goto(`${base}/help?topic=incidents`);
   await page.getByRole('img', { name: /^Tasks Kanban/ }).scrollIntoViewIfNeeded();
   await page.waitForFunction(() => {
@@ -1104,11 +1130,12 @@ try {
     await createAction.getAttribute('form'),
     'Header submit action retains its form association',
   );
+  const createPosition = await createAction.boundingBox();
   await page.locator('.record-scroll-area:not([hidden])').evaluate((element) => {
     element.scrollTop = element.scrollHeight;
   });
   assert.ok(
-    (await createAction.boundingBox()).y < 72,
+    Math.abs((await createAction.boundingBox()).y - createPosition.y) < 1,
     'Create action remains visible while scrolling',
   );
   await page.locator('.record-scroll-area:not([hidden])').evaluate((element) => {
@@ -1353,40 +1380,27 @@ try {
   }
   await page.getByRole('button', { name: 'Next', exact: true }).click();
   await page.locator(`a[href="/records/audit/${demoAuditRows[10].id}"]`).click();
-  await page
-    .getByText('You can open up to 10 record tabs. Close a tab before opening another.', {
-      exact: true,
-    })
-    .waitFor();
+  await page.getByRole('region', { name: 'Audit Entry Details', exact: true }).waitFor();
+  assert.ok(page.url().endsWith(`/records/audit/${demoAuditRows[10].id}`));
   assert.equal(await page.getByRole('navigation', { name: 'Open record tabs' }).count(), 0);
-  assert.ok(page.url().endsWith('/settings/audit'));
-  await page.getByRole('button', { name: 'Previous', exact: true }).click();
+  assert.equal(await page.evaluate(() => JSON.parse(sessionStorage.getItem('servicetrident-record-tabs')).tabs.length), 1);
+  await page.getByRole('link', { name: 'Back to List', exact: true }).click();
   await page.locator(`a[href="/records/audit/${demoAuditRows[0].id}"]`).click();
   await page.getByRole('region', { name: 'Audit Entry Details', exact: true }).waitFor();
-  assert.equal(
-    await page.getByRole('tablist', { name: 'Record tabs', exact: true }).getByRole('tab').count(),
-    10,
-  );
-  await page
-    .getByRole('button', { name: /^Close .* tab$/ })
-    .first()
-    .click();
-  await page.getByRole('link', { name: 'Back to List', exact: true }).click();
-  await page.getByRole('button', { name: 'Next', exact: true }).click();
-  await page.locator(`a[href="/records/audit/${demoAuditRows[10].id}"]`).click();
-  await page.getByRole('region', { name: 'Audit Entry Details', exact: true }).waitFor();
+  assert.equal(await page.getByRole('tablist', { name: 'Record tabs', exact: true }).getByRole('tab').count(), 2);
   await page.screenshot({ path: `${output}/audit-record.png` });
   await page
     .getByRole('navigation', { name: 'Open record tabs' })
     .getByRole('button', { name: 'Close All Tabs', exact: true })
     .click();
-  await page.waitForURL(`${base}/`);
+  assert.ok(page.url().endsWith(`/records/audit/${demoAuditRows[0].id}`));
+  await page.getByRole('region', { name: 'Audit Entry Details', exact: true }).waitFor();
   assert.equal(await page.getByRole('navigation', { name: 'Open record tabs' }).count(), 0);
   assert.equal(
     await page.evaluate(
       () => JSON.parse(sessionStorage.getItem('servicetrident-record-tabs')).tabs.length,
     ),
-    0,
+    1,
   );
   for (const route of [
     '/integrations/new',

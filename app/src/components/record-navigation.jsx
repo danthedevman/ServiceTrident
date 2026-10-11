@@ -159,6 +159,17 @@ export function RecordNavigationProvider({ children, owner }) {
         update((list) => list.map((tab) => (tab.key === key ? { ...tab, to } : tab)));
       return;
     }
+    if (current.current.length >= RECORD_TAB_LIMIT && !recordTabKey(prior)) {
+      const fresh = { key, to, label: fallbackLabel(location), dirty: false };
+      if (current.current.some((tab) => tab.dirty)) {
+        setClosing({ reset: fresh });
+        navigate(prior.pathname + prior.search, { replace: true });
+      } else {
+        update(() => [fresh]);
+        setNotice('');
+      }
+      return;
+    }
     if (current.current.length >= RECORD_TAB_LIMIT) {
       setNotice(
         `You can open up to ${RECORD_TAB_LIMIT} record tabs. Close a tab before opening another.`,
@@ -189,6 +200,22 @@ export function RecordNavigationProvider({ children, owner }) {
         return;
       }
       const found = current.current.find((tab) => tab.key === nextKey);
+      if (!found && current.current.length >= RECORD_TAB_LIMIT && !key) {
+        const fresh = {
+          key: nextKey,
+          to: url.pathname + url.search,
+          label: label || fallbackLabel(url),
+          dirty: false,
+        };
+        // List navigation starts a fresh tab set; related links retain the limit.
+        if (current.current.some((tab) => tab.dirty)) setClosing({ reset: fresh });
+        else {
+          update(() => [fresh]);
+          setNotice('');
+          navigate(fresh.to);
+        }
+        return;
+      }
       if (!found && current.current.length >= RECORD_TAB_LIMIT) {
         setNotice(
           `You can open up to ${RECORD_TAB_LIMIT} record tabs. Close a tab before opening another.`,
@@ -231,13 +258,12 @@ export function RecordNavigationProvider({ children, owner }) {
     [update],
   );
   function closeAll() {
-    update(() => []);
+    update((list) => list.filter((tab) => tab.key === key));
     setClosing(null);
     setNotice('');
-    navigate('/');
   }
   function requestCloseAll() {
-    if (current.current.some((tab) => tab.dirty)) setClosing({ all: true });
+    if (current.current.some((tab) => tab.key !== key && tab.dirty)) setClosing({ all: true });
     else closeAll();
   }
   function close(tab) {
@@ -264,7 +290,13 @@ export function RecordNavigationProvider({ children, owner }) {
       {children}
       {closing && (
         <Modal
-          title={closing.all ? 'Close All Record Tabs?' : 'Close Record Tab?'}
+          title={
+            closing.reset
+              ? 'Refresh Record Tabs?'
+              : closing.all
+                ? 'Close All Record Tabs?'
+                : 'Close Record Tab?'
+          }
           onClose={() => setClosing(null)}
           footer={
             <>
@@ -273,17 +305,31 @@ export function RecordNavigationProvider({ children, owner }) {
               </button>
               <button
                 className="btn-danger"
-                onClick={() => (closing.all ? closeAll() : close(closing))}
+                onClick={() => {
+                  if (closing.reset) {
+                    update(() => [closing.reset]);
+                    setNotice('');
+                    navigate(closing.reset.to);
+                    setClosing(null);
+                  } else if (closing.all) closeAll();
+                  else close(closing);
+                }}
               >
-                {closing.all ? 'Close All Tabs' : 'Close Tab'}
+                {closing.reset
+                  ? 'Refresh Tabs and Open Record'
+                  : closing.all
+                    ? 'Close All Tabs'
+                    : 'Close Tab'}
               </button>
             </>
           }
         >
           <p>
-            {closing.all
-              ? 'Any unsaved changes in edited tabs will be lost when you close all tabs.'
-              : 'This tab has been edited. Any unsaved changes will be lost when you close it.'}
+            {closing.reset
+              ? 'Opening this record will refresh your full tab set. Any unsaved changes in edited tabs will be lost. Cancel to keep them.'
+              : closing.all
+                ? 'The current record stays open. Unsaved changes in the other edited tabs will be lost.'
+                : 'This tab has been edited. Any unsaved changes will be lost when you close it.'}
           </p>
         </Modal>
       )}
@@ -311,6 +357,16 @@ export function RecordLink({ to, children, onClick, recordLabel, ...props }) {
       {children}
     </Link>
   );
+}
+
+/** Mark action-driven form changes that do not emit an input change event. */
+export function useRecordEditMarker() {
+  const navigation = useContext(RecordNavigationContext);
+  const location = useLocation();
+  return () => {
+    const key = recordTabKey(location);
+    if (key) navigation?.markEdited(key);
+  };
 }
 
 export function useRecordTabLabel(label) {
@@ -397,11 +453,20 @@ export function RecordTabOutlet({ header, className, recordLayout, enabled }) {
   );
 }
 
-export function RecordNavigationBar() {
+export function RecordNavigationBar({ onHeightChange }) {
   const { tabs, key, notice, dismissNotice, requestClose, requestCloseAll } =
     useContext(RecordNavigationContext);
   const navigate = useNavigate();
   const bar = useRef(null);
+  useLayoutEffect(() => {
+    const element = bar.current;
+    const measure = () => onHeightChange?.(element?.getBoundingClientRect().height || 0);
+    measure();
+    if (!element) return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [key, tabs.length, onHeightChange]);
   useLayoutEffect(() => {
     bar.current
       ?.querySelector('[aria-selected="true"]')

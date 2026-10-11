@@ -92,6 +92,22 @@ test('resolution enforces configurable notes and mandatory fields; knowledge lin
     ).status,
     400,
   );
+  const originalSchema = (await request('/incident-fields', owner)).data;
+  assert.equal(
+    originalSchema.fields.find((field) => field.id === 'resolutionNotes').required,
+    false,
+  );
+  assert.equal(
+    (
+      await request('/incident-fields', owner, 'PUT', {
+        ...originalSchema,
+        fields: originalSchema.fields.map((field) =>
+          field.id === 'resolutionNotes' ? { ...field, required: true } : field,
+        ),
+      })
+    ).status,
+    200,
+  );
   const missing = await request(`/incidents/${incident.id}`, owner, 'PATCH', {
     revision: 0,
     status: 'resolved',
@@ -182,6 +198,28 @@ test('resolution enforces configurable notes and mandatory fields; knowledge lin
       .collection('deliveries')
       .countDocuments({ incidentId: stored._id, event: 'impacted', resolutionCycle: 2 }),
     1,
+  );
+  const mandatorySchema = (await request('/incident-fields', owner)).data;
+  assert.equal(
+    (
+      await request('/incident-fields', owner, 'PUT', {
+        ...mandatorySchema,
+        fields: mandatorySchema.fields.map((field) =>
+          field.id === 'resolutionNotes' ? { ...field, required: false } : field,
+        ),
+      })
+    ).status,
+    200,
+  );
+  assert.equal(
+    (
+      await request(`/incidents/${incident.id}`, owner, 'PATCH', {
+        revision: secondReopen.data.incident.revision,
+        status: 'resolved',
+        resolutionNotes: '',
+      })
+    ).status,
+    200,
   );
   for (const path of ['/incident-fields', '/task-fields', '/knowledge-fields']) {
     const schema = (await request(path, owner)).data;

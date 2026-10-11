@@ -1972,8 +1972,8 @@ body {
   align-items: center;
   gap: 0.125rem;
   border: 1px solid transparent;
-  border-radius: 9999px;
-  background: light-dark(var(--color-slate-100), var(--color-slate-900));
+  border-radius: 0.75rem 0.75rem 0 0;
+  background: light-dark(var(--color-slate-200), var(--color-slate-800));
   color: light-dark(var(--color-slate-600), var(--color-slate-200));
   transition: none;
 }
@@ -1981,8 +1981,9 @@ body {
   background: light-dark(var(--color-slate-100), var(--color-slate-800));
 }
 .record-navigation-tab[data-active='true'] {
-  background: light-dark(var(--color-blue-100), var(--color-blue-900));
+  background: var(--app-background);
   color: light-dark(var(--color-blue-700), var(--color-blue-200));
+  box-shadow: inset 0 2px 0 var(--color-blue-500);
 }
 .record-navigation-tab > [role='tab'] {
   padding: 0.5rem 0.625rem;
@@ -2091,4 +2092,30 @@ body {
 .task-icon-action:focus-visible {
   outline: 2px solid light-dark(var(--color-blue-600), var(--color-blue-300));
   border-radius: 4px;
+}
+
+/* Record tabs span both panes; the rail starts below their measured height. */
+.record-navigation-bar {
+  z-index: 30;
+  position: relative;
+  background: light-dark(var(--color-slate-100), var(--color-slate-950));
+  padding-bottom: 0;
+}
+.record-navigation-scroll {
+  padding-bottom: 0;
+}
+@media (min-width: 1200px) {
+  .record-main {
+    overflow: visible;
+  }
+  .record-main[data-record-collapsed] > .record-navigation-bar {
+    width: calc(100% + var(--record-rail-width, 320px));
+  }
+  .record-main[data-record-collapsed='true'] > .record-navigation-bar {
+    width: calc(100% + var(--record-rail-width, 64px));
+  }
+  .record-sidebar {
+    top: var(--record-tabs-height, 0px);
+    height: calc(100dvh - var(--record-tabs-height, 0px));
+  }
 }

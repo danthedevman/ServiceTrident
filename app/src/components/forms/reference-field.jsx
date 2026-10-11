@@ -1,4 +1,4 @@
-import { RecordLink } from '../record-navigation.jsx';
+import { RecordLink, useRecordEditMarker } from '../record-navigation.jsx';
 import { useInfiniteResource, useResource } from '../../data/use-resource.js';
 import React, { useContext, useEffect, useLayoutEffect, useId, useRef, useState } from 'react';
 import {
@@ -47,12 +47,14 @@ export function ReferenceField({
   groupId,
   excludeId,
   required = false,
+  assignToMe = false,
 }) {
   const id = useId(),
     [search, setSearch] = useState(''),
     [open, setOpen] = useState(false),
     [active, setActive] = useState(-1),
     [typing, setTyping] = useState(false);
+  const markEdited = useRecordEditMarker();
   const input = useRef(null);
   const labels = useRef(new Map());
   const results = useRef(null);
@@ -81,6 +83,15 @@ export function ReferenceField({
   const sentinel = useRef(null);
   const { user } = useContext(AuthContext),
     client = useQueryClient();
+  const selfAssignment =
+    assignToMe &&
+    !multiple &&
+    referenceType === 'members' &&
+    ['admin', 'responder'].includes(user?.role);
+  const groups = useResource(selfAssignment && groupId ? '/groups' : null);
+  const eligible =
+    !groupId ||
+    groups.data?.groups?.find((group) => group.id === groupId)?.memberIds.includes(user?.id);
   const destination = destinations[referenceType];
   const canCreate = destination?.roles.includes(user?.role);
   const ids = multiple ? value || [] : value ? [value] : [];
@@ -186,9 +197,32 @@ export function ReferenceField({
         }
       }}
     >
-      <label htmlFor={id} className={hideLabel ? 'sr-only' : 'field-label'}>
-        {label}
-      </label>
+      <div className="flex items-center justify-between gap-3">
+        <label htmlFor={id} className={hideLabel ? 'sr-only' : 'field-label'}>
+          {label}
+        </label>
+        {selfAssignment && !disabled && (
+          <button
+            type="button"
+            className="shrink-0 text-sm font-medium text-blue-700 hover:underline disabled:opacity-50 dark:text-blue-300"
+            disabled={!eligible || value === user.id}
+            title={
+              groupId && !eligible ? 'You must belong to the selected assignment group.' : undefined
+            }
+            onClick={() => {
+              labels.current.set(user.id, user.displayName || user.email);
+              setOpen(false);
+              setSearch('');
+              setTyping(false);
+              setActive(-1);
+              onChange(user.id);
+              markEdited();
+            }}
+          >
+            Assign to Me
+          </button>
+        )}
+      </div>
       {name &&
         ids.map((selected) => <input key={selected} type="hidden" name={name} value={selected} />)}
       <div className="relative">

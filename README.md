@@ -72,19 +72,23 @@ Admins manage configuration and membership. Responders work on incidents, tasks,
 
 ### Dashboard and personal preferences
 
+Open the profile menu at the bottom of the navigation for **Profile**, **Settings**, and **Help**. Settings is no longer a main navigation link; available configuration actions still depend on your role.
+
 Overview starts with **Important Reports** and **Needs Attention**, followed by visual charts and compact scores. **Assigned to Me** and **Assigned to My Team** reports cover unresolved incidents and outstanding tasks; team reports use your current assignment-group memberships. Score colors identify urgent, pending, healthy, and unknown states. Report links open server-filtered lists.
 
 A compact **Dashboard View** picker and refresh icon sit to the right of your first-name greeting, with padding beneath the sticky controls. Change the greeting in **Profile → Dashboard Greeting**, using `{firstName}` where needed. Profile also controls color scheme, light/dark appearance, contrast, text size, timezone, and date/time formats. Logs, audit activity, monitor checks, coverage record dates, and metadata use these date preferences; explicitly UTC schedule editors, date filters, exports, and status-history day buckets retain their documented formats. The thinner trident mark combines connected service nodes and a health pulse; the logo and right record panel follow the selected theme.
 
 ### Records, tabs, and tables
 
-Reference links and **Open Record** controls open app record tabs, including activity and delivery-log details. Pill chips show the record title and type without identifier suffixes or “From” text. Text stays on one line; full labels appear on hover. Horizontal scrolling and arrow-key navigation work with the scrollbar hidden. Tabs appear only on record routes with more than one record open. Up to ten tabs can be open; the limit notice asks you to close tabs, and **Close All Tabs** is available. Closing edited tabs requires confirmation.
+Reference links and **Open Record** controls open app record tabs, including activity and delivery-log details. Chrome-style tabs span the record area above both panes and show the record title and type without identifier suffixes or “From” text. Text stays on one line; full labels appear on hover. Horizontal scrolling and arrow-key navigation work with the scrollbar hidden. Tabs sit above the record header and appear only on record routes with more than one record open. Up to ten tabs can be open; the limit notice asks you to close tabs, and **Close All Tabs** closes other tabs while keeping the current record and its draft open. Closing edited tabs requires confirmation. When the tab limit is reached, opening a new record from a list or another non-record page refreshes the tab set to that record. Unsaved edits require confirmation before refreshing; Cancel keeps the existing tabs. Related-record links still show the limit notice.
 
 Tab links and bounded labels survive refresh for the signed-in browser session; restored records fetch data only when selected. Switching tabs preserves mounted drafts, while refresh discards unsaved edits. Sign-out clears the session’s tabs. These tabs never change record permissions. New forms focus their first editable field. Drag the right record panel’s left edge to resize it, or use its keyboard controls; it snaps closed below the threshold and remembers your account preference.
 
 **Filters** opens a small anchored panel with full-width search and no overlay, leaving the table visible. Search, filters, sorting, paging, and CSV export run on the server. The ellipsis menu’s **Compact Rows** toggle saves reduced padding as an account preference. Columns remain configurable. Forms use consistent custom required/email errors and grow multiline fields as you type. Form Builder is available from supported list and record secondary actions. Fields, form sections, dropdowns, filter panels, and button states follow your selected theme. Automated activity is attributed to **System**.
 
 ### Incident response
+
+In incident and task create/edit forms, **Assign to Me** beside the assignee field selects your logged-in account. Save to apply it. Admins and responders can use this action; a selected assignment group must include you.
 
 Resolving an incident requires confirmation. Resolution notes are optional in the default form; admins can toggle **Required** for that system field in **Form Builder**. Existing saved requirements remain until changed. Reopening also requires confirmation. Conversation uses a compact message filter and icon-only table/conversation view controls.
 

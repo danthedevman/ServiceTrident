@@ -38,7 +38,6 @@ const links = [
   ['/on-call', 'On Call', CalendarDaysIcon],
   ['/knowledge', 'Knowledge', BookOpenIcon],
   ['/status', 'Status Page', ChartBarSquareIcon],
-  ['/settings', 'Settings', Cog6ToothIcon],
 ];
 
 /** Bottom-anchored disclosure with ordinary keyboard-accessible links and buttons. */
@@ -106,8 +105,21 @@ function ProfileMenu({ user, compact, logout, busy, onNavigate, dropdown = false
           }}
         >
           <UserCircleIcon className="h-5 w-5 shrink-0" aria-hidden="true" />
-          Profile settings
+          Profile
         </Link>
+        {user.role !== 'user' && (
+          <Link
+            to="/settings"
+            className="profile-menu-item"
+            onClick={() => {
+              ref.current.open = false;
+              onNavigate();
+            }}
+          >
+            <Cog6ToothIcon className="h-5 w-5 shrink-0" aria-hidden="true" />
+            Settings
+          </Link>
+        )}
         <Link
           to="/help"
           className="profile-menu-item"
@@ -171,7 +183,10 @@ export function Sidebar({ user, logout, busy, collapsed, setCollapsed, renderBra
   }, [mobileOpen]);
   const openCreate = () => {
     close();
-    if (pathname.replace(/\/$/, '') === '/knowledge/articles' && ['admin', 'responder'].includes(user?.role)) {
+    if (
+      pathname.replace(/\/$/, '') === '/knowledge/articles' &&
+      ['admin', 'responder'].includes(user?.role)
+    ) {
       navigate('/knowledge/new');
       return;
     }

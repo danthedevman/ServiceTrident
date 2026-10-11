@@ -805,6 +805,7 @@ function IncidentEditor({
     if (['serviceId', 'assigneeId', 'openedForId'].includes(name))
       return (
         <ReferenceField
+          assignToMe={name === 'assigneeId'}
           groupId={name === 'assigneeId' ? value.assignmentGroupId : undefined}
           referenceType={name === 'serviceId' ? 'services' : 'members'}
           key={name}
