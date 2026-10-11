@@ -1,6 +1,13 @@
 /** Install the shared index and retention contract on the selected backend. */
 export async function initializeDatabase(db) {
   await Promise.all([
+    db.collection('serviceAccounts').createIndex({ workspaceId: 1, _id: 1 }),
+    db.collection('serviceAccounts').createIndex({ apiKeyHash: 1 }),
+    db.collection('serviceAccessTokens').createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
+    db.collection('serviceAccessTokens').createIndex({ accountId: 1 }),
+    db.collection('identityTransactions').createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
+    db.collection('identityProviders').createIndex({ workspaceId: 1 }),
+    db.collection('identityLinks').createIndex({ workspaceId: 1, userId: 1 }),
     db.collection('statusSubscribers').createIndex({ workspaceId: 1, state: 1, _id: 1 }),
     db.collection('statusSubscribers').createIndex({ confirmationHash: 1 }),
     db.collection('statusSubscribers').createIndex({ unsubscribeHash: 1 }),

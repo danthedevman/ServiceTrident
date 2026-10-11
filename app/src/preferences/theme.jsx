@@ -1,5 +1,6 @@
 import { MoonIcon, SunIcon } from '@heroicons/react/24/outline';
 import React, { createContext, useContext, useLayoutEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 
 const ThemeContext = createContext(null);
 
@@ -7,17 +8,23 @@ const ThemeContext = createContext(null);
  * @param {{children: React.ReactNode}} props
  */
 export function ThemeProvider({ children }) {
-  const [theme, setTheme] = useState(() =>
-    document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light',
-  );
+  const publicStatus = useLocation().pathname.startsWith('/status/public/');
+  const [theme, setTheme] = useState(() => {
+    try {
+      const saved = localStorage.getItem('servicetrident-theme');
+      if (saved === 'light' || saved === 'dark') return saved;
+    } catch { /* Browser storage may be disabled. */ }
+    return document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light';
+  });
   useLayoutEffect(() => {
-    document.documentElement.dataset.theme = theme;
+    const appearance = publicStatus ? 'light' : theme;
+    document.documentElement.dataset.theme = appearance;
     document.documentElement.style.backgroundColor = 'var(--app-background)';
-    document.documentElement.style.colorScheme = theme;
+    document.documentElement.style.colorScheme = appearance;
     document
       .querySelector('meta[name="theme-color"]')
-      ?.setAttribute('content', theme === 'dark' ? '#020617' : '#1d4ed8');
-  }, [theme]);
+      ?.setAttribute('content', appearance === 'dark' ? '#020617' : '#1d4ed8');
+  }, [theme, publicStatus]);
 
   /** Persist an explicit preference; the toggle still works if storage is unavailable. */
   function toggleTheme() {

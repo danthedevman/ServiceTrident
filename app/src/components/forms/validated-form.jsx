@@ -1,12 +1,13 @@
 import { notify } from '../../data/toast.js';
 import React, { useEffect, useId, useRef, useState } from 'react';
-import { fieldErrors } from '../../../../shared/validation/form-validation.js';
+import { fieldErrors, controlError } from '../../../../shared/validation/form-validation.js';
 
 /* Reference searches focus instead of their hidden selected-ID fields. */
 function findControl(form, name) {
   return (
-    [...form.elements].find((field) => field.dataset.referenceName === name) ||
-    form.elements.namedItem(name)
+    [...form.elements].find(
+      (field) => (field.dataset.referenceName || field.dataset.validationKey) === name,
+    ) || form.elements.namedItem(name)
   );
 }
 
@@ -20,16 +21,17 @@ export function ValidatedForm({ kind, onSubmit, children, ...props }) {
   useEffect(() => {
     const form = ref.current;
     for (const field of form.elements) {
-      const name = field.dataset.referenceName || field.name;
+      const name = field.dataset.referenceName || field.name || field.dataset.validationKey;
       if (!name) continue;
       const errorId = `${prefix}-${name}`;
       if (errors[name]) {
         field.setAttribute('aria-invalid', 'true');
         field.setAttribute('aria-describedby', errorId);
       } else {
-        field.removeAttribute('aria-invalid');
-        if (field.getAttribute('aria-describedby') === errorId)
+        if (field.getAttribute('aria-describedby') === errorId) {
+          field.removeAttribute('aria-invalid');
           field.removeAttribute('aria-describedby');
+        }
       }
     }
     if (Object.keys(errors).length) {
@@ -51,7 +53,50 @@ export function ValidatedForm({ kind, onSubmit, children, ...props }) {
     }
     for (const field of ['dependencyIds', 'collectionIds', 'serviceIds'])
       input[field] = form.getAll(field);
-    const found = fieldErrors(kind, input);
+    const found = {};
+    for (const [index, control] of [...event.currentTarget.elements].entries()) {
+      if (
+        control.disabled ||
+        control.readOnly ||
+        !['INPUT', 'SELECT', 'TEXTAREA'].includes(control.tagName) ||
+        ['hidden', 'submit', 'button', 'file', 'radio'].includes(control.type)
+      )
+        continue;
+      const labelNode = control.labels?.[0];
+      const directText =
+        labelNode &&
+        [...labelNode.childNodes]
+          .filter((node) => node.nodeType === 3)
+          .map((node) => node.textContent)
+          .join(' ')
+          .trim();
+      const labelled = control
+        .getAttribute('aria-labelledby')
+        ?.split(' ')
+        .map((id) => document.getElementById(id)?.textContent || '')
+        .join(' ');
+      const label = (
+        labelled ||
+        directText ||
+        control.getAttribute('aria-label') ||
+        control.name ||
+        'This field'
+      )
+        .replace(/\s*\*$/, '')
+        .trim();
+      const name = control.dataset.referenceName || control.name || control.id || `field-${index}`;
+      control.dataset.validationKey = name;
+      const message = controlError({
+        label: control.type === 'email' ? 'Email address' : label,
+        value: control.value,
+        type: control.type,
+        required: control.required,
+        checked: control.checked,
+        maxLength: control.maxLength,
+      });
+      if (message) found[name] = message;
+    }
+    Object.assign(found, fieldErrors(kind, input));
     setErrors(found);
     if (Object.keys(found).length) notify('Please correct the highlighted fields.', 'error');
     if (!Object.keys(found).length)

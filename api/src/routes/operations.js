@@ -8,7 +8,7 @@ import { installIncidentsRoutes } from './incidents.js';
 import { installOnCallRoutes } from './on-call.js';
 import { installIntegrationsRoutes } from './integrations.js';
 /** All writes below either use workspace filters or a bounded CAS settings document. */
-export function installOperationsRoutes(app, db, appOrigin) {
+export function installOperationsRoutes(app, db, appOrigin, integrationRequest, machine = null) {
   app.use(
     [
       '/api/groups',
@@ -36,9 +36,9 @@ export function installOperationsRoutes(app, db, appOrigin) {
   installIncidentFieldsRoutes(app, db, appOrigin);
 
   installResponseDashboardRoutes(app, db, appOrigin);
-  installIncidentsRoutes(app, db, appOrigin);
+  installIncidentsRoutes(app, db, appOrigin, machine);
 
   installOnCallRoutes(app, db, appOrigin);
 
-  installIntegrationsRoutes(app, db, appOrigin);
+  installIntegrationsRoutes(app, db, appOrigin, integrationRequest);
 }

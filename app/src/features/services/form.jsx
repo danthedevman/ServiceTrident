@@ -323,7 +323,7 @@ export function CatalogFormPage({ kind = 'services' }) {
           collections={data.collections}
           members={data.members}
           groups={data.groups}
-          onSaved={(saved) => navigate(`/${kind}/${saved.id}`)}
+          onSaved={(saved) => navigate(`/${kind}/${saved.id}`, { state: { createdRecord: !id } })}
           onCancel={() => navigate(id ? `/${kind}/${id}` : `/${kind}`)}
         />
       )}

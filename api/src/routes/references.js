@@ -11,11 +11,13 @@ export function installReferenceRoutes(app, db) {
     const type = req.params.type,
       q = String(req.query.q ?? '').trim(),
       page = Number(req.query.page ?? 1);
+    const excludeId = String(req.query.excludeId ?? '');
     const selected = String(req.query.selected ?? '')
       .split(',')
       .filter(Boolean);
     if (
       q.length > 100 ||
+      (excludeId && !/^[a-f\d]{24}$/i.test(excludeId)) ||
       !Number.isSafeInteger(page) ||
       page < 1 ||
       page > 100000 ||
@@ -59,7 +61,12 @@ export function installReferenceRoutes(app, db) {
         { label: `$${label}`, ...(type === 'members' ? { email: '$email' } : {}) },
       );
       const filter = {
-        $and: [base, search, ...(type === 'members' ? [{ disabled: { $ne: true } }] : [])],
+        $and: [
+          base,
+          search,
+          ...(excludeId ? [{ _id: { $ne: id(excludeId) } }] : []),
+          ...(type === 'members' ? [{ disabled: { $ne: true } }] : []),
+        ],
       };
       const projection = { _id: 1, [label]: 1, ...(type === 'members' ? { email: 1 } : {}) };
       const [matches, saved] = await Promise.all([
@@ -93,7 +100,10 @@ export function installReferenceRoutes(app, db) {
     else if (type === 'groups') rows = (await settings(db, req.workspaceId)).groups ?? [];
     else throw new InputError('Reference unavailable.', 404);
     const matches = rows
-      .filter((row) => row.name.toLocaleLowerCase().includes(q.toLocaleLowerCase()))
+      .filter(
+        (row) =>
+          row.id !== excludeId && row.name.toLocaleLowerCase().includes(q.toLocaleLowerCase()),
+      )
       .sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
     const view = (row) => ({ id: row.id, label: row.name });
     res.json({

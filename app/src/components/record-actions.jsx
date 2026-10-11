@@ -1,11 +1,16 @@
+import { ActivePanelContext } from './record-tabs.jsx';
 import React, { createContext, useContext, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+
+export const RecordRailContext = createContext(null);
 
 export const RecordHeaderContext = createContext(null);
 
 /** Render record controls inside the shell’s shared sticky breadcrumb header. */
 export function RecordHeader({ children }) {
   const target = useContext(RecordHeaderContext);
+  const active = useContext(ActivePanelContext);
+  if (!active) return null;
   return target ? createPortal(children, target) : children;
 }
 
@@ -13,6 +18,7 @@ export const RecordActionContext = createContext(null);
 
 /** Move existing form actions into the record toolbar while preserving native form submission. */
 export function RecordActions({ children }) {
+  const active = useContext(ActivePanelContext);
   const recordToolbar = useContext(RecordActionContext);
   const pageToolbar = useContext(RecordHeaderContext);
   const toolbar = recordToolbar ?? pageToolbar;
@@ -32,6 +38,7 @@ export function RecordActions({ children }) {
         return React.cloneElement(child, {}, associate(child.props.children));
       return child.type === 'button' ? React.cloneElement(child, { form: formId }) : child;
     });
+  if (!active) return <span ref={anchor} hidden />;
   const actions = <div className="form-actions">{associate(children)}</div>;
   return (
     <>

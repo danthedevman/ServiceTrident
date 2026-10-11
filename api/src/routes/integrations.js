@@ -1,3 +1,8 @@
+import { providerRequest } from '@servicetrident/shared/integrations/provider-request';
+import {
+  serviceNowHeaders,
+  serviceNowCaller,
+} from '@servicetrident/shared/integrations/servicenow';
 import { providers } from '@servicetrident/shared/integrations/providers';
 import { providerFields } from '@servicetrident/shared/integrations/provider-fields';
 import { integrationErrors } from '@servicetrident/shared/integrations/integration-validation';
@@ -22,7 +27,7 @@ import { settings } from '../repositories/settings.js';
 import { save } from '../repositories/settings.js';
 
 /** Register integrations routes; authentication and workspace policy run in app.js. */
-export function installIntegrationsRoutes(app, db, appOrigin) {
+export function installIntegrationsRoutes(app, db, appOrigin, request = providerRequest) {
   app.get('/api/integrations', requireAdmin, async (req, res) => {
     const data = await settings(db, req.workspaceId);
     res.json({
@@ -30,6 +35,17 @@ export function installIntegrationsRoutes(app, db, appOrigin) {
       integrations: data.integrations.map(({ secret, ...item }) => ({
         ...item,
         configured: !!secret,
+        ...(item.type === 'servicenow' && secret
+          ? (() => {
+              const saved = unseal(secret);
+              return {
+                instanceUrl: integrationUrl(saved.url, 'servicenow'),
+                authType: saved.authType || 'basic',
+                clientId: saved.authType === 'oauth' ? saved.clientId : '',
+                scope: saved.authType === 'oauth' ? saved.scope || '' : '',
+              };
+            })()
+          : {}),
       })),
       encryptionReady: /^[a-f\d]{64}$/i.test(process.env.INTEGRATION_ENCRYPTION_KEY ?? ''),
     });
@@ -63,7 +79,12 @@ export function installIntegrationsRoutes(app, db, appOrigin) {
         recovery: body.recovery ?? false,
         enabled: body.enabled ?? false,
       },
-      { configured: !!previous?.secret, smtpConfigured: !!previous?.smtpConfigured },
+      {
+        configured:
+          !!previous?.secret &&
+          (type !== 'servicenow' || (body.authType || 'basic') === (secrets.authType || 'basic')),
+        smtpConfigured: !!previous?.smtpConfigured,
+      },
     );
     if (Object.keys(fields).length)
       throw new InputError('Check the highlighted integration fields.', 400, fields);
@@ -108,10 +129,28 @@ export function installIntegrationsRoutes(app, db, appOrigin) {
           invalid(field.key, `${field.label} is required.`);
       }
       if (type === 'servicenow') {
-        if (body.username) secrets.username = text(body.username, 'username', 200);
-        if (body.password) secrets.password = text(body.password, 'password', 1000);
-        if (!secrets.username || !secrets.password)
-          invalid('username', 'Enter the ServiceNow integration user and password.');
+        const authType = body.authType || 'basic';
+        if (authType === 'oauth') {
+          const clientId = body.clientId ? text(body.clientId, 'clientId', 512) : secrets.clientId;
+          const clientSecret = body.clientSecret
+            ? text(body.clientSecret, 'clientSecret', 4096)
+            : secrets.clientSecret;
+          if (!clientId) invalid('clientId', 'Client ID is required.');
+          if (!clientSecret) invalid('clientSecret', 'Client Secret is required.');
+          secrets = {
+            url: secrets.url,
+            authType,
+            clientId,
+            clientSecret,
+            scope: text(body.scope ?? secrets.scope ?? '', 'scope', 1000, false),
+          };
+        } else {
+          const username = body.username ? text(body.username, 'username', 200) : secrets.username;
+          const password = body.password ? text(body.password, 'password', 1000) : secrets.password;
+          if (!username || !password)
+            invalid('username', 'Enter the ServiceNow integration user and password.');
+          secrets = { url: secrets.url, authType, username, password };
+        }
       }
     }
     const recipients =
@@ -148,6 +187,41 @@ export function installIntegrationsRoutes(app, db, appOrigin) {
     });
     res.locals.auditRecordId = integrationId;
     res.json({ ok: true });
+  });
+  app.post('/api/integrations/:id/test', requireAdmin, async (req, res) => {
+    const data = await settings(db, req.workspaceId);
+    const item = data.integrations.find((i) => i.id === identifier(req.params.id));
+    if (!item || item.type !== 'servicenow' || !item.secret)
+      throw new InputError('ServiceNow integration not found.', 404);
+    if (item.demoBatchId)
+      throw new InputError('This integration cannot contact external services.', 400);
+    const secret = unseal(item.secret);
+    const root = integrationUrl(secret.url, 'servicenow').replace(/\/$/, '');
+    try {
+      const headers = await serviceNowHeaders(secret, request);
+      await serviceNowCaller(secret, request, headers);
+      await request(
+        `${root}/api/now/table/incident?sysparm_limit=1&sysparm_fields=sys_id`,
+        'GET',
+        undefined,
+        headers,
+      );
+    } catch (error) {
+      const status = Number.isInteger(error.statusCode) ? error.statusCode : null;
+      const message =
+        status === 401
+          ? 'ServiceNow returned HTTP 401. Check the saved credentials and whether this authentication method is enabled for the integration account.'
+          : status === 403
+            ? 'ServiceNow returned HTTP 403. Check Incident table permissions and REST API access policies.'
+            : status
+              ? `ServiceNow returned HTTP ${status}. Check the instance and API configuration.`
+              : 'ServiceNow connection failed. Check the instance URL, public DNS, TLS, and OAuth configuration.';
+      throw new InputError(message, 400);
+    }
+    res.json({
+      message:
+        'Connection succeeded. Incident table read access verified; no incident was created.',
+    });
   });
   app.delete('/api/integrations/:id', requireAdmin, async (req, res) => {
     const data = await settings(db, req.workspaceId);

@@ -27,7 +27,7 @@ import {
   ArrowRightStartOnRectangleIcon,
 } from '@heroicons/react/24/outline';
 import React, { useEffect, useRef, useState } from 'react';
-import { Link, NavLink, useLocation } from 'react-router-dom';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { ThemeToggle } from '../preferences/theme.jsx';
 
 const links = [
@@ -137,6 +137,7 @@ export function Sidebar({ user, logout, busy, collapsed, setCollapsed, renderBra
   const toggle = () => setCollapsed(!collapsed);
   const [createOpen, setCreateOpen] = useState(false);
   const { pathname } = useLocation();
+  const navigate = useNavigate();
   const [searchOpen, setSearchOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const close = () => {
@@ -170,6 +171,10 @@ export function Sidebar({ user, logout, busy, collapsed, setCollapsed, renderBra
   }, [mobileOpen]);
   const openCreate = () => {
     close();
+    if (pathname.replace(/\/$/, '') === '/knowledge/articles' && ['admin', 'responder'].includes(user?.role)) {
+      navigate('/knowledge/new');
+      return;
+    }
     setCreateOpen(true);
   };
   const primaryPaths = ['/', '/incidents', '/services', '/tasks', '/on-call'];
@@ -180,11 +185,11 @@ export function Sidebar({ user, logout, busy, collapsed, setCollapsed, renderBra
   const content = (compact, mobile = false) => (
     <>
       <div
-        className={`flex shrink-0 items-center gap-2 p-4 ${compact ? 'flex-col' : 'justify-between'}`}
+        className={`flex shrink-0 items-center gap-2 px-3 py-4 ${compact ? 'flex-col' : 'justify-between'}`}
       >
         {compact ? (
           <div className="group relative grid h-10 w-10 shrink-0 place-items-center">
-            <span className="group-hover:opacity-0 group-focus-within:opacity-0">
+            <span className="flex items-center justify-center group-hover:opacity-0 group-focus-within:opacity-0">
               {renderBrand(true)}
             </span>
             <Tooltip label={compact ? 'Expand Navigation' : null}>
@@ -200,15 +205,20 @@ export function Sidebar({ user, logout, busy, collapsed, setCollapsed, renderBra
             </Tooltip>
           </div>
         ) : (
-          <Link to="/" onClick={close} aria-label="ServiceTrident dashboard">
+          <Link
+            className="flex items-center"
+            to="/"
+            onClick={close}
+            aria-label="ServiceTrident dashboard"
+          >
             {renderBrand(false)}
           </Link>
         )}
-        <div className={`flex shrink-0 ${compact ? 'flex-col' : 'items-center'}`}>
+        <div className={`flex shrink-0 items-center justify-center ${compact ? 'flex-col' : ''}`}>
           <Tooltip label={compact ? 'Search Workspace' : null}>
             <button
               type="button"
-              className="rounded-lg p-2 hover:bg-slate-100 dark:hover:bg-slate-800"
+              className="grid h-10 w-10 place-items-center rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
               aria-label="Search Workspace"
               title="Search Workspace"
               aria-haspopup="dialog"
@@ -223,7 +233,7 @@ export function Sidebar({ user, logout, busy, collapsed, setCollapsed, renderBra
           {!compact && (
             <button
               type="button"
-              className="rounded-lg p-2 hover:bg-slate-100 dark:hover:bg-slate-800"
+              className="grid h-10 w-10 place-items-center rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
               onClick={mobile ? close : toggle}
               aria-label={
                 mobile

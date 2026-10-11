@@ -1,4 +1,16 @@
-import { PlusIcon } from '@heroicons/react/24/outline';
+import { PageTitle } from '../../components/page-title.jsx';
+import {
+  PlusIcon,
+  ListBulletIcon,
+  ArchiveBoxIcon,
+  ArrowUpIcon,
+  ArrowDownIcon,
+  ArrowLeftIcon,
+  ArrowRightIcon,
+  ArrowPathIcon,
+} from '@heroicons/react/24/outline';
+import { ActionMenu } from '../../components/action-menu.jsx';
+import { AdjustmentsHorizontalIcon } from '@heroicons/react/24/outline';
 import { RecordHeader } from '../../components/record-actions.jsx';
 import React, { useContext, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -114,13 +126,31 @@ export function TaskBoard({ serviceId, incidentId }) {
       <div className="task-board-toolbar">
         <RecordHeader>
           <header className="flex items-center justify-end gap-3">
-            <h1 className="page-title">Tasks</h1>
+            <PageTitle>Tasks</PageTitle>
             <div className="flex flex-wrap gap-2">
-              <Link className="btn-secondary" to={`/tasks?${scope}&view=list`}>
-                List View
+              {user?.role === 'admin' && (
+                <ActionMenu label="Tasks actions">
+                  <Link to="/tasks/fields">
+                    <AdjustmentsHorizontalIcon className="h-5 w-5" aria-hidden="true" />
+                    Form Builder
+                  </Link>
+                </ActionMenu>
+              )}
+              <Link
+                className="btn-secondary !p-2.5"
+                aria-label="List View"
+                title="List View"
+                to={`/tasks?${scope}&view=list`}
+              >
+                <ListBulletIcon className="h-5 w-5" aria-hidden="true" />
               </Link>
-              <Link className="btn-secondary" to={`/tasks?${scope}&view=archived`}>
-                Archived Tasks
+              <Link
+                className="btn-secondary !p-2.5"
+                aria-label="Archived Tasks"
+                title="Archived Tasks"
+                to={`/tasks?${scope}&view=archived`}
+              >
+                <ArchiveBoxIcon className="h-5 w-5" aria-hidden="true" />
               </Link>
               {canEdit && (
                 <Link className="btn-primary" to={`/tasks/new?${scope}`}>
@@ -309,40 +339,43 @@ function TaskLane({
           event.dataTransfer.setData('text/plain', lane.id);
         }}
         onDragEnd={() => setDraggedLane(null)}
-        className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-slate-300 p-4 dark:border-slate-700"
+        className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 border-b border-slate-300 p-3 dark:border-slate-700"
       >
         <h2 className="min-w-0 truncate font-semibold" title={heading}>
           {heading}
         </h2>
         <span className="text-sm text-slate-500">{total}</span>
-        <div className="col-span-2 flex justify-end gap-1">
+        <div className="flex flex-nowrap items-center justify-end gap-1">
           {canReorderLanes && (
             <>
               <button
-                className="btn-secondary !px-2 !py-1 text-xs"
+                className="task-icon-action"
                 aria-label={`Move ${heading} lane left`}
+                title="Move Lane Left"
                 disabled={laneIndex === 0}
                 onClick={() => reorderLane(lane.id, destinations[laneIndex - 1].id)}
               >
-                ←
+                <ArrowLeftIcon className="h-4 w-4" aria-hidden="true" />
               </button>
               <button
-                className="btn-secondary !px-2 !py-1 text-xs"
+                className="task-icon-action"
                 aria-label={`Move ${heading} lane right`}
+                title="Move Lane Right"
                 disabled={laneIndex === destinations.length - 1}
                 onClick={() => reorderLane(lane.id, destinations[laneIndex + 1].id, 'after')}
               >
-                →
+                <ArrowRightIcon className="h-4 w-4" aria-hidden="true" />
               </button>
             </>
           )}
           <button
-            className="btn-secondary !px-2 !py-1 text-xs"
+            className="task-icon-action"
             aria-label={`Refresh ${heading} tasks`}
+            title="Refresh Tasks"
             disabled={resource.pending}
             onClick={resource.refresh}
           >
-            Refresh
+            <ArrowPathIcon className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
       </header>
@@ -464,11 +497,12 @@ function TaskLane({
                         ))}
                     </Select>
                   </label>
-                  <div className="mt-2 flex gap-2">
+                  <div className="mt-1 flex gap-1">
                     <button
-                      className="btn-secondary !px-2 !py-1 text-xs"
+                      className="task-icon-action"
                       disabled={busy || index === 0}
                       aria-label={`Move ${item.title} up in ${heading}`}
+                      title="Move Up"
                       onClick={() =>
                         void move(item, lane.id, {
                           targetId: items[index - 1].id,
@@ -476,12 +510,13 @@ function TaskLane({
                         })
                       }
                     >
-                      Move Up
+                      <ArrowUpIcon className="h-4 w-4" aria-hidden="true" />
                     </button>
                     <button
-                      className="btn-secondary !px-2 !py-1 text-xs"
+                      className="task-icon-action"
                       disabled={busy || index === items.length - 1}
                       aria-label={`Move ${item.title} down in ${heading}`}
+                      title="Move Down"
                       onClick={() =>
                         void move(item, lane.id, {
                           targetId: items[index + 1].id,
@@ -489,7 +524,7 @@ function TaskLane({
                         })
                       }
                     >
-                      Move Down
+                      <ArrowDownIcon className="h-4 w-4" aria-hidden="true" />
                     </button>
                   </div>
                 </>

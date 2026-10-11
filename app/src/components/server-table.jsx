@@ -6,8 +6,7 @@ import { dateRangeErrors } from '../../../shared/validation/form-validation.js';
 
 /** Keep only query controls in the browser; the server owns filtering, ordering, totals and exports. */
 export function ServerTable({ source, render: View, ...props }) {
-  const [search, setSearch] = useState(''),
-    [searchColumn, setColumn] = useState('');
+  const [search, setSearch] = useState('');
   const [sort, setSort] = useState(
     props.defaultSort || `${props.columns.find((c) => c.sortable !== false).key}:asc`,
   );
@@ -20,7 +19,7 @@ export function ServerTable({ source, render: View, ...props }) {
   const params = new URLSearchParams(scope);
   for (const [key, value] of Object.entries({
     search,
-    searchColumn,
+    searchColumn: '',
     sortBy,
     order,
     page,
@@ -58,13 +57,7 @@ export function ServerTable({ source, render: View, ...props }) {
         }))}
         filters={
           <div className="flex flex-wrap items-end gap-4">
-            <TableSearch
-              columns={props.columns.filter((c) => c.key !== 'actions')}
-              search={search}
-              column={searchColumn}
-              onSearch={change(setSearch)}
-              onColumn={change(setColumn)}
-            />
+            <TableSearch search={search} onSearch={change(setSearch)} />
             {props.dateColumn && (
               <>
                 <label className="field-label">
@@ -88,7 +81,6 @@ export function ServerTable({ source, render: View, ...props }) {
                 className="text-xs text-blue-700 dark:text-blue-400"
                 onClick={() => {
                   setSearch('');
-                  setColumn('');
                   setFrom('');
                   setTo('');
                   setPage(1);
@@ -114,7 +106,6 @@ export function ServerTable({ source, render: View, ...props }) {
           onRefresh: resource.refresh,
           onReset: () => {
             setSearch('');
-            setColumn('');
             setFrom('');
             setTo('');
             setSort(

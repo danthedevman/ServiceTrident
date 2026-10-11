@@ -1,3 +1,5 @@
+import { ValidatedForm } from '../../components/forms/validated-form.jsx';
+import { AutoTextarea } from '../../components/forms/auto-textarea.jsx';
 import { RecordActions } from '../../components/record-actions.jsx';
 import React, { useContext, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -39,7 +41,7 @@ function ProviderForm({ data, refresh }) {
     [error, setError] = useState(''),
     [message, setMessage] = useState('');
   return (
-    <form
+    <ValidatedForm
       className="form-page form-body"
       onSubmit={async (event) => {
         event.preventDefault();
@@ -159,7 +161,7 @@ function ProviderForm({ data, refresh }) {
           {busy ? 'Saving…' : 'Save Provider'}
         </button>
       </RecordActions>
-    </form>
+    </ValidatedForm>
   );
 }
 
@@ -243,7 +245,7 @@ export function AIAssistant({
           name={`ai-${action}-prompt`}
           label={action === 'draft' ? 'Describe the article or process' : 'Question'}
         >
-          <textarea
+          <AutoTextarea
             rows={3}
             maxLength={action === 'draft' ? 4000 : 2000}
             value={prompt}

@@ -69,6 +69,15 @@ test('worker failure streaks, public health and automatic incidents agree', asyn
   let incident = await db.collection('incidents').findOne({ workspaceId: userId });
   assert.equal(incident.severity, 'medium');
   assert.equal(incident.status, 'open');
+  const trigger = incident.triggeringChecks[0];
+  assert.equal(trigger.monitorId, String(monitorId));
+  assert.equal(trigger.serviceName, 'API');
+  assert.equal(
+    await db
+      .collection('events')
+      .countDocuments({ monitorId, userId, checkedAt: trigger.checkedAt }),
+    1,
+  );
   await check('down', 100, 'down', 2);
   assert.equal(await db.collection('incidents').countDocuments({ workspaceId: userId }), 1);
   await check('up', 600, 'degraded', 0);
@@ -77,6 +86,7 @@ test('worker failure streaks, public health and automatic incidents agree', asyn
   await check('up', 100, 'up', 0);
   incident = await db.collection('incidents').findOne({ workspaceId: userId });
   assert.equal(incident.status, 'resolved');
+  assert.equal(+new Date(incident.triggeringChecks[0].checkedAt), +new Date(trigger.checkedAt));
   await check('down', 100, 'degraded', 1);
   await db
     .collection('monitors')

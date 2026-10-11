@@ -1,3 +1,4 @@
+import { WorkspaceSignIn } from './workspace-sign-in.jsx';
 import { writeApi } from '../data/query-client.js';
 
 import { AuthContext } from './auth-context.js';
@@ -113,6 +114,7 @@ export function AuthPage({ register = false }) {
             <ArrowRightIcon className="h-5 w-5" aria-hidden="true" />
           </button>
         </ValidatedForm>
+        {!register && <WorkspaceSignIn />}
         <p className="mt-6 text-center text-sm text-slate-500 dark:text-slate-400">
           {register ? 'Already have an account?' : 'New here?'}{' '}
           <Link

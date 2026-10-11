@@ -70,7 +70,7 @@ async function associations(db, workspaceId, input, current, task) {
 }
 
 /** Tasks and knowledge stay private to the workspace. Admins and responders can create/edit both. */
-export function installWorkRoutes(app, db) {
+export function installWorkRoutes(app, db, machine = null) {
   app.get('/api/task-board-settings', async (req, res) => {
     const config = await settings(db, req.workspaceId);
     res.json({ order: config.taskLaneOrder ?? [], revision: config.taskLaneRevision ?? 0 });
@@ -237,11 +237,8 @@ export function installWorkRoutes(app, db) {
       if (!item) throw new InputError(task ? 'Task not found.' : 'Article not found.', 404);
       res.json({ item: view(item) });
     });
-    for (const method of ['post', 'patch'])
-      app[method](
-        `/api/${kind}${method === 'patch' ? '/:id' : ''}`,
-        requireResponder,
-        async (req, res) => {
+    for (const method of ['post', 'patch']) {
+        const saveRecord = async (req, res) => {
           const current =
             method === 'patch'
               ? await collection.findOne({ _id: id(req.params.id), workspaceId: req.workspaceId })
@@ -368,6 +365,7 @@ export function installWorkRoutes(app, db) {
             updatedAt: new Date(),
             updatedBy: req.user.email,
             updatedById: String(req.user._id),
+            updatedByType: req.serviceAccount ? 'service_account' : 'user',
           };
           if (current) {
             const result = await collection.findOneAndUpdate(
@@ -386,12 +384,15 @@ export function installWorkRoutes(app, db) {
               createdAt: new Date(),
               createdBy: req.user.email,
               createdById: String(req.user._id),
+              createdByType: req.serviceAccount ? 'service_account' : 'user',
               revision: 0,
             };
             await collection.insertOne(row);
             res.status(201).json({ item: view(row) });
           }
-        },
-      );
+        };
+        app[method](`/api/${kind}${method === 'patch' ? '/:id' : ''}`, requireResponder, saveRecord);
+        if (method === 'post' && machine) machine.post(`/${kind}`, requireResponder, saveRecord);
+    }
   }
 }

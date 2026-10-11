@@ -4,9 +4,12 @@ import { InputError } from '../validation/input-error.js';
 export const DEFAULT_UI_PREFERENCES = Object.freeze({
   leftCollapsed: false,
   rightCollapsed: false,
+  rightPanelWidth: 320,
   filtersOpen: false,
+  compactTables: false,
   tableLayouts: {},
   dashboardTab: 'overview',
+  dashboardGreeting: 'Welcome, {firstName}',
   colorScheme: 'ocean',
   highContrast: false,
   reduceMotion: false,
@@ -48,6 +51,16 @@ function validTableLayouts(value) {
 
 /** Validate the small allowlist of supported preference values. */
 function validPreference(key, value) {
+  if (key === 'rightPanelWidth') return Number.isInteger(value) && value >= 240 && value <= 560;
+  if (key === 'dashboardGreeting')
+    return (
+      typeof value === 'string' &&
+      value.trim().length > 0 &&
+      value.length <= 120 &&
+      Array.from(value).every(
+        (character) => character.charCodeAt(0) >= 32 && character.charCodeAt(0) !== 127,
+      )
+    );
   if (key === 'timeFormat') return ['locale', '12', '24'].includes(value);
   if (key === 'dateFormat') return ['locale', 'iso', 'dmy', 'mdy', 'long'].includes(value);
   if (key === 'colorScheme') return colorSchemeIds.includes(value);

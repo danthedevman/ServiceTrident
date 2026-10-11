@@ -82,3 +82,36 @@ test('new monitors require services while legacy edits remain valid', () => {
   assert.deepEqual(fieldErrors('monitor', input), {});
   assert.equal(validateMonitor(input).name, 'Health');
 });
+
+// Only resolution notes may change a system required flag; enforcement follows saved policy.
+import { BUILTIN_FIELDS, validateFields, mandatoryErrors } from '../shared/forms/schema.js';
+test('resolution notes are optional by default and configurable without relaxing other system fields', () => {
+  assert.equal(BUILTIN_FIELDS.find((f) => f.id === 'resolutionNotes').required, false);
+  const required = validateFields(
+    BUILTIN_FIELDS.map((f) => (f.id === 'resolutionNotes' ? { ...f, required: true } : f)),
+  );
+  const values = { title: 'Example', serviceId: 'example', severity: 'medium', status: 'resolved' };
+  assert.equal(mandatoryErrors(required, values).resolutionNotes, 'Resolution notes is required.');
+  assert.equal(mandatoryErrors(required, { ...values, status: 'open' }).resolutionNotes, undefined);
+  assert.equal(
+    mandatoryErrors(required, { ...values, resolutionNotes: 'Restored service.' }).resolutionNotes,
+    undefined,
+  );
+  const optional = validateFields(
+    required.map((f) => (f.id === 'resolutionNotes' ? { ...f, required: false } : f)),
+    required,
+  );
+  assert.deepEqual(mandatoryErrors(optional, values), {});
+  assert.throws(() =>
+    validateFields(
+      optional.map((f) => (f.id === 'title' ? { ...f, required: false } : f)),
+      optional,
+    ),
+  );
+  assert.throws(() =>
+    validateFields(
+      optional.map((f) => (f.id === 'resolutionNotes' ? { ...f, required: 'false' } : f)),
+      optional,
+    ),
+  );
+});

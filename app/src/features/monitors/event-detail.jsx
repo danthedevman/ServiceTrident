@@ -63,7 +63,7 @@ export function EventDetail() {
             ['Operation', details.operation || 'Connection check'],
             ['Result', details.result],
             ['Duration', `${event.durationMs} ms`],
-            ['Checked at', new Date(event.checkedAt).toISOString()],
+            ['Checked at', <DateTime value={event.checkedAt} />],
             [
               'TLS',
               details.tls === undefined ? 'Not recorded' : details.tls ? 'Enabled' : 'Disabled',

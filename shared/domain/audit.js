@@ -1,6 +1,9 @@
+/** Normalize legacy automated actor labels without rewriting saved history. */
+export const systemActor = (label) => (label === 'ServiceTrident' ? 'System' : label);
+
 /** Server-owned audit fields. Never invent creator history for existing legacy records. */
 export function auditStamp(current, actor, now = new Date()) {
-  const updatedBy = actor.email || actor.displayName || 'ServiceTrident';
+  const updatedBy = actor.email || actor.displayName || 'System';
   const updatedById = actor._id ? String(actor._id) : undefined;
   return {
     ...(current
@@ -35,7 +38,12 @@ export function auditFields(record) {
       'revision',
     ]
       .filter((key) => record[key] !== undefined)
-      .map((key) => [key, record[key]]),
+      .map((key) => [
+        key,
+        ['createdBy', 'updatedBy'].includes(key) && !record[`${key}Id`]
+          ? systemActor(record[key])
+          : record[key],
+      ]),
   );
 }
 
@@ -46,7 +54,7 @@ export async function writeAudit(db, entry) {
     workspaceId: entry.workspaceId,
     createdAt: new Date(),
     actorId: text(entry.actorId),
-    actor: text(entry.actor || 'ServiceTrident'),
+    actor: text(entry.actor || 'System'),
     actualRole: text(entry.actualRole || 'system', 32),
     effectiveRole: text(entry.effectiveRole || 'system', 32),
     source: entry.source === 'worker' ? 'worker' : 'api',

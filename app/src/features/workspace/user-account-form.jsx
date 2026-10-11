@@ -1,3 +1,4 @@
+import { ValidatedForm } from '../../components/forms/validated-form.jsx';
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { USER_DETAIL_FIELDS, userDetails } from '../../../../shared/domain/user-details.js';
@@ -47,12 +48,15 @@ export function UserAccountForm({ reset = false }) {
       reset ? `/members/${id}/password` : '/members',
       reset ? 'PATCH' : 'POST',
       value,
-      (result) => navigate(reset ? back : `/workspace/${result.user.id}`),
+      (result) =>
+        navigate(reset ? back : `/workspace/${result.user.id}`, {
+          state: { createdRecord: !reset },
+        }),
     );
   }
   return (
     <FormPage title={reset ? 'Reset Password' : 'Create User'}>
-      <form noValidate className="form-body" onSubmit={submit}>
+      <ValidatedForm noValidate className="form-body" onSubmit={submit}>
         <Notice error={save.error || Object.values(errors)[0]} />
         {!reset && (
           <>
@@ -181,7 +185,7 @@ export function UserAccountForm({ reset = false }) {
             {save.busy ? 'Saving…' : reset ? 'Reset Password' : 'Create User'}
           </button>
         </RecordActions>
-      </form>
+      </ValidatedForm>
     </FormPage>
   );
 }

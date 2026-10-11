@@ -1,3 +1,8 @@
+import { DateTime } from '../../preferences/date-time.jsx';
+import { onCallLabel } from '../../lib/on-call-label.js';
+import { useRecordTabLabel } from '../../components/record-navigation.jsx';
+import { ValidatedForm } from '../../components/forms/validated-form.jsx';
+import { PageTitle } from '../../components/page-title.jsx';
 import { RecordHeader } from '../../components/record-actions.jsx';
 import { ConfirmDeleteButton } from '../../components/confirm-delete-button.jsx';
 import { Toggle } from '../../components/forms/toggle.jsx';
@@ -28,7 +33,7 @@ export function OnCallPage({ form = false }) {
     services = useResource('/services');
   return (
     <div className="space-y-6">
-      {!form && !id && <h1 className="page-title">On Call</h1>}
+      {!form && !id && <PageTitle>On Call</PageTitle>}
       <Notice error={schedule.error || members.error || services.error} />
       {schedule.data && members.data && services.data ? (
         <Calendar
@@ -55,6 +60,8 @@ function Calendar({ schedule, members, services, admin, form, id, onReset }) {
     formId = useId();
   const [quickDate, setQuickDate] = useState(null);
   const existing = schedule.shifts.find((shift) => shift.id === id);
+  const coverageTitle = existing ? onCallLabel(existing, members, services) : undefined;
+  useRecordTabLabel(coverageTitle);
   const [month, setMonth] = useState(
       () => new Date(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1),
     ),
@@ -130,6 +137,7 @@ function Calendar({ schedule, members, services, admin, form, id, onReset }) {
         onReset();
         navigate(
           shifts.some((shift) => shift.id === selectedId) ? `/on-call/${selectedId}` : '/on-call',
+          !id && form ? { state: { createdRecord: true } } : undefined,
         );
       }
     });
@@ -195,7 +203,7 @@ function Calendar({ schedule, members, services, admin, form, id, onReset }) {
                 })
             : undefined
         }
-        item={existing}
+        item={{ ...existing, title: coverageTitle }}
         kind="on-call"
         sidebar={
           <>
@@ -226,11 +234,15 @@ function Calendar({ schedule, members, services, admin, form, id, onReset }) {
             </div>
             <div>
               <dt>Start</dt>
-              <dd>{existing.start}</dd>
+              <dd>
+                <DateTime value={existing.start} />
+              </dd>
             </div>
             <div>
               <dt>End</dt>
-              <dd>{existing.end}</dd>
+              <dd>
+                <DateTime value={existing.end} />
+              </dd>
             </div>
           </dl>
         </section>
@@ -260,7 +272,7 @@ function Calendar({ schedule, members, services, admin, form, id, onReset }) {
     </div>
   ) : null;
   const editorForm = editor ? (
-    <form id={formId} noValidate className="form-body" onSubmit={submit}>
+    <ValidatedForm id={formId} noValidate className="form-body" onSubmit={submit}>
       <Notice error={save.error || error} />
       {!schedule.shifts.some((s) => s.id === editor.id) && (
         <label className="flex items-center gap-2">
@@ -331,12 +343,12 @@ function Calendar({ schedule, members, services, admin, form, id, onReset }) {
           />
         </Field>
       )}
-    </form>
+    </ValidatedForm>
   ) : null;
   if (id && admin)
     return existing ? (
       <RecordWorkspace
-        item={existing}
+        item={{ ...existing, title: coverageTitle }}
         kind="on-call"
         actions={editorActions}
         sidebar={<RecordMetadata item={existing} />}
@@ -372,6 +384,20 @@ function Calendar({ schedule, members, services, admin, form, id, onReset }) {
       )}
       <RecordHeader>
         <div className="flex items-center gap-3">
+          {admin && (
+            <button className="btn-primary gap-2" onClick={() => fresh()}>
+              <PlusIcon className="h-5 w-5" />
+              Add Coverage
+            </button>
+          )}
+        </div>
+      </RecordHeader>
+      <Notice error={!editor ? save.error || error : ''} />
+      <section className="panel p-4" data-on-call-calendar>
+        <div
+          className="mb-3 flex flex-wrap items-center justify-between gap-3"
+          data-calendar-controls
+        >
           <div className="w-full sm:w-80">
             <ReferenceField
               referenceType="services"
@@ -382,37 +408,28 @@ function Calendar({ schedule, members, services, admin, form, id, onReset }) {
               onChange={setService}
             />
           </div>
-          {admin && (
-            <button className="btn-primary gap-2" onClick={() => fresh()}>
-              <PlusIcon className="h-5 w-5" />
-              Add Coverage
+          <div className="flex items-center gap-3">
+            <button
+              className="btn-secondary"
+              aria-label="Previous month"
+              onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))}
+            >
+              <ChevronLeftIcon className="h-5 w-5" />
             </button>
-          )}
-        </div>
-      </RecordHeader>
-      <Notice error={!editor ? save.error || error : ''} />
-      <section className="panel p-4">
-        <div className="mb-4 flex items-center justify-between">
-          <button
-            className="btn-secondary"
-            aria-label="Previous month"
-            onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))}
-          >
-            <ChevronLeftIcon className="h-5 w-5" />
-          </button>
-          <h2 className="font-semibold">
-            {month.toLocaleDateString('en', { month: 'long', year: 'numeric' })}
-          </h2>
-          <button
-            className="btn-secondary"
-            aria-label="Next month"
-            onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))}
-          >
-            <ChevronRightIcon className="h-5 w-5" />
-          </button>
+            <h2 className="font-semibold">
+              {month.toLocaleDateString('en', { month: 'long', year: 'numeric' })}
+            </h2>
+            <button
+              className="btn-secondary"
+              aria-label="Next month"
+              onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))}
+            >
+              <ChevronRightIcon className="h-5 w-5" />
+            </button>
+          </div>
         </div>
         <div className="overflow-x-auto">
-          <div className="grid min-w-[630px] grid-cols-7">
+          <div className="grid min-w-[630px] grid-cols-7" data-calendar-grid>
             {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => (
               <div key={d} className="p-2 text-center text-xs font-semibold">
                 {d}

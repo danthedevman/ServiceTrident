@@ -15,6 +15,9 @@ export function integrationErrors(value, { configured = false, smtpConfigured = 
     'url',
     'username',
     'password',
+    'clientId',
+    'clientSecret',
+    'scope',
   ])
     if (value[key] !== undefined && typeof value[key] !== 'string')
       errors[key] = 'Enter a text value.';
@@ -80,12 +83,20 @@ export function integrationErrors(value, { configured = false, smtpConfigured = 
         errors.url = 'Enter a valid public HTTPS endpoint for this provider.';
       }
     }
+    if (value.type === 'servicenow' && !['basic', 'oauth'].includes(value.authType || 'basic'))
+      errors.authType = 'Choose Basic Auth or OAuth.';
     const fields =
       value.type === 'servicenow'
-        ? [
-            { key: 'username', label: 'Integration username', max: 200 },
-            { key: 'password', label: 'Integration password', max: 1000 },
-          ]
+        ? value.authType === 'oauth'
+          ? [
+              { key: 'clientId', label: 'Client ID', max: 512 },
+              { key: 'clientSecret', label: 'Client Secret', max: 4096 },
+              { key: 'scope', label: 'OAuth Scope', max: 1000, optional: true },
+            ]
+          : [
+              { key: 'username', label: 'Integration username', max: 200 },
+              { key: 'password', label: 'Integration password', max: 1000 },
+            ]
         : providerFields[value.type] || [];
     for (const field of fields) {
       const input = value[field.key];

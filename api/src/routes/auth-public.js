@@ -11,6 +11,7 @@ import {
   sessionToken,
   verifyPassword,
   serializeUser,
+  authenticatedIdentity,
 } from '../auth/auth.js';
 
 /** Register public sign-in routes; authentication and workspace policy run in app.js. */
@@ -37,6 +38,7 @@ export function installPublicAuthRoutes(app, db, authLimit) {
       throw error;
     }
     await createSession(db, res, result.insertedId);
+    authenticatedIdentity(req, { _id: result.insertedId, email, displayName });
     res.status(201).json({ user: serializeUser({ _id: result.insertedId, email, displayName }) });
   });
   app.post('/api/auth/login', authLimit, async (req, res) => {
@@ -52,6 +54,7 @@ export function installPublicAuthRoutes(app, db, authLimit) {
     const oldToken = sessionToken(req);
     if (oldToken) await db.collection('sessions').deleteOne({ _id: digestToken(oldToken) });
     await createSession(db, res, user._id);
+    authenticatedIdentity(req, user);
     res.json({ user: serializeUser(user) });
   });
 }

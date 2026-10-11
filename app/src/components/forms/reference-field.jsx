@@ -1,3 +1,4 @@
+import { RecordLink } from '../record-navigation.jsx';
 import { useInfiniteResource, useResource } from '../../data/use-resource.js';
 import React, { useContext, useEffect, useLayoutEffect, useId, useRef, useState } from 'react';
 import {
@@ -44,6 +45,7 @@ export function ReferenceField({
   onSearch,
   referenceType,
   groupId,
+  excludeId,
   required = false,
 }) {
   const id = useId(),
@@ -91,7 +93,7 @@ export function ReferenceField({
   }, [search]);
   const remote = useInfiniteResource(
     referenceType && open && !disabled
-      ? `/references/${referenceType}?${new URLSearchParams({ q: query, ...(groupId ? { groupId } : {}) })}`
+      ? `/references/${referenceType}?${new URLSearchParams({ q: query, ...(groupId ? { groupId } : {}), ...(excludeId ? { excludeId } : {}) })}`
       : null,
   );
   const saved = useResource(
@@ -137,19 +139,20 @@ export function ReferenceField({
   /** Keep navigation separate from selection; IDs are encoded under known application routes. */
   const recordLink = (selected) =>
     recordRoutes[referenceType] && selected ? (
-      <a
-        href={`${recordRoutes[referenceType]}/${encodeURIComponent(selected)}`}
-        target="_blank"
-        rel="noopener noreferrer"
+      <RecordLink
+        to={`${recordRoutes[referenceType]}/${encodeURIComponent(selected)}`}
         className="inline-flex shrink-0 items-center justify-center rounded p-1.5 text-blue-700 hover:bg-blue-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500 dark:text-blue-300 dark:hover:bg-blue-900"
-        title={`Open ${selectedLabel(selected)} in a new tab`}
-        aria-label={`Open ${selectedLabel(selected)} in a new tab`}
+        title={`Open ${selectedLabel(selected)} in a record tab`}
+        aria-label={`Open ${selectedLabel(selected)} in a record tab`}
       >
         <InformationCircleIcon className="h-5 w-5" aria-hidden="true" />
-      </a>
+      </RecordLink>
     ) : null;
-  const matches = (referenceType ? choices : options).filter((option) => !ids.includes(option.id));
+  const matches = (referenceType ? choices : options).filter(
+    (option) => !ids.includes(option.id) && option.id !== excludeId,
+  );
   const select = (option) => {
+    if (option.id === excludeId) return;
     onChange(multiple ? [...ids, option.id] : option.id);
     setSearch('');
     onSearch?.('');
@@ -380,16 +383,14 @@ export function ReferenceField({
                 </p>
               )}
               {canCreate && (
-                <a
-                  href={destination.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <RecordLink
+                  to={destination.href}
                   className="inline-flex items-center gap-2 rounded p-2 text-sm font-medium text-blue-700 dark:text-blue-300"
                 >
                   {destination.label}
                   <ArrowTopRightOnSquareIcon className="h-4 w-4" aria-hidden="true" />
-                  <span className="sr-only"> (opens in a new tab)</span>
-                </a>
+                  <span className="sr-only"> (opens in a record tab)</span>
+                </RecordLink>
               )}
               <button
                 type="button"

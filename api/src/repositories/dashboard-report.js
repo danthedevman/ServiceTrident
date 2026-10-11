@@ -2,6 +2,7 @@ import {
   dashboardReport,
   dashboardReportFilter,
 } from '@servicetrident/shared/domain/dashboard-reports';
+import { reportAssignments } from './report-assignments.js';
 import { InputError } from '@servicetrident/shared/validation/input-error';
 import { databaseTable, embeddedTable } from './table-page.js';
 import { statusData } from '../domain/status.js';
@@ -17,12 +18,16 @@ export async function dashboardReportTable(db, req) {
       report,
       workspaceId,
       new Date().toISOString().slice(0, 10),
+      ['my-incidents', 'team-incidents', 'my-tasks', 'team-tasks'].includes(report.report)
+        ? await reportAssignments(db, workspaceId, req.user._id)
+        : {},
     );
     const columns = [
       'title',
       report.kind === 'incidents' ? 'severity' : 'priority',
       'status',
       'serviceName',
+      'assignmentGroupName',
       ...(report.kind === 'tasks' ? ['dueDate'] : []),
       'createdAt',
     ];

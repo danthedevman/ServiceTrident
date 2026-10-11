@@ -1,3 +1,4 @@
+import { AutoTextarea } from './auto-textarea.jsx';
 import { Select } from './select.jsx';
 import { ReferenceField } from './reference-field.jsx';
 import React, { useId } from 'react';
@@ -17,25 +18,29 @@ export function Notice({ error }) {
 /** Label and associate server errors with ordinary form controls. */
 export function Field({ label, name, errors = {}, helpText, children }) {
   const labelId = useId();
+  const fieldId = `${name || 'field'}-${labelId}`;
   return (
     <label className="field-label block">
       <span id={labelId}>{label}</span>
       {React.cloneElement(children, {
-        id: name,
+        id: fieldId,
         'aria-labelledby': children.props['aria-labelledby'] || labelId,
         'aria-invalid': !!errors[name],
         'aria-describedby':
-          [helpText ? `${name}-help` : '', errors[name] ? `${name}-error` : '']
+          [helpText ? `${fieldId}-help` : '', errors[name] ? `${fieldId}-error` : '']
             .filter(Boolean)
             .join(' ') || undefined,
       })}
       {helpText && (
-        <span id={`${name}-help`} className="field-hint whitespace-pre-wrap">
+        <span id={`${fieldId}-help`} className="field-hint whitespace-pre-wrap">
           {helpText}
         </span>
       )}
       {errors[name] && (
-        <span id={`${name}-error`} className="mt-1 block text-sm text-rose-700 dark:text-rose-300">
+        <span
+          id={`${fieldId}-error`}
+          className="mt-1 block text-sm text-rose-700 dark:text-rose-300"
+        >
           {errors[name]}
         </span>
       )}
@@ -80,7 +85,8 @@ export function CustomField({ field, value, onChange, errors }) {
           ))}
       </Select>
     );
-  else if (field.type === 'textarea') input = <textarea {...common} maxLength={2000} rows={3} />;
+  else if (field.type === 'textarea')
+    input = <AutoTextarea {...common} maxLength={2000} rows={3} />;
   else if (field.type === 'checkbox')
     input = (
       <input

@@ -326,10 +326,25 @@ export function demoFixtures(workspaceId, actor, batchId, config, passwordHash, 
       custom: customValues(schemas.tasks),
       attachmentIds: [],
     });
+    const articleType = i % 2 ? 'runbook' : 'article';
+    const steps =
+      articleType === 'runbook'
+        ? [
+            { title: 'Triage', instructions: scenario.check },
+            { title: 'Mitigate the impact', instructions: scenario.action },
+            {
+              title: 'Verify recovery',
+              instructions:
+                'Confirm successful health checks and normal error rates across several check intervals. Record the recovery time and follow-up actions on the incident.',
+            },
+          ]
+        : [];
     const articleStatus = choice('knowledge', schemas.knowledge, 'status', i % 2),
       rich = validateRichContent(
         textDocument(
-          `${name}: ${scenario.issue}\nTriage\n${scenario.check}\nMitigation\n${scenario.action}\nRecovery\nConfirm successful health checks and normal error rates across several check intervals. Update the incident with the recovery time and follow-up actions.`,
+          articleType === 'runbook'
+            ? `${name}: ${scenario.issue}\nFollow the ordered steps to assess impact, mitigate the issue, and verify recovery.`
+            : `${name}: ${scenario.issue}\nTriage\n${scenario.check}\nMitigation\n${scenario.action}\nRecovery\nConfirm successful health checks and normal error rates across several check intervals. Update the incident with the recovery time and follow-up actions.`,
         ),
       );
     result.knowledgeBases.push({
@@ -345,7 +360,9 @@ export function demoFixtures(workspaceId, actor, batchId, config, passwordHash, 
       workspaceId,
       ...validateWork(
         {
-          title: `${name}: ${scenario.issue.toLowerCase()} runbook`,
+          title: `${name}: ${scenario.issue.toLowerCase()} ${articleType === 'runbook' ? 'runbook' : 'guide'}`,
+          articleType,
+          steps,
           knowledgeBaseId: String(ids.knowledgeBases[i]),
           summary: `Triage, mitigation, and recovery checks for ${scenario.issue.toLowerCase()} in ${name}.`,
           content: rich.text,

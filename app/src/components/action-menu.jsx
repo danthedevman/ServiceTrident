@@ -20,7 +20,7 @@ export function ActionMenu({ children, label = 'More actions', borderless = fals
       bounds = menu.getBoundingClientRect();
     menu.style.left = `${Math.max(8, Math.min(anchor.right - bounds.width, window.innerWidth - bounds.width - 8))}px`;
     menu.style.top = `${Math.max(8, Math.min(anchor.bottom + 6, window.innerHeight - bounds.height - 8))}px`;
-    menu.querySelector('button:not(:disabled), a[href]')?.focus();
+    menu.querySelector('button:not(:disabled), a[href], input:not(:disabled)')?.focus();
   }
   return (
     <>
@@ -54,7 +54,11 @@ export function ActionMenu({ children, label = 'More actions', borderless = fals
             trigger.current.focus();
             return;
           }
-          const items = [...panel.current.querySelectorAll('button:not(:disabled), a[href]')];
+          const items = [
+            ...panel.current.querySelectorAll(
+              'button:not(:disabled), a[href], input:not(:disabled)',
+            ),
+          ];
           let index = items.indexOf(document.activeElement);
           if (event.key === 'ArrowDown') index = (index + 1) % items.length;
           else if (event.key === 'ArrowUp') index = (index + items.length - 1) % items.length;

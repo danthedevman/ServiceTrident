@@ -1,3 +1,4 @@
+import { ValidatedForm } from '../../components/forms/validated-form.jsx';
 import { Link } from 'react-router-dom';
 import { notify } from '../../data/toast.js';
 import { timeZoneOptions } from '../../lib/time-zones.js';
@@ -91,7 +92,7 @@ function UserDetailsForm({ member, own, onClose }) {
   const [value, setValue] = useState(member);
   const [errors, setErrors] = useState({});
   return (
-    <form
+    <ValidatedForm
       className="form-body"
       onSubmit={(event) => {
         event.preventDefault();
@@ -210,6 +211,6 @@ function UserDetailsForm({ member, own, onClose }) {
           {save.busy ? 'Saving…' : 'Save Changes'}
         </button>
       </RecordActions>
-    </form>
+    </ValidatedForm>
   );
 }

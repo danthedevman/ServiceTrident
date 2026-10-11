@@ -114,6 +114,14 @@ export function requireUser(db) {
   };
 }
 
+/** Attach an identity only after a public authentication flow has verified it. */
+export function authenticatedIdentity(req, user) {
+  req.user = user;
+  req.workspaceId = user.workspaceId ?? user._id;
+  req.actualRole = user.workspaceId ? user.role : 'admin';
+  req.role = req.actualRole;
+}
+
 /** @param {import('express').Response} res */
 export function clearSessionCookie(res) {
   res.clearCookie(cookieName, cookieOptions());

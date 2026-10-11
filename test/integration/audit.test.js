@@ -66,17 +66,22 @@ test('audit history captures writes, failures and deletes without secrets and en
   assert.equal((await request(`/services/${id}`, owner.cookie, 'DELETE', {})).status, 204);
   const logs = await request('/tables/audit?sortBy=createdAt&order=asc', owner.cookie);
   assert.equal(logs.status, 200);
-  assert.equal(logs.data.total, 4);
+  assert.equal(logs.data.total, 5);
+  const recordChanges = logs.data.rows.filter((row) => row.operation !== 'POST /api/auth/register');
   assert.deepEqual(
-    logs.data.rows.map((row) => row.action),
+    recordChanges.map((row) => row.action),
     ['create', 'update', 'update', 'delete'],
   );
-  assert.equal(logs.data.rows[0].recordId, id);
-  assert.equal(logs.data.rows[2].outcome, 'failed');
+  assert.equal(recordChanges[0].recordId, id);
+  assert.equal(recordChanges[2].outcome, 'failed');
   assert.ok(!JSON.stringify(logs.data).includes('PRIVATE CONTENT'));
   assert.ok(!JSON.stringify(logs.data).includes('SECRET'));
   assert.ok(!JSON.stringify(logs.data).includes('DO NOT LOG'));
-  assert.equal((await request('/tables/audit', other.cookie)).data.total, 0);
+  assert.equal((await request('/tables/audit', other.cookie)).data.total, 1);
+  assert.ok((await db.collection('auditEvents').find({}).toArray()).some((row) => row.operation === 'GET /api/tables/:kind' && row.recordType === 'audit'));
+  const rejected = await request('/services', null);
+  assert.equal(rejected.status, 401);
+  assert.ok(await db.collection('auditEvents').findOne({ workspaceId: null, statusCode: 401 }));
   const filter = await request('/tables/audit?searchColumn=action&search=delete', owner.cookie);
   assert.equal(filter.data.total, 1);
   const exported = await fetch(

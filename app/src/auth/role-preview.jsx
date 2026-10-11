@@ -71,9 +71,6 @@ export function RolePreview({ banner = false }) {
               </Select>
             </span>
           </label>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            Actions are real and use your account.
-          </p>
         </>
       )}
       {error && (

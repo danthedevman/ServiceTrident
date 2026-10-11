@@ -1,3 +1,4 @@
+import { PageTitle } from './page-title.jsx';
 import React from 'react';
 import { Loading } from './feedback.jsx';
 /** Keep page titles stable while initial data loads. */
@@ -45,7 +46,7 @@ export function PendingPage({ pathname }) {
   }
   return (
     <div className={`space-y-6 ${narrow}`}>
-      <h1 className="page-title">{title}</h1>
+      <PageTitle>{title}</PageTitle>
       <Loading label="Loading details…" />
     </div>
   );

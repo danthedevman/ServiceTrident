@@ -1,3 +1,4 @@
+import { PageTitle } from '../../components/page-title.jsx';
 import React, { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
@@ -31,6 +32,12 @@ const guides = {
     'Manage incidents, tasks, knowledge, and attachments',
   ],
   people: [CalendarDaysIcon, 'People and on-call', 'Manage access, profiles, and coverage'],
+  'role-preview': [
+    BookOpenIcon,
+    'Impersonation and Role Preview',
+    'Preview permissions and understand how actions affect your workspace',
+  ],
+  'service-accounts': [PuzzlePieceIcon, 'Service Accounts and External API', 'Create scoped credentials for external record creation'],
   integrations: [PuzzlePieceIcon, 'Integrations', 'Connect communication and ticketing tools'],
   'status-page': [GlobeAltIcon, 'Status pages', 'Publish updates and configure subscriptions'],
   configuration: [
@@ -59,7 +66,7 @@ export function HelpPage() {
   return (
     <div className="space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="page-title">Help</h1>
+        <PageTitle>Help</PageTitle>
         <label className="relative w-full sm:w-80">
           <span className="sr-only">Search documentation</span>
           <MagnifyingGlassIcon
@@ -168,7 +175,7 @@ export function HelpPage() {
                   </a>
                   {screenshot.caption && (
                     <figcaption className="text-sm leading-6 text-slate-600 dark:text-slate-300">
-                      Demo data only. {screenshot.caption}
+                      {screenshot.caption}
                     </figcaption>
                   )}
                 </figure>

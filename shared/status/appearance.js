@@ -1,15 +1,15 @@
 import { InputError } from '../validation/input-error.js';
 
-/** Only a six-digit colour is persisted; empty restores the application theme. */
+/** Only a six-digit color is persisted; empty restores the default background. */
 export function statusBackground(value) {
   if (value === '' || value === null) return null;
   if (typeof value !== 'string' || !/^#[a-f0-9]{6}$/i.test(value))
-    throw new InputError('Choose a six-digit background colour.', 400, {
-      backgroundColor: 'Use a colour such as #f4f7fb.',
+    throw new InputError('Choose a six-digit background color.', 400, {
+      backgroundColor: 'Use a color such as #f4f7fb.',
     });
   return value.toLowerCase();
 }
-/** Pick the higher-contrast text colour for a user-selected background. */
+/** Pick the higher-contrast text color for a user-selected background. */
 export function backgroundInk(value) {
   if (!value) return undefined;
   const channels = [1, 3, 5].map((offset) => {

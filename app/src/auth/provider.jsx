@@ -1,3 +1,4 @@
+import { clearRecordTabs } from '../components/record-navigation.jsx';
 import { useLocation } from 'react-router-dom';
 import { PreferencesProvider } from '../preferences/ui-preferences.jsx';
 
@@ -22,7 +23,10 @@ export function AuthProvider({ children }) {
     refetchOnWindowFocus: false,
   });
   useEffect(() => {
-    const expire = () => setSessionUser(null);
+    const expire = () => {
+      clearRecordTabs();
+      setSessionUser(null);
+    };
     const synchronize = (event) => {
       if (event.key !== 'servicetrident-role-change') return;
       // Remove the old view before any new-role requests can finish.

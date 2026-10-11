@@ -1,3 +1,5 @@
+import { ValidatedForm } from '../../components/forms/validated-form.jsx';
+import { PageTitle } from '../../components/page-title.jsx';
 import { UserAccountForm } from './user-account-form.jsx';
 import { PlusIcon } from '@heroicons/react/24/outline';
 import { UserRecord } from './user-record.jsx';
@@ -20,8 +22,8 @@ export function JoinPage() {
     [password, setPassword] = useState('');
   return (
     <main className="mx-auto max-w-lg space-y-6 p-8">
-      <h1 className="page-title">Join Your Workspace</h1>
-      <form
+      <PageTitle>Join Your Workspace</PageTitle>
+      <ValidatedForm
         noValidate
         className="panel space-y-5 p-6"
         onSubmit={(e) => {
@@ -50,7 +52,7 @@ export function JoinPage() {
         <Link className="block text-sm text-blue-600" to="/login">
           Sign in instead
         </Link>
-      </form>
+      </ValidatedForm>
     </main>
   );
 }
@@ -70,7 +72,7 @@ export function WorkspacePage({ form }) {
   if (!admin)
     return (
       <div className="space-y-6">
-        <h1 className="page-title">Users</h1>
+        <PageTitle>Users</PageTitle>
         <p>Workspace admin access is required.</p>
       </div>
     );

@@ -1,3 +1,4 @@
+import { RecordLink } from './record-navigation.jsx';
 import React from 'react';
 import { ArrowTopRightOnSquareIcon } from '@heroicons/react/24/outline';
 
@@ -11,6 +12,7 @@ export const referenceRoutes = {
   knowledgeBases: '/knowledge/bases',
   tasks: '/tasks',
   monitors: '/monitors',
+  serviceAccounts: '/settings/service-accounts',
 };
 
 /** Read-only relationships retain a labeled, keyboard-accessible link to a known route. */
@@ -18,16 +20,14 @@ export function ReferenceValue({ type, id, label, empty = 'Unassigned' }) {
   const route = referenceRoutes[type];
   if (!id || !route) return label || empty;
   return (
-    <a
-      href={`${route}/${encodeURIComponent(id)}`}
-      target="_blank"
-      rel="noopener noreferrer"
+    <RecordLink
+      to={`${route}/${encodeURIComponent(id)}`}
       className="inline-flex items-center gap-1 text-blue-700 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500 dark:text-blue-300"
     >
       {label || 'Unavailable record'}
       <ArrowTopRightOnSquareIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
-      <span className="sr-only"> (opens in a new tab)</span>
-    </a>
+      <span className="sr-only"> (opens in an app record tab)</span>
+    </RecordLink>
   );
 }
 

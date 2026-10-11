@@ -1,3 +1,4 @@
+import { PageTitle } from '../../components/page-title.jsx';
 import React from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { dashboardReport } from '../../../../shared/domain/dashboard-reports.js';
@@ -13,7 +14,7 @@ export function DashboardReport() {
   if (!report)
     return (
       <div className="p-6">
-        <h1 className="page-title">Report Not Found</h1>
+        <PageTitle>Report Not Found</PageTitle>
         <Link to="/">Back to Dashboard</Link>
       </div>
     );
@@ -26,6 +27,7 @@ export function DashboardReport() {
         kind === 'incidents' ? 'severity' : 'priority',
         'status',
         'serviceName',
+        'assignmentGroupName',
         ...(kind === 'tasks' ? ['dueDate'] : []),
         'createdAt',
       ]
@@ -40,6 +42,7 @@ export function DashboardReport() {
     title: 'Title',
     name: kind === 'uptime' ? 'Monitor' : 'Name',
     serviceName: 'Service',
+    assignmentGroupName: 'Assignment Group',
     dueDate: 'Due Date',
     createdAt: 'Created',
     count: 'Unresolved Incidents',

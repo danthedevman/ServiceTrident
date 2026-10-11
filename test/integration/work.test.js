@@ -443,6 +443,17 @@ test(
     const destinationBase = (
       await request('/knowledge-bases', owner.cookie, 'POST', { title: 'Temporary destination' })
     ).data.item;
+    const destinations = await request(
+      `/references/knowledgeBases?q=Temporary&excludeId=${sourceBase.id}`,
+      owner.cookie,
+    );
+    assert.equal(destinations.status, 200);
+    assert.ok(!destinations.data.options.some((option) => option.id === sourceBase.id));
+    assert.ok(destinations.data.options.some((option) => option.id === destinationBase.id));
+    assert.equal(
+      (await request('/references/knowledgeBases?excludeId=invalid', owner.cookie)).status,
+      400,
+    );
     const runbookResult = await request('/knowledge', responder.cookie, 'POST', {
       title: 'Recovery procedure',
       articleType: 'runbook',
@@ -453,7 +464,7 @@ test(
     const runbookId = runbookResult.data.item.id;
     const updateRunbook = await request(`/knowledge/${runbookId}`, responder.cookie, 'PATCH', {
       revision: runbookResult.data.item.revision,
-      status: 'published',
+      statusOption: 'published',
     });
     assert.equal(updateRunbook.status, 200, JSON.stringify(updateRunbook.data));
     assert.equal(updateRunbook.data.item.content.match(/1. Check health/g).length, 1);
@@ -481,7 +492,7 @@ test(
       (
         await request(`/knowledge-bases/${sourceBase.id}`, owner.cookie, 'DELETE', {
           ...deletionBody,
-          targetId: sourceBase.id,
+          targetId: sourceBase.id.toUpperCase(),
         })
       ).status,
       400,

@@ -131,3 +131,30 @@ export function dateRangeErrors(from, to) {
     errors.to = 'Through date must be on or after the From date.';
   return errors;
 }
+
+/** Basic input rules shared by form controls, independent of browser validation bubbles. */
+export function controlError({
+  label = 'This field',
+  value = '',
+  type = 'text',
+  required = false,
+  checked = false,
+  maxLength = -1,
+}) {
+  const text = String(value).trim();
+  if (required && (type === 'checkbox' ? !checked : !text)) return `${label} is required.`;
+  if (!text || ['checkbox', 'radio'].includes(type)) return '';
+  if (type === 'email' && (text.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text)))
+    return 'Enter a valid email address, such as you@example.com.';
+  if (type === 'url') {
+    try {
+      const url = new URL(text);
+      if (!['http:', 'https:'].includes(url.protocol)) throw new Error();
+    } catch {
+      return 'Enter a complete URL, such as https://example.com.';
+    }
+  }
+  if (maxLength >= 0 && String(value).length > maxLength)
+    return `${label} must be ${maxLength} characters or fewer.`;
+  return '';
+}

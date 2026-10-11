@@ -48,18 +48,66 @@ These current screenshots use the **default Ocean theme in dark mode** and conta
 
 ## What you can do
 
-| Area                | Capabilities                                                                                                                                                                                                                      |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Services            | Define ownership, primary contacts, dependencies, and collections; view related incidents, knowledge, and checks.                                                                                                                 |
-| Monitoring          | Check HTTP/HTTPS endpoints with HEAD or GET, choose intervals from 1 minute to 24 hours, inspect response events, and follow redirects when explicitly enabled.                                                                   |
-| Incident response   | Track severity and state, assign work, link knowledge, add public-facing comments or internal work notes, and resolve or reopen incidents.                                                                                        |
-| Tasks and knowledge | Use the default task Kanban with custom status lanes, shared card ordering, admin-only global lane ordering, and a separate archive list. Create knowledge bases before adding rich-text articles; embed images and attach files. |
-| On-call and people  | Manage teammates, groups, contact details, roles, and scheduled coverage.                                                                                                                                                         |
-| Status pages        | Share service health privately or through a public page, with history, branding, and global or service-specific announcements.                                                                                                    |
-| Reporting           | Use incident and task dashboards, server-side table search and filtering, CSV exports, and an admin audit log.                                                                                                                    |
-| Customization       | Configure form fields and choices, required fields, themes, and saved navigation preferences.                                                                                                                                     |
+| Area                | Capabilities                                                                                                                                                                                                                                              |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Services            | Define ownership, primary contacts, dependencies, and collections; view related incidents, knowledge, and checks.                                                                                                                                         |
+| Monitoring          | Check HTTP/HTTPS endpoints with HEAD or GET, choose intervals from 1 minute to 24 hours, inspect response events, and follow redirects when explicitly enabled.                                                                                           |
+| Incident response   | Track severity and state, assign work, link knowledge, add public-facing comments or internal work notes, and resolve or reopen incidents.                                                                                                                |
+| Tasks and knowledge | Use the default task Kanban with custom status lanes, shared card ordering, admin-only global lane ordering, and a separate archive list. Organize rich-text articles and step-based runbooks in optional knowledge bases; embed images and attach files. |
+| On-call and people  | Manage teammates, groups, contact details, roles, and scheduled coverage.                                                                                                                                                                                 |
+| Status pages        | Share service health privately or through a public page, with history, branding, and global or service-specific announcements.                                                                                                                            |
+| Reporting           | Use incident and task dashboards, server-side table search and filtering, CSV exports, and an admin audit log.                                                                                                                                            |
+| Customization       | Configure form fields and choices, required fields, themes, and saved navigation preferences.                                                                                                                                                             |
 
 Admins manage configuration and membership. Responders work on incidents, tasks, and articles. Viewers have read-only workspace access. Users can create incidents and see incidents opened by or for them.
+
+## Working in the app
+
+### Dashboard and personal preferences
+
+Overview starts with **Important Reports** and **Needs Attention**, followed by visual charts and compact scores. **Assigned to Me** and **Assigned to My Team** reports cover unresolved incidents and outstanding tasks; team reports use your current assignment-group memberships. Score colors identify urgent, pending, healthy, and unknown states. Report links open server-filtered lists.
+
+A compact **Dashboard View** picker and refresh icon sit to the right of your first-name greeting, with padding beneath the sticky controls. Change the greeting in **Profile → Dashboard Greeting**, using `{firstName}` where needed. Profile also controls color scheme, light/dark appearance, contrast, text size, timezone, and date/time formats. Logs, audit activity, monitor checks, coverage record dates, and metadata use these date preferences; explicitly UTC schedule editors, date filters, exports, and status-history day buckets retain their documented formats. The thinner trident mark combines connected service nodes and a health pulse; the logo and right record panel follow the selected theme.
+
+### Records, tabs, and tables
+
+Reference links and **Open Record** controls open app record tabs, including activity and delivery-log details. Pill chips show the record title and type without identifier suffixes or “From” text. Text stays on one line; full labels appear on hover. Horizontal scrolling and arrow-key navigation work with the scrollbar hidden. Tabs appear only on record routes with more than one record open. Up to ten tabs can be open; the limit notice asks you to close tabs, and **Close All Tabs** is available. Closing edited tabs requires confirmation.
+
+Tab links and bounded labels survive refresh for the signed-in browser session; restored records fetch data only when selected. Switching tabs preserves mounted drafts, while refresh discards unsaved edits. Sign-out clears the session’s tabs. These tabs never change record permissions. New forms focus their first editable field. Drag the right record panel’s left edge to resize it, or use its keyboard controls; it snaps closed below the threshold and remembers your account preference.
+
+**Filters** opens a small anchored panel with full-width search and no overlay, leaving the table visible. Search, filters, sorting, paging, and CSV export run on the server. The ellipsis menu’s **Compact Rows** toggle saves reduced padding as an account preference. Columns remain configurable. Forms use consistent custom required/email errors and grow multiline fields as you type. Automated activity is attributed to **System**.
+
+### Incidents, tasks, and knowledge
+
+Resolving an incident requires confirmation. Resolution notes are optional in the default form; admins can toggle **Required** for that system field in **Form Builder**. Existing saved requirements remain until changed. Reopening also requires confirmation. Conversation uses a compact message filter and icon-only table/conversation view controls.
+
+Task cards use small bare reorder icons. Lane titles, counts, reorder arrows, and refresh icons share one row; lanes support shared drag ordering and keyboard alternatives. List and archive navigation use icons. Knowledge-base deletion cannot move articles into the base being deleted. Admins and responders can **Publish** a saved unpublished article or runbook without entering Edit, using the configured Published status. Save draft edits first. Form Builder is available from supported list and record secondary actions.
+
+### Status pages and sample records
+
+The app status page displays **Service Status**. On-call record titles identify the teammate and service scope. New status-page service messages default to **Display message**; enter their text and save to publish, or turn the setting off to keep them hidden. **Page Background Color** appears below other status settings and supports a swatch, hex value, and **Use Default Background**.
+
+**Settings → Add demo data** creates 50 records per supported type. Knowledge includes 25 articles and 25 runbooks with triage, mitigation, and recovery steps. Demo users cannot sign in, demo monitors stay paused, and demo integrations do not send notifications. An existing batch is not altered by an upgrade: remove that demo batch and add a new one to include runbooks. Cleanup uses batch markers and preserves unrelated records.
+
+### Identity providers and role preview
+
+Workspace admins can configure Auth0, Okta, Microsoft Entra ID, Google, Keycloak, OneLogin, Ping Identity, and custom OpenID Connect sign-in under Settings → Identity Providers. Existing users connect their identity in Profile with password confirmation before using the workspace sign-in link. See [identity-provider operating requirements](docs/operations.md#workspace-identity-providers).
+
+Admins can use **Impersonation** in the profile menu to preview another role’s permissions. This keeps the signed-in identity and workspace; permitted actions are real, affect records, and may send configured notifications. **Return to Admin** restores admin access. Audit entries retain the actual and effective roles. The bundled **Impersonation and Role Preview** Help article explains the workflow.
+
+### Managing users
+
+Admins can create users with a name, email, role, initial password, and contact details. Share initial passwords privately; users can change them in Profile settings. To reset another user’s password, open their record and select **Reset password** from the actions menu. Confirm your current admin password and enter the new password twice. Resetting signs the user out of existing sessions. Workspace owners change their own password in Profile settings.
+
+### Degraded service health
+
+Edit a service’s **Health thresholds** to flag it as Degraded or Down manually, set a response-time threshold in milliseconds (0 disables it), or choose 1–10 consecutive failed checks before Down. Each monitor is evaluated separately. A successful response at or above the response-time threshold is Degraded; failed responses below the failure-count threshold are Degraded, and reaching the threshold is Down. A successful check resets the failure count, as does a gap longer than the monitor interval plus one minute. Defaults preserve the previous behavior: no manual flag, no response-time threshold, and Down after one failed check.
+
+Down takes precedence over Degraded, including dependency failures. Degradation propagates to dependent services and collections. Clear a manual flag yourself when the issue is resolved; it does not expire. Stale or paused checks remain Unknown unless another signal establishes degradation or an outage. Monitor events and past daily history continue to show actual HTTP success/failure. Today’s date box reflects current Degraded or Down health, with hover text showing current status alongside the day’s check-success percentage; past dates are not rewritten.
+
+Automatic incidents record up to 1,000 qualifying monitor check references when they first open, including dependency monitors. Admins, responders, and viewers can review these in the **Monitor Events** related tab, search or export the list, and open saved response details. Later checks do not replace the original references. Older incidents without saved references say so. The usual 30-day event retention and monitor deletion apply; end-user portals do not expose monitor events.
+
+When automatic incidents are enabled, degradation creates a medium-severity incident if no automatic incident is active for that service. Outages create high-severity incidents. Recovery resolves the automatic incident only when the service is fully Operational. Existing incident severity remains available for responders to manage. Public email and RSS updates include Degraded transitions when subscriptions are enabled.
 
 ## Start with Docker
 
@@ -145,12 +193,12 @@ See [database setup, TLS, backups, and compatibility](docs/database-backends.md)
 
 My recommendation is to start with the communication tools your team already uses. Connect a useful destination first, then add another integration when there is a clear need. ServiceTrident has no software subscription fee, but hosting, email delivery, domains, backups, and third-party accounts may cost money.
 
-| Connection      | What to configure in Integrations                                                                                                                       | When I would use it                                                                                                                                  |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Email / SMTP    | A public SMTP hostname, port 465 or 587, sender, credentials, and fallback recipients. Enable comment notifications on one email integration if needed. | A straightforward starting point for a small team. Reuse an approved SMTP provider rather than running a mail server just for alerts.                |
-| Slack           | An official incoming webhook URL for your chosen channel.                                                                                               | When the team already coordinates in Slack. A dedicated incident channel can keep response updates out of general conversation.                      |
-| Microsoft Teams | A supported Workflow webhook that accepts requests from ServiceTrident and posts to a channel.                                                          | When the team already uses Microsoft 365. Give the workflow a co-owner so it does not depend on one person's account.                                |
-| ServiceNow      | Your instance root URL and a dedicated integration account with appropriate incident permissions.                                                       | When an existing organization needs incidents in ServiceNow as well. |
+| Connection      | What to configure in Integrations                                                                                                                       | When I would use it                                                                                                                   |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Email / SMTP    | A public SMTP hostname, port 465 or 587, sender, credentials, and fallback recipients. Enable comment notifications on one email integration if needed. | A straightforward starting point for a small team. Reuse an approved SMTP provider rather than running a mail server just for alerts. |
+| Slack           | An official incoming webhook URL for your chosen channel.                                                                                               | When the team already coordinates in Slack. A dedicated incident channel can keep response updates out of general conversation.       |
+| Microsoft Teams | A supported Workflow webhook that accepts requests from ServiceTrident and posts to a channel.                                                          | When the team already uses Microsoft 365. Give the workflow a co-owner so it does not depend on one person's account.                 |
+| ServiceNow      | Your saved instance root URL and an integration account, using Basic Auth or OAuth client credentials with Incident API permissions.                    | When an existing organization needs incidents in ServiceNow as well.                                                                  |
 
 The **App Catalog** groups adapters into Email, Chat, On-call, Ticketing, and Webhooks. Pick a category and select **Configure**. SendGrid and Amazon SES are SMTP setup presets; they appear as Email (SMTP) in configured records and support the same email features.
 
@@ -171,6 +219,10 @@ If you already operate in AWS, **Amazon SES** is worth comparing for usage-based
 For channel setup, follow the official [Slack incoming webhook guide](https://docs.slack.dev/messaging/sending-messages-using-incoming-webhooks/) or [Teams workflow guidance](https://learn.microsoft.com/en-us/microsoftteams/platform/webhooks-and-connectors/how-to/add-incoming-webhook). Provider plans, quotas, and tenant permissions can change; a supported integration does not mean the provider is free or automatically enabled for your account.
 
 Messages use labeled fields, including **Description**, across email, Slack, Teams, and ServiceNow. ServiceNow uses a correlation ID to find an existing incident and adds recovery work notes; it does not automatically close the external incident. Email can notify end users about incident comments. Internal work notes are not included in those notifications.
+
+Slack messages put each field on its own **Key: Value** line, including **Incident: View Incident** as a clickable link instead of a raw ID. Multiline descriptions and errors stay on a single value line; HTTP status and HTTP reason appear on separate lines. Automatic monitor incidents include up to five relevant service/dependency checks with HTTP status and reason, check errors, response-reading errors, method, duration, and check time. Notification retries retain the queued diagnostics; raw response bodies, headers, and endpoint URLs are not sent. Set `APP_ORIGIN` on workers to the app origin reachable by recipients.
+
+New integrations default to enabled; saved integrations retain their setting. ServiceNow keeps its **Instance Root URL** visible, supports **Basic Auth** and **OAuth client credentials**, and uses the authenticated integration account as the Caller on new incidents. **Test Saved Connection** performs reads without creating an incident and reports safe HTTP 401/403 guidance. The account needs Incident table permissions and access to its own User record; see [ServiceNow setup](docs/operations.md#servicenow-authentication-and-caller-identity).
 
 Integration credentials are encrypted with a persistent key generated for the API and workers. Blank secret inputs retain existing credentials. Back up that key with the database. Review **Logs** for failures: a queued job is not proof that a provider accepted a message. Retries can occasionally deliver a duplicate if a process stops after provider acceptance.
 
@@ -237,7 +289,7 @@ Back up the database, the integration-encryption key, and the persistent Redis d
 
 Checks currently target public HTTP/HTTPS addresses on standard ports. Private and reserved addresses are blocked, and followed redirects are revalidated. Self-hosting does not automatically enable scanning an internal network. These are HTTP availability checks, not TCP, database, or full infrastructure monitoring.
 
-ServiceTrident is currently alpha. It does not include SSO/MFA, password-reset email, SMS/voice paging, multi-step on-call escalation, or a hosted uptime SLA. Test upgrades and backup restores in an isolated environment before updating a pilot deployment. Automated tests are useful checks, but they are not a guarantee of production readiness.
+ServiceTrident is currently alpha. It supports optional OpenID Connect sign-in for existing accounts. It does not include app-native MFA, SAML/SCIM provisioning, password-reset email, SMS/voice paging, multi-step on-call escalation, or a hosted uptime SLA. Test upgrades and backup restores in an isolated environment before updating a pilot deployment. Automated tests are useful checks, but they are not a guarantee of production readiness.
 
 Before calling it beta, I want the core workflows to be stable, upgrade and recovery procedures to be validated, permissions and integrations to have broader testing, and realistic load tests to establish capacity. There is no committed beta release date.
 
@@ -298,12 +350,12 @@ The scheduler is a continuously running [background worker](https://render.com/d
 
 Add these service-specific environment variables:
 
-| Service   | Variables                                                                                             |
-| --------- | ----------------------------------------------------------------------------------------------------- |
-| API       | `PORT=3000`, `APP_ORIGIN=https://<your-frontend>.onrender.com`, `COOKIE_SECURE=true`, `TRUST_PROXY=1` |
-| Workers   | `REDIS_URL=<internal Key Value URL>`, `CHECK_CONCURRENCY=10`                                          |
-| Scheduler | `REDIS_URL=<same internal Key Value URL>`, `SCHEDULER_INTERVAL_MS=1000`                               |
-| Frontend  | `PORT=8080`                                                                                           |
+| Service   | Variables                                                                                                       |
+| --------- | --------------------------------------------------------------------------------------------------------------- |
+| API       | `PORT=3000`, `APP_ORIGIN=https://<your-frontend>.onrender.com`, `COOKIE_SECURE=true`, `TRUST_PROXY=1`           |
+| Workers   | `REDIS_URL=<internal Key Value URL>`, `CHECK_CONCURRENCY=10`, `APP_ORIGIN=https://<your-frontend>.onrender.com` |
+| Scheduler | `REDIS_URL=<same internal Key Value URL>`, `SCHEDULER_INTERVAL_MS=1000`                                         |
+| Frontend  | `PORT=8080`                                                                                                     |
 
 Replace placeholders with your actual values. `APP_ORIGIN` must exactly match the frontend origin, without a trailing slash or path. Update it if you add a custom domain. All Node services must use the same database, and both background services must use the same queue.
 
@@ -461,22 +513,18 @@ docker compose -f compose.yaml -f compose.test.yaml run --build --rm test
 
 ## Contributing
 
-If something is confusing, broken, or harder than it should be, open an issue with the steps to reproduce it and what you expected. For a larger change, describe the problem before building a broad solution. Keep changes focused, preserve workspace authorization and server-side validation, and include useful tests where behavior changes.
+If something is confusing, broken, or harder than it should be, open an issue with the steps to reproduce it and what you expected. For a larger change, describe the problem before building a broad solution. Keep changes focused, preserve workspace authorization and server-side validation, and include useful tests where behavior changes. Review and update README, bundled Help, and affected operating guides with each change; refresh affected synthetic screenshots before rebuilding the local app. The [AGENTS.md](AGENTS.md) documentation process is part of completion.
 
-Remove credentials, webhook URLs, session cookies, and private record data from logs or screenshots before sharing them. Please do not post exploitable security details or secrets in a public issue; use GitHub's private vulnerability reporting if enabled or arrange a private channel with the maintainer.
+Never share credentials, webhook URLs, session cookies, or private record data in logs. Capture documentation screenshots only with the isolated synthetic fixtures, never live records or secrets, even if later redacted. See [Help screenshot capture](docs/help-screenshots.md). Please do not post exploitable security details or secrets in a public issue; use GitHub's private vulnerability reporting if enabled or arrange a private channel with the maintainer.
 
 ## License
 
 ServiceTrident is available under the [MIT License](LICENSE). My intention is to keep this a useful, freely available tool that developers and small teams can run and adapt. Hosting and any third-party services you choose remain your responsibility.
 
-### Managing users
+## External integrations and service accounts
 
-Admins can create users with a name, email, role, initial password, and contact details. Share initial passwords privately; users can change them in Profile settings. To reset another user’s password, open their record and select **Reset password** from the actions menu. Confirm your current admin password and enter the new password twice. Resetting signs the user out of existing sessions. Workspace owners change their own password in Profile settings.
+Admins open **Settings → Service Accounts** to give external sources scoped record-creation access. Select Create incidents, Create tasks, or Create knowledge; publishing new knowledge requires the separate knowledge:publish scope. Restrict the account to selected services, or explicitly permit all workspace services and unassigned records. Choose API Key, OAuth Client Credentials, or both. Credentials default to 90 days and must expire within 1–365 days. Copy their one-time values into a secret manager. Saved credentials cannot be retrieved. Account records provide generation, rotation, revocation, disabling, and confirmed deletion.
 
-### Degraded service health
+The dedicated POST endpoints are `/api/external/v1/incidents`, `/api/external/v1/tasks`, and `/api/external/v1/knowledge`. OAuth clients obtain opaque bearer tokens from `/api/oauth/token` using the client_credentials grant; tokens last at most one hour. Machine credentials cannot use browser-session APIs, and these endpoints do not grant record reads, updates, deletes, uploads, or administrative access. Use HTTPS through a trusted proxy; direct loopback development requests may use HTTP. Every API response is audited with safe metadata, including machine access, authentication, polling, and failures. See [External API](docs/external-api.md) and [Audit history](docs/audit-log.md) for payloads, security boundaries, and logging behavior.
 
-Edit a service’s **Health thresholds** to flag it as Degraded or Down manually, set a response-time threshold in milliseconds (0 disables it), or choose 1–10 consecutive failed checks before Down. Each monitor is evaluated separately. A successful response at or above the response-time threshold is Degraded; failed responses below the failure-count threshold are Degraded, and reaching the threshold is Down. A successful check resets the failure count, as does a gap longer than the monitor interval plus one minute. Defaults preserve the previous behavior: no manual flag, no response-time threshold, and Down after one failed check.
-
-Down takes precedence over Degraded, including dependency failures. Degradation propagates to dependent services and collections. Clear a manual flag yourself when the issue is resolved; it does not expire. Stale or paused checks remain Unknown unless another signal establishes degradation or an outage. Monitor events and past daily history continue to show actual HTTP success/failure. Today’s date box reflects current Degraded or Down health, with hover text showing current status alongside the day’s check-success percentage; past dates are not rewritten.
-
-When automatic incidents are enabled, degradation creates a medium-severity incident if no automatic incident is active for that service. Outages create high-severity incidents. Recovery resolves the automatic incident only when the service is fully Operational. Existing incident severity remains available for responders to manage. Public email and RSS updates include Degraded transitions when subscriptions are enabled.
+Published articles show **Unpublish** with confirmation; it returns them to Draft and retains content. **Record actions → Archive Article** also requires confirmation and keeps content/history while removing the article from active lists. In All Articles, Create opens the article form; Knowledge Bases retains its separate base-creation action. Public status pages always use fixed light styling and the background/icon/messages configured in Status Page Settings, independently of account, browser, or device themes. **Use Default Background** clears the custom background.

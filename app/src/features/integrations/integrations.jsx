@@ -1,3 +1,4 @@
+import { PageTitle } from '../../components/page-title.jsx';
 import { RecordHeader } from '../../components/record-actions.jsx';
 import { PlusIcon } from '@heroicons/react/24/outline';
 import { api } from '../../data/api.js';
@@ -40,7 +41,7 @@ export function IntegrationsPage({ form = false }) {
   if (!admin)
     return (
       <div className="space-y-6">
-        <h1 className="page-title">Integrations</h1>
+        <PageTitle>Integrations</PageTitle>
         <p>Workspace admin access is required.</p>
       </div>
     );
@@ -62,7 +63,7 @@ export function IntegrationsPage({ form = false }) {
         type: providers.some((p) => p.id === params.get('provider'))
           ? params.get('provider')
           : 'email',
-        enabled: false,
+        enabled: true,
         recovery: true,
         onCall: true,
         serviceIds: [],
@@ -72,7 +73,11 @@ export function IntegrationsPage({ form = false }) {
       url:
         !item && params.get('provider') === 'pagerduty'
           ? 'https://events.pagerduty.com/v2/enqueue'
-          : '',
+          : item?.instanceUrl || '',
+      authType: item?.authType || 'basic',
+      clientId: item?.clientId || '',
+      clientSecret: '',
+      scope: item?.scope || '',
       preset: !item ? preset?.id : undefined,
       username: '',
       password: '',
@@ -91,7 +96,7 @@ export function IntegrationsPage({ form = false }) {
         close={id ? resetForm : () => navigate('/integrations')}
         onSaved={(savedId) => {
           resetForm();
-          navigate(`/integrations/${savedId}`);
+          navigate(`/integrations/${savedId}`, { state: { createdRecord: !id } });
         }}
         onDeleted={() => navigate('/integrations')}
       />
@@ -114,6 +119,10 @@ export function IntegrationsPage({ form = false }) {
                   'Provider',
                   providers.find((provider) => provider.id === item.type)?.name || item.type,
                 ],
+                ...(item.type === 'servicenow' ? [
+                  ['Instance Root URL', item.instanceUrl || 'Not configured'],
+                  ['Authentication', item.authType === 'oauth' ? 'OAuth Client Credentials' : 'Basic Authentication'],
+                ] : []),
                 ['Delivery', item.enabled ? 'Enabled' : 'Disabled'],
                 ['Recovery notifications', item.recovery ? 'Enabled' : 'Disabled'],
                 ['On-call recipients', item.onCall ? 'Enabled' : 'Disabled'],
@@ -164,7 +173,7 @@ export function IntegrationsPage({ form = false }) {
     <div className="list-page integrations-page">
       <RecordHeader>
         <div className="flex items-center justify-end gap-3">
-          <h1 className="page-title">Integrations</h1>
+          <PageTitle>Integrations</PageTitle>
           <div className="flex items-center gap-2">
             <Link className="btn-secondary" to="/integrations/ai">
               AI Provider

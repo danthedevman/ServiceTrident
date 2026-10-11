@@ -1,4 +1,9 @@
 export const tables = [
+  'serviceAccounts',
+  'serviceAccessTokens',
+  'identityProviders',
+  'identityTransactions',
+  'identityLinks',
   'statusSubscribers',
   'publicStatusUpdates',
   'publicStatusState',
@@ -86,6 +91,14 @@ export async function migrate(pool, schema) {
       'CREATE TABLE IF NOT EXISTS "knowledgeBases" (id text PRIMARY KEY, data jsonb NOT NULL)',
     );
     await client.query('INSERT INTO sk_migrations(version) VALUES (4) ON CONFLICT DO NOTHING');
+    for (const name of ['identityProviders', 'identityTransactions', 'identityLinks'])
+      await client.query(
+        `CREATE TABLE IF NOT EXISTS ${identifier(name)} (id text PRIMARY KEY, data jsonb NOT NULL)`,
+      );
+    await client.query('INSERT INTO sk_migrations(version) VALUES (5) ON CONFLICT DO NOTHING');
+    for (const name of ['serviceAccounts', 'serviceAccessTokens'])
+      await client.query(`CREATE TABLE IF NOT EXISTS ${identifier(name)} (id text PRIMARY KEY, data jsonb NOT NULL)`);
+    await client.query('INSERT INTO sk_migrations(version) VALUES (6) ON CONFLICT DO NOTHING');
     await client.query('COMMIT');
   } catch (error) {
     await client.query('ROLLBACK');

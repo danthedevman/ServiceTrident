@@ -1,3 +1,4 @@
+import { PageTitle } from '../../components/page-title.jsx';
 import { FormPage } from '../../components/forms/form-page.jsx';
 import { Select } from '../../components/forms/select.jsx';
 import { Toggle } from '../../components/forms/toggle.jsx';
@@ -30,7 +31,7 @@ export function MonitorForm({ monitor, onReset }) {
   if (!monitor && !preferences.data)
     return (
       <div className="form-page">
-        <h1 className="page-title">Create Monitor</h1>
+        <PageTitle>Create Monitor</PageTitle>
         <ErrorNotice>{preferences.error}</ErrorNotice>
         {!preferences.error && (
           <p role="status" className="sr-only">
@@ -73,7 +74,7 @@ function MonitorEditor({ monitor, onReset, defaults }) {
         },
       });
       if (onReset) onReset();
-      else navigate(`/monitors/${saved.id}`);
+      else navigate(`/monitors/${saved.id}`, { state: { createdRecord: !monitor } });
     } catch (error) {
       setError(error.message);
       reportErrors?.(error.fields);

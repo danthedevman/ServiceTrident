@@ -17,7 +17,7 @@ export const BUILTIN_FIELDS = [
   { id: 'openedForId', label: 'Opened for', type: 'builtin', required: false },
   { id: 'description', label: 'Description', type: 'builtin', required: false },
   { id: 'knowledgeIds', label: 'Knowledge', type: 'builtin', required: false },
-  { id: 'resolutionNotes', label: 'Resolution notes', type: 'builtin', required: true },
+  { id: 'resolutionNotes', label: 'Resolution notes', type: 'builtin', required: false },
 ].map((field) => ({ ...field, archived: false, options: [] }));
 
 /** Validate incident fields; stable IDs preserve historical reporting. */
@@ -45,12 +45,18 @@ export function validateFields(
           (key) =>
             key !== 'label' &&
             key !== 'helpText' &&
+            !(kind === 'incidents' && id === 'resolutionNotes' && key === 'required') &&
             !(selectable && key === 'choices') &&
             JSON.stringify(field[key]) !== JSON.stringify(saved[key]),
         )
       )
         invalid('fields', 'System Field settings cannot be changed.');
       const result = { ...saved, label: text(field.label, 'label', 80) };
+      // Resolution requirements are workspace policy; other system constraints stay fixed.
+      if (kind === 'incidents' && id === 'resolutionNotes') {
+        if (typeof field.required !== 'boolean') invalid('fields', 'Required must be a boolean.');
+        result.required = field.required;
+      }
       if (field.helpText !== undefined)
         result.helpText = text(field.helpText, 'helpText', 1000, false);
       if (selectable && field.choices !== undefined) {

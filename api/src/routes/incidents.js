@@ -31,7 +31,7 @@ import { requireIncidentCreator } from '../domain/incidents.js';
 import { incidentQuery } from '../domain/incidents.js';
 import { incidentView } from '../domain/incidents.js';
 /** Register incidents routes; authentication and workspace policy run in app.js. */
-export function installIncidentsRoutes(app, db, appOrigin) {
+export function installIncidentsRoutes(app, db, appOrigin, machine = null) {
   app.get('/api/incidents', async (req, res) => {
     const { filter, sort, page, pageSize } = incidentQuery(req.query, req);
     const [total, rows] = await Promise.all([
@@ -170,11 +170,8 @@ export function installIncidentsRoutes(app, db, appOrigin) {
       comments: comments.map(({ _id, ...entry }) => ({ id: String(_id), ...entry })),
     });
   });
-  for (const method of ['post', 'patch'])
-    app[method](
-      `/api/incidents${method === 'patch' ? '/:id' : ''}`,
-      method === 'post' ? requireIncidentCreator : requireResponder,
-      async (req, res) => {
+  for (const method of ['post', 'patch']) {
+      const saveRecord = async (req, res) => {
         const current =
           method === 'patch'
             ? await db
@@ -306,6 +303,7 @@ export function installIncidentsRoutes(app, db, appOrigin) {
           updatedAt: now,
           updatedBy: req.user.email,
           updatedById: String(req.user._id),
+          updatedByType: req.serviceAccount ? 'service_account' : 'user',
         };
         const recordId = current?._id ?? new ObjectId();
         update.attachmentIds = await claimAttachments(
@@ -367,9 +365,10 @@ export function installIncidentsRoutes(app, db, appOrigin) {
             serviceName: service?.name ?? 'Unassigned',
             createdBy: req.user.email,
             createdById: String(req.user._id),
+            createdByType: req.serviceAccount ? 'service_account' : 'user',
             fields,
             ...update,
-            source: 'manual',
+            source: req.serviceAccount ? 'integration' : 'manual',
             createdAt: now,
             revision: 0,
             timeline: [entry],
@@ -377,6 +376,8 @@ export function installIncidentsRoutes(app, db, appOrigin) {
           await db.collection('incidents').insertOne(row);
           res.status(201).json({ incident: incidentView(row) });
         }
-      },
-    );
+      };
+      app[method](`/api/incidents${method === 'patch' ? '/:id' : ''}`, method === 'post' ? requireIncidentCreator : requireResponder, saveRecord);
+      if (method === 'post' && machine) machine.post('/incidents', requireIncidentCreator, saveRecord);
+  }
 }

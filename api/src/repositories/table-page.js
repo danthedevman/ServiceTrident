@@ -1,3 +1,4 @@
+import { ObjectId } from 'mongodb';
 import { InputError } from '@servicetrident/shared/validation/input-error';
 import { tableSearch } from '@servicetrident/shared/domain/table-search';
 import { dateRangeErrors } from '@servicetrident/shared/validation/form-validation';
@@ -28,6 +29,12 @@ export function databaseTable(db, name, base, fields, view, dateColumn) {
   return {
     fields: Object.keys(fields),
     dateColumn,
+    async record(rawId) {
+      const _id = /^[a-f\d]{24}$/i.test(rawId) ? new ObjectId(rawId) : rawId;
+      const projection = Object.fromEntries(Object.values(fields).map((field) => [field, 1]));
+      const row = await db.collection(name).findOne({ $and: [base, { _id }] }, { projection });
+      return row ? view(row) : null;
+    },
     async read(query, all = false) {
       const search = tableSearch(
         query,
@@ -60,6 +67,13 @@ export function embeddedTable(rows, fields, dateColumn) {
   return {
     fields,
     dateColumn,
+    async record(rawId) {
+      const row = rows.find((item) => String(item.id) === rawId);
+      // Detail pages use only the same allowlisted columns as their source table.
+      return row
+        ? { id: String(row.id), ...Object.fromEntries(fields.map((field) => [field, row[field]])) }
+        : null;
+    },
     async read(query, all = false) {
       const needle = query.search.toLocaleLowerCase();
       const matches = rows.filter((row) => {

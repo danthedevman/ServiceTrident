@@ -1,3 +1,6 @@
+import { ValidatedForm } from '../../components/forms/validated-form.jsx';
+import { PageTitle } from '../../components/page-title.jsx';
+import { AutoTextarea } from '../../components/forms/auto-textarea.jsx';
 import { RecordHeader } from '../../components/record-actions.jsx';
 import { Modal } from '../../components/modal.jsx';
 import { AIAssistant } from '../ai/ai.jsx';
@@ -28,7 +31,7 @@ export function KnowledgeBasesPage() {
     <div className="space-y-6 p-6">
       <RecordHeader>
         <header className="flex items-center justify-end gap-3">
-          <h1 className="page-title">Knowledge Bases</h1>
+          <PageTitle>Knowledge Bases</PageTitle>
           <div className="flex flex-wrap gap-2">
             <Link className="btn-secondary" to="/knowledge/articles">
               All Articles
@@ -136,7 +139,7 @@ export function KnowledgeBasePage({ create = false }) {
             <KnowledgeBaseForm key={id} item={item} onClose={() => setEditing(false)} />
           ) : (
             <div className="record-details space-y-6">
-              <h1 className="page-title">{item.title}</h1>
+              <PageTitle>{item.title}</PageTitle>
               <div>
                 <h2 className="field-label">Description</h2>
                 <p>{item.description || 'No description'}</p>
@@ -159,7 +162,7 @@ function KnowledgeBaseForm({ item, onClose }) {
   const save = useSave(),
     navigate = useNavigate();
   return (
-    <form
+    <ValidatedForm
       className="form-body"
       onSubmit={(event) => {
         event.preventDefault();
@@ -169,12 +172,12 @@ function KnowledgeBaseForm({ item, onClose }) {
           { title, description, ...(item ? { revision: item.revision } : {}) },
           (result) => {
             if (item) onClose();
-            else navigate(`/knowledge/bases/${result.item.id}`);
+            else navigate(`/knowledge/bases/${result.item.id}`, { state: { createdRecord: true } });
           },
         );
       }}
     >
-      <h1 className="page-title">{item ? 'Edit Knowledge Base' : 'Create Knowledge Base'}</h1>
+      <PageTitle>{item ? 'Edit Knowledge Base' : 'Create Knowledge Base'}</PageTitle>
       <Notice error={save.error} />
       <Field label="Name" name="title" errors={save.fields}>
         <input
@@ -185,7 +188,7 @@ function KnowledgeBaseForm({ item, onClose }) {
         />
       </Field>
       <Field label="Description" name="description" errors={save.fields}>
-        <textarea
+        <AutoTextarea
           value={description}
           onChange={(event) => setDescription(event.target.value)}
           maxLength={2000}
@@ -199,7 +202,7 @@ function KnowledgeBaseForm({ item, onClose }) {
           {item ? 'Save Changes' : 'Create Knowledge Base'}
         </button>
       </RecordActions>
-    </form>
+    </ValidatedForm>
   );
 }
 
@@ -277,6 +280,7 @@ function DeleteKnowledgeBase({ item, onClose, onDeleted, refresh }) {
           <ReferenceField
             label="Destination Knowledge Base"
             referenceType="knowledgeBases"
+            excludeId={item.id}
             value={targetId}
             onChange={setTarget}
             disabled={busy || !!item.deleting}

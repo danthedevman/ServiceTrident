@@ -7,9 +7,12 @@ test('layout preferences accept only boolean changes and exclude unrelated user 
   assert.deepEqual(uiPreferences({ leftCollapsed: true, rightCollapsed: 'true', role: 'admin' }), {
     leftCollapsed: true,
     rightCollapsed: false,
+    rightPanelWidth: 320,
     filtersOpen: false,
+    compactTables: false,
     tableLayouts: {},
     dashboardTab: 'overview',
+    dashboardGreeting: 'Welcome, {firstName}',
     colorScheme: 'ocean',
     highContrast: false,
     reduceMotion: false,
@@ -26,6 +29,7 @@ test('layout preferences accept only boolean changes and exclude unrelated user 
     {},
     { leftCollapsed: 'false' },
     { role: 'admin' },
+    { compactTables: 'true' },
     { 'uiPreferences.leftCollapsed': true },
   ])
     assert.throws(() => preferencePatch(value), /valid layout preference/);
@@ -85,4 +89,28 @@ test('date preferences reject unsupported date and time formats', () => {
   });
   assert.throws(() => preferencePatch({ timeFormat: '25' }));
   assert.throws(() => preferencePatch({ dateFormat: '<script>' }));
+});
+
+test('dashboard greeting validates bounded text and substitutes only the first name', async () => {
+  const { dashboardGreeting } = await import('../shared/domain/dashboard-greeting.js');
+  assert.equal(dashboardGreeting('Welcome, {firstName}', '  Alex Demo '), 'Welcome, Alex');
+  assert.equal(dashboardGreeting('Hi {firstName}', ''), 'Hi there');
+  assert.equal(dashboardGreeting('<b>{firstName}</b>', 'Alex'), '<b>Alex</b>');
+  assert.deepEqual(preferencePatch({ dashboardGreeting: 'Hello {firstName}' }), {
+    dashboardGreeting: 'Hello {firstName}',
+  });
+  for (const value of ['', ' ', 'x'.repeat(121), null, true, 'Hi\nthere'])
+    assert.throws(() => preferencePatch({ dashboardGreeting: value }));
+});
+
+test('record sidebar sizes validate saved widths and snap collapsed drags', async () => {
+  const { recordSidebarSize } = await import('../shared/domain/record-sidebar-size.js');
+  for (const width of [0, 64, 159, 160]) assert.equal(recordSidebarSize(width), 64);
+  assert.equal(recordSidebarSize(161), 240);
+  assert.equal(recordSidebarSize(444), 444);
+  assert.equal(recordSidebarSize(1000), 560);
+  for (const rightPanelWidth of [64, 239, 561, 320.5, '320', null])
+    assert.throws(() => preferencePatch({ rightPanelWidth }));
+  assert.equal(uiPreferences({ rightPanelWidth: 999 }).rightPanelWidth, 320);
+  assert.deepEqual(preferencePatch({ rightPanelWidth: 456 }), { rightPanelWidth: 456 });
 });

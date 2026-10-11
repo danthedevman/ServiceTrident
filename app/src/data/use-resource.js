@@ -1,3 +1,4 @@
+import { ActivePanelContext } from '../components/record-tabs.jsx';
 import { useContext } from 'react';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { AuthContext } from '../auth/auth-context.js';
@@ -9,9 +10,10 @@ import { infiniteResourceOptions, resourceOptions } from './query-client.js';
  * @param {string|null} path @param {number} [pollMs]
  */
 export function useResource(path, pollMs = 0) {
+  const active = useContext(ActivePanelContext);
   const { user, loading: sessionLoading } = useContext(AuthContext);
   const publicRead = path?.startsWith('/public/');
-  const enabled = !!path && (publicRead || (!sessionLoading && !!user));
+  const enabled = active && !!path && (publicRead || (!sessionLoading && !!user));
   const query = useQuery({
     ...resourceOptions(path, user?.email ?? null),
     enabled,
@@ -31,8 +33,9 @@ export function useResource(path, pollMs = 0) {
 
 /** Load additional server pages without replacing already visible results. */
 export function useInfiniteResource(path) {
+  const active = useContext(ActivePanelContext);
   const { user, loading } = useContext(AuthContext);
-  const enabled = !!path && !loading && !!user;
+  const enabled = active && !!path && !loading && !!user;
   const query = useInfiniteQuery({
     ...infiniteResourceOptions(path, user?.email ?? null),
     enabled,

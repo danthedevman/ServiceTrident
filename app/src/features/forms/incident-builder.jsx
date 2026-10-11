@@ -1,3 +1,4 @@
+import { AutoTextarea } from '../../components/forms/auto-textarea.jsx';
 import { RecordHeader } from '../../components/record-actions.jsx';
 import { ConfirmDeleteButton } from '../../components/confirm-delete-button.jsx';
 import { Select } from '../../components/forms/select.jsx';
@@ -155,7 +156,7 @@ function OptionsEditor({ field, kind, onChange }) {
       ))}
       <label className="field-label">
         Quick add options (one per line)
-        <textarea rows={3} value={bulk} onChange={(event) => setBulk(event.target.value)} />
+        <AutoTextarea rows={3} value={bulk} onChange={(event) => setBulk(event.target.value)} />
       </label>
       {builtin && (
         <label className="field-label">
@@ -376,7 +377,7 @@ function Builder({ initial, path, kind, onCancel }) {
                   />
                 </Field>
                 <Field name="helpText" label="Help Text" errors={save.fields}>
-                  <textarea
+                  <AutoTextarea
                     value={field.helpText ?? ''}
                     maxLength={1000}
                     rows={3}
@@ -385,7 +386,7 @@ function Builder({ initial, path, kind, onCancel }) {
                 </Field>
                 <label className="flex items-center gap-2">
                   <Toggle
-                    disabled={field.type === 'builtin'}
+                    disabled={field.type === 'builtin' && !(kind === 'incidents' && field.id === 'resolutionNotes')}
                     checked={field.required}
                     onChange={(event) => update({ required: event.target.checked })}
                   />
@@ -394,7 +395,8 @@ function Builder({ initial, path, kind, onCancel }) {
                 {field.type === 'builtin' ? (
                   <p className="text-sm text-slate-500">
                     System Fields can be reordered and relabeled. Select fields accept additional
-                    options; existing values and workflow meanings stay fixed.
+                    options; existing values and workflow meanings stay fixed. Resolution notes on incidents
+                    also allow changing Required.
                   </p>
                 ) : (
                   <>
@@ -526,7 +528,7 @@ function Builder({ initial, path, kind, onCancel }) {
                         ))}
                     </Select>
                   ) : ['description', 'content'].includes(row.id) ? (
-                    <textarea
+                    <AutoTextarea
                       aria-label={`${row.label} preview`}
                       rows={2}
                       placeholder={row.label}

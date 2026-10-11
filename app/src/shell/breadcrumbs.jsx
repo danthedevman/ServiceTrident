@@ -1,9 +1,11 @@
 import React from 'react';
+import { onCallLabel } from '../lib/on-call-label.js';
 import { dashboardReport } from '../../../shared/domain/dashboard-reports.js';
 import { Link, useLocation } from 'react-router-dom';
 import { useResource } from '../data/use-resource.js';
 
 const sections = {
+  records: 'Record',
   profile: 'Profile',
   dashboard: 'Dashboard',
   help: 'Help',
@@ -49,17 +51,27 @@ export function Breadcrumbs({ resolveNames = true }) {
           : null
       : null;
   const basePath = kind === 'knowledge' && id === 'bases';
+  const accountRecord = kind === 'settings' && id === 'service-accounts' && /^[a-f\d]{24}$/i.test(action || '');
   const { data } = useResource(
-    basePath && action && action !== 'new' ? `/knowledge-bases/${action}` : path,
+    accountRecord ? `/settings/service-accounts/${action}` : basePath && action && action !== 'new' ? `/knowledge-bases/${action}` : path,
   );
+  const coverageRecord = resolveNames && kind === 'on-call' && id && id !== 'new';
+  const coverageMembers = useResource(coverageRecord ? '/members' : null);
+  const coverageServices = useResource(coverageRecord ? '/services' : null);
   if (!nested) return null;
   const name =
     data?.monitor?.name ||
     data?.incident?.title ||
     data?.item?.title ||
+    data?.item?.name ||
     data?.[kind]?.find((item) => item.id === id)?.name ||
     data?.members?.find((item) => item.id === id)?.displayName ||
-    (kind === 'on-call' && data?.shifts?.find((item) => item.id === id)?.start);
+    (kind === 'on-call' &&
+      onCallLabel(
+        data?.shifts?.find((item) => item.id === id),
+        coverageMembers.data?.members,
+        coverageServices.data?.services,
+      ));
   const nouns = {
     incidents: 'incident',
     tasks: 'task',
@@ -74,6 +86,23 @@ export function Breadcrumbs({ resolveNames = true }) {
   };
   const noun = nouns[kind] || 'record',
     crumbs = [{ label: sections[kind], to: `/${kind}` }];
+  if (kind === 'records') {
+    crumbs[0] = {
+      label:
+        {
+          audit: 'Audit Log',
+          activity: 'Activity',
+          comments: 'Discussion',
+          deliveries: 'Delivery Logs',
+          invitations: 'Invitations',
+          inquiries: 'Hosting Inquiries',
+          attachments: 'Attachments',
+          headers: 'Headers',
+          demo: 'Demo Record Type',
+        }[id] || 'Record',
+    };
+    crumbs.push({ label: 'Details' });
+  }
   if (directory) crumbs.unshift({ label: 'Settings', to: '/settings' });
   if (kind === 'monitors') crumbs.unshift({ label: 'Services', to: '/services' });
   if (basePath)
@@ -90,10 +119,16 @@ export function Breadcrumbs({ resolveNames = true }) {
     crumbs.push({ label: `Create ${noun.charAt(0).toUpperCase()}${noun.slice(1)}` });
   else if (id === 'fields') crumbs.push({ label: 'Form Builder' });
   else if (id === 'invite') crumbs.push({ label: 'Invite Teammate' });
+  else if (kind === 'settings' && id === 'identity-providers')
+    crumbs.push({ label: 'Identity Providers' });
   else if (kind === 'settings' && id === 'audit') crumbs.push({ label: 'Audit Log' });
+  else if (kind === 'settings' && id === 'service-accounts') {
+    crumbs.push({ label: 'Service Accounts', to: action ? '/settings/service-accounts' : undefined });
+    if (action) crumbs.push({ label: name || 'Service Account' });
+  }
   else if (id === 'settings') crumbs.push({ label: 'Settings' });
   else if (kind === 'integrations' && id === 'ai') crumbs.push({ label: 'AI Provider' });
-  else if (id) {
+  else if (id && kind !== 'records') {
     crumbs.push({
       label: name || `${noun.charAt(0).toUpperCase()}${noun.slice(1)}`,
       to: `/${kind}/${id}`,

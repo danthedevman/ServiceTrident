@@ -11,7 +11,6 @@ import { ServiceHistory } from './service-history.jsx';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { AdminOnly } from '../../auth/role-gates.jsx';
 import { useResource } from '../../data/use-resource.js';
-import { ThemeToggle } from '../../preferences/theme.jsx';
 import { Logo } from '../../components/brand.jsx';
 import { Badge, ErrorNotice } from '../../components/feedback.jsx';
 
@@ -28,13 +27,13 @@ export function StatusPage({ publicView = false }) {
     30000,
   );
   useEffect(() => {
-    if (!data?.backgroundColor) return;
+    if (!data?.backgroundColor && !publicView) return;
     const previous = document.body.style.backgroundColor;
-    document.body.style.backgroundColor = data.backgroundColor;
+    document.body.style.backgroundColor = data?.backgroundColor || '#f7f9fa';
     return () => {
       document.body.style.backgroundColor = previous;
     };
-  }, [data?.backgroundColor]);
+  }, [data?.backgroundColor, publicView]);
   const ink = backgroundInk(data?.backgroundColor);
   return (
     <section
@@ -50,7 +49,7 @@ export function StatusPage({ publicView = false }) {
           {!publicView && data?.iconUrl && (
             <img src={data.iconUrl} alt="" className="h-10 w-10 object-contain" />
           )}
-          <h1 className="page-title" style={{ color: ink }}>
+          <h1 className="text-2xl font-semibold" style={{ color: ink }}>
             Service Status
           </h1>
         </div>
@@ -182,7 +181,6 @@ export function PublicStatusPage() {
             ))}
         </div>
         <div className="flex flex-wrap items-center justify-end gap-3">
-          <ThemeToggle />
           <StatusSubscriptions token={token} capabilities={data?.subscriptions} />
         </div>
       </header>

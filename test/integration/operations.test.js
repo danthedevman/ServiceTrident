@@ -257,15 +257,49 @@ test(
     const queued = [],
       queue = { add: async (...args) => queued.push(args) };
     await reconcileOperations(db, queue);
-    const monitorId = new ObjectId();
+    const monitorId = new ObjectId(),
+      checkedAt = new Date(),
+      triggerEventId = new ObjectId();
     await db.collection('monitors').insertOne({
       _id: monitorId,
       userId: workspaceId,
       serviceId: new ObjectId(service.id),
       intervalMinutes: 1,
       paused: false,
-      lastCheck: { checkedAt: new Date(), status: 'down' },
+      name: 'Checkout health',
+      lastCheck: { checkedAt, status: 'down', statusCode: 503, durationMs: 123, error: 'HTTP 503' },
     });
+    await db.collection('events').insertMany([
+      {
+        _id: triggerEventId,
+        monitorId,
+        userId: workspaceId,
+        checkedAt,
+        status: 'down',
+        statusCode: 503,
+        durationMs: 123,
+        error: 'HTTP 503',
+        details: { privateTestField: 'Must stay out of related rows' },
+      },
+      {
+        _id: new ObjectId(),
+        monitorId,
+        userId: workspaceId,
+        checkedAt: new Date(+checkedAt + 1),
+        status: 'up',
+        statusCode: 200,
+        durationMs: 10,
+      },
+      {
+        _id: new ObjectId(),
+        monitorId,
+        userId: new ObjectId(),
+        checkedAt,
+        status: 'down',
+        statusCode: 500,
+        durationMs: 10,
+      },
+    ]);
     await Promise.all([reconcileOperations(db, queue), reconcileOperations(db, queue)]);
     assert.equal(
       await db.collection('incidents').countDocuments({ workspaceId, activeAutomatic: true }),
@@ -273,6 +307,34 @@ test(
     );
     const automatic = await db.collection('incidents').findOne({ activeAutomatic: true });
     assert.equal(automatic.assigneeId, joined.data.user.id);
+    assert.equal(automatic.triggeringChecks.length, 1);
+    const eventsPath = `/tables/incident-monitor-events?recordId=${automatic._id}&sortBy=checkedAt&order=desc`;
+    const triggeringEvents = await request(eventsPath, teammate);
+    assert.equal(triggeringEvents.status, 200);
+    assert.equal(triggeringEvents.data.total, 1);
+    assert.equal(triggeringEvents.data.rows[0].id, String(triggerEventId));
+    assert.equal(triggeringEvents.data.rows[0].monitorName, 'Checkout health');
+    assert.equal(triggeringEvents.data.rows[0].serviceName, 'Checkout');
+    assert.ok(!JSON.stringify(triggeringEvents.data).includes('privateTestField'));
+    assert.equal((await request(eventsPath, other)).status, 404);
+    assert.equal((await request(eventsPath, null)).status, 401);
+    assert.equal((await request(`${eventsPath}&search=does-not-match`, teammate)).data.total, 0);
+    assert.equal(
+      (await request(`${eventsPath}&search=Checkout&searchColumn=monitorName`, teammate)).data
+        .total,
+      1,
+    );
+    assert.equal((await request(`${eventsPath}&page=2`, teammate)).data.rows.length, 0);
+    assert.equal((await request(`${eventsPath}&pageSize=1000`, owner)).status, 400);
+    const exported = await fetch(`${base}${eventsPath}&export=csv`, {
+      headers: { Cookie: teammate },
+    });
+    assert.equal(exported.status, 200);
+    const exportedText = await exported.text();
+    assert.match(exportedText, /Checkout health/);
+    assert.match(exportedText, /503/);
+    assert.ok(!exportedText.includes('Must stay out'));
+    const originalTriggerTime = automatic.triggeringChecks[0].checkedAt;
     await reconcileOperations(db, queue);
     assert.equal(
       await db
@@ -309,6 +371,14 @@ test(
       (await db.collection('incidents').findOne({ _id: automatic._id })).status,
       'resolved',
     );
+    assert.equal(
+      +new Date(
+        (await db.collection('incidents').findOne({ _id: automatic._id })).triggeringChecks[0]
+          .checkedAt,
+      ),
+      +new Date(originalTriggerTime),
+    );
+    assert.equal((await request(eventsPath, teammate)).data.rows[0].statusCode, 503);
     const recovered = await db
       .collection('deliveries')
       .findOne({ incidentId: automatic._id, event: 'recovered' });

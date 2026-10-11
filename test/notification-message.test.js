@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { message } from '../workers/src/notifications/message.js';
 import { sendNotification } from '../workers/src/notifications/send.js';
 import { seal } from '../shared/integrations/secrets.js';
+import { slackMessage } from '../workers/src/notifications/slack.js';
 
 const incident = {
   _id: '0123456789abcdef01234567',
@@ -30,7 +31,7 @@ test('all notification events label descriptions and multiline values without ex
   assert.match(message({ ...incident, description: '' }, 'impacted'), /Description: Not provided/);
 });
 
-test('Slack, Teams, and ServiceNow carry the same labeled message with Slack escaping preserved', async (t) => {
+test('providers retain labeled messages and Slack uses a safe incident link', async (t) => {
   const previousKey = process.env.INTEGRATION_ENCRYPTION_KEY;
   process.env.INTEGRATION_ENCRYPTION_KEY = 'ab'.repeat(32);
   t.after(() => {
@@ -47,8 +48,9 @@ test('Slack, Teams, and ServiceNow carry the same labeled message with Slack esc
     const calls = [];
     const request = async (_url, method, body) => {
       calls.push({ method, body });
-      return method === 'GET'
-        ? { result: [] }
+      return _url.includes('/sys_user')
+        ? { result: [{ sys_id: 'b'.repeat(32) }] }
+        : method === 'GET' ? { result: [] }
         : { result: { sys_id: 'a'.repeat(32), number: 'INC001' } };
     };
     await sendNotification(
@@ -61,11 +63,11 @@ test('Slack, Teams, and ServiceNow carry the same labeled message with Slack esc
     const payload = calls.at(-1).body;
     const expected = message(value, 'impacted');
     if (type === 'slack') {
-      assert.equal(
-        payload.text,
-        expected.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;'),
-      );
+      assert.deepEqual(payload, slackMessage(value, { event: 'impacted' }));
       assert.equal(payload.mrkdwn, false);
+      assert.ok(!payload.blocks[0].text.text.includes(incident._id));
+      assert.equal(payload.blocks[0].text.type, 'plain_text');
+      assert.match(payload.blocks.at(-1).text.text, /\|View Incident>/);
     } else if (type === 'teams')
       assert.equal(payload.attachments[0].content.body[0].text, expected);
     else assert.equal(payload.description, expected);

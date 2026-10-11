@@ -114,3 +114,25 @@ test('dashboard links open dedicated report views with the selected filter', () 
     assert.equal(url.searchParams.get('report'), report);
   }
 });
+
+test('personal reports accept only server-derived identity and membership', () => {
+  const assignments = { assigneeId: 'user-a', teamIds: ['team-a', 'team-b'] };
+  for (const report of ['my-incidents', 'my-tasks']) {
+    assert.equal(
+      dashboardReportFilter(dashboardReport(report), 'workspace-a', '2026-10-10', assignments)
+        .assigneeId,
+      'user-a',
+    );
+    assert.deepEqual(filter(report).assigneeId, { $in: [] });
+    assert.equal(dashboardReport(report, 'user-b'), null);
+  }
+  for (const report of ['team-incidents', 'team-tasks']) {
+    assert.deepEqual(
+      dashboardReportFilter(dashboardReport(report), 'workspace-a', '2026-10-10', assignments)
+        .assignmentGroupId,
+      { $in: ['team-a', 'team-b'] },
+    );
+    assert.deepEqual(filter(report).assignmentGroupId, { $in: [] });
+    assert.equal(dashboardReport(report, 'team-b'), null);
+  }
+});

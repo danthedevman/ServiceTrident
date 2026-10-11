@@ -1,3 +1,5 @@
+import { IdentityConnections } from './identity-connections.jsx';
+import { GreetingSettings } from '../preferences/greeting-settings.jsx';
 import { DateTimeSettings } from '../preferences/date-time-settings.jsx';
 import { AIFeatureSettings } from '../features/ai/ai.jsx';
 import { ThemeSettings } from '../preferences/theme-settings.jsx';
@@ -40,7 +42,9 @@ export function PrivateProfileSettings({ member }) {
   if (!user) return <PendingPage pathname="/profile" />;
   return (
     <div className="form-page">
+      <IdentityConnections />
       <ThemeSettings />
+      <GreetingSettings />
       <DateTimeSettings />
       <AIFeatureSettings />
       <h2 className="text-lg font-semibold">Private Account Settings</h2>

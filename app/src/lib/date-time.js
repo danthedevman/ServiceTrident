@@ -54,3 +54,6 @@ export function dateTime(value, timeZone = '', preferences = {}) {
     return new Intl.DateTimeFormat(undefined, options).format(date);
   }
 }
+
+/** Timestamp fields represent instants; date-only scheduling values retain their calendar date. */
+export const isTimestampField = (key) => /(?:At|Until)$/.test(key) || ['at', 'start', 'end'].includes(key);

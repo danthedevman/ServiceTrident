@@ -1,3 +1,5 @@
+import { writeApi } from '../../data/query-client.js';
+import { ValidatedForm } from '../../components/forms/validated-form.jsx';
 import { providerFields } from '../../../../shared/integrations/provider-fields.js';
 import { notify } from '../../data/toast.js';
 import { ConfirmDeleteButton } from '../../components/confirm-delete-button.jsx';
@@ -31,7 +33,7 @@ const help = {
   teams:
     'Create a Teams Workflow with an externally accessible webhook trigger and a channel-post action. Assign a co-owner for continuity.',
   servicenow:
-    'Use your instance root URL and a dedicated account with incident API access. Recovery adds a work note; your ServiceNow workflow controls closure.',
+    'Use your instance root URL and Basic Auth or OAuth client credentials with Incident API access. Recovery adds a work note; your ServiceNow workflow controls closure.',
 };
 /** Configure an adapter through the UI; blank secret fields preserve encrypted credentials. */
 export function IntegrationEditor({ initial, services, close, onSaved, onDeleted }) {
@@ -39,6 +41,9 @@ export function IntegrationEditor({ initial, services, close, onSaved, onDeleted
     [errors, setErrors] = useState({}),
     [editSmtp, setEditSmtp] = useState(!initial.smtpConfigured),
     save = useSave();
+  const [testing, setTesting] = useState(false),
+    [testMessage, setTestMessage] = useState(''),
+    [testError, setTestError] = useState('');
   const set = (key, input) => setValue((current) => ({ ...current, [key]: input })),
     fields = { ...errors, ...save.fields };
   const input = (key, label, type = 'text', maxLength = 1000) => (
@@ -49,7 +54,10 @@ export function IntegrationEditor({ initial, services, close, onSaved, onDeleted
         maxLength={maxLength}
         value={value[key] ?? ''}
         placeholder={
-          initial.configured && key !== 'name' && key !== 'recipients'
+          initial.configured &&
+          key !== 'name' &&
+          key !== 'recipients' &&
+          !(key === 'url' && initial.type === 'servicenow')
             ? 'Saved — leave blank to retain'
             : ''
         }
@@ -59,13 +67,15 @@ export function IntegrationEditor({ initial, services, close, onSaved, onDeleted
   );
   return (
     <FormPage title={initial.existing ? 'Configure Integration' : 'New Integration'}>
-      <form
+      <ValidatedForm
         noValidate
         className="form-body"
         onSubmit={(event) => {
           event.preventDefault();
           const next = integrationErrors(value, {
-            configured: initial.configured,
+            configured:
+              initial.configured &&
+              (value.type !== 'servicenow' || value.authType === initial.authType),
             smtpConfigured: initial.smtpConfigured,
           });
           setErrors(next);
@@ -176,7 +186,7 @@ export function IntegrationEditor({ initial, services, close, onSaved, onDeleted
                   : value.type === 'pagerduty'
                     ? 'Events API URL'
                     : 'Webhook URL',
-              'password',
+              value.type === 'servicenow' ? 'url' : 'password',
               4096,
             )}
             {(providerFields[value.type] || []).map((field) =>
@@ -184,8 +194,69 @@ export function IntegrationEditor({ initial, services, close, onSaved, onDeleted
             )}
             {value.type === 'servicenow' && (
               <>
-                {input('username', 'Integration username', 'text', 200)}
-                {input('password', 'Integration password', 'password')}
+                <Field name="authType" label="Authentication" errors={fields}>
+                  <Select
+                    value={value.authType || 'basic'}
+                    onChange={(event) => set('authType', event.target.value)}
+                  >
+                    <option value="basic">Basic Auth</option>
+                    <option value="oauth">OAuth · Client Credentials</option>
+                  </Select>
+                </Field>
+                {value.authType === 'oauth' ? (
+                  <>
+                    {input('clientId', 'Client ID', 'text', 512)}
+                    {input('clientSecret', 'Client Secret', 'password', 4096)}
+                    {input('scope', 'OAuth Scope (optional)', 'text', 1000)}
+                    <p className="field-hint">
+                      Configure an inbound OAuth client credentials integration in ServiceNow with
+                      Incident API permissions. Tokens are obtained from your instance’s
+                      /oauth_token.do endpoint.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    {input('username', 'Integration username', 'text', 200)}
+                    {input('password', 'Integration password', 'password')}
+                  </>
+                )}
+                {initial.existing && (
+                  <div className="space-y-3">
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      disabled={testing || save.busy}
+                      onClick={async () => {
+                        setTesting(true);
+                        setTestError('');
+                        setTestMessage('');
+                        try {
+                          const result = await writeApi(`/integrations/${initial.id}/test`, {
+                            method: 'POST',
+                            body: {},
+                          });
+                          setTestMessage(result.message);
+                        } catch (error) {
+                          setTestError(error.message);
+                        } finally {
+                          setTesting(false);
+                        }
+                      }}
+                    >
+                      Test Saved Connection
+                    </button>
+                    <p className="field-hint">
+                      Save any changes before testing. The test checks read access without creating
+                      an incident.
+                    </p>
+                    <Notice error={testError} />
+                    {testMessage && (
+                      <p role="status" className="text-sm text-emerald-700 dark:text-emerald-300">
+                        {testMessage}
+                      </p>
+                    )}
+                  </div>
+                )}
               </>
             )}
           </>
@@ -236,7 +307,7 @@ export function IntegrationEditor({ initial, services, close, onSaved, onDeleted
             {save.busy ? 'Saving…' : 'Save integration'}
           </button>
         </RecordActions>
-      </form>
+      </ValidatedForm>
     </FormPage>
   );
 }

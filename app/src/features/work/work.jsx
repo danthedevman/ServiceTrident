@@ -1,3 +1,5 @@
+import { ValidatedForm } from '../../components/forms/validated-form.jsx';
+import { PageTitle } from '../../components/page-title.jsx';
 import { ConfirmDeleteButton } from '../../components/confirm-delete-button.jsx';
 import { DateTime } from '../../preferences/date-time.jsx';
 import { notify } from '../../data/toast.js';
@@ -33,7 +35,8 @@ import { fieldChoices, recordFields } from '../../../../shared/forms/form-option
 import { displayValue } from '../../lib/display-value.js';
 import React, { useContext, useEffect, useState, lazy, Suspense } from 'react';
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { PlusIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, ArrowUpTrayIcon, ArrowDownTrayIcon, ArchiveBoxIcon } from '@heroicons/react/24/outline';
+import { writeApi } from '../../data/query-client.js';
 import { TASK_STATUSES, ARTICLE_STATUSES } from '../../../../shared/forms/work-options.js';
 import { useResource } from '../../data/use-resource.js';
 import { AuthContext } from '../../auth/auth-context.js';
@@ -88,7 +91,7 @@ export function WorkCreatePage({ kind = 'tasks' }) {
   return (
     <div className="form-page">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="page-title">Create {kind === 'tasks' ? 'Task' : 'Knowledge Article'}</h1>
+        <PageTitle>Create {kind === 'tasks' ? 'Task' : 'Knowledge Article'}</PageTitle>
         {user?.role === 'admin' && (
           <RecordHeader>
             <ActionMenu label="Form actions">
@@ -213,7 +216,7 @@ export function WorkTable({
       key: 'updatedAt',
       label: 'Updated',
       value: (r) => r.updatedAt,
-      render: (r) => new Date(r.updatedAt).toLocaleString('en-GB', { timeZone: 'UTC' }),
+      render: (r) => <DateTime value={r.updatedAt} />,
     },
   ];
   return (
@@ -356,6 +359,18 @@ export function WorkDetail({ kind = 'tasks' }) {
     resource = useResource(`/${kind}/${id}`);
   const task = kind === 'tasks';
   const item = resource.data?.item;
+  const publish = useSave();
+  const articleSchema = useResource(!task && canEdit ? '/knowledge-fields' : null);
+  const publishedOption = articleSchema.data
+    ? fieldChoices(
+        'knowledge',
+        articleSchema.data.fields.find((field) => field.id === 'status'),
+      ).find((option) => !option.hidden && option.base === 'published')
+    : null;
+  const articleStatuses = articleSchema.data ? fieldChoices('knowledge', articleSchema.data.fields.find((field) => field.id === 'status')) : [];
+  const draftOption = articleStatuses.find((option) => !option.hidden && option.base === 'draft');
+  const archiveOption = articleStatuses.find((option) => !option.hidden && option.base === 'archived');
+  const changeArticleStatus = (option) => writeApi(`/knowledge/${item.id}`, { method: 'PATCH', body: { revision: item.revision, statusOption: option.value } });
   const [formVersion, setFormVersion] = useState(0);
   const [editingId, setEditingId] = useState(null);
   const editing = editingId === useParams().id;
@@ -365,7 +380,7 @@ export function WorkDetail({ kind = 'tasks' }) {
   };
   return (
     <div className="space-y-6">
-      <Notice error={resource.error} />
+      <Notice error={resource.error || publish.error} />
       {!item ? (
         <p role="status" className={resource.error ? undefined : 'sr-only'}>
           {resource.error ? 'Record unavailable.' : 'Loading details…'}
@@ -375,6 +390,28 @@ export function WorkDetail({ kind = 'tasks' }) {
           <RecordWorkspace
             item={item}
             kind={kind}
+            secondaryActions={!task && canEdit && !editing && item.status !== 'archived' && archiveOption ? <ConfirmDeleteButton title="Archive Article?" confirmLabel="Archive Article" confirmation={`Archive “${item.title}”? It will leave the active article list. Its content and history will be retained.`} disabled={publish.busy} onConfirm={() => changeArticleStatus(archiveOption)}><ArchiveBoxIcon className="h-5 w-5" aria-hidden="true" />Archive Article</ConfirmDeleteButton> : undefined}
+            actions={
+              !task && canEdit && !editing && item.status === 'published' && draftOption ? (
+                <ConfirmDeleteButton className="btn-secondary" title="Unpublish Article?" confirmLabel="Unpublish Article" confirmClassName="btn-primary" confirmation={`Unpublish “${item.title}” and return it to Draft? Its content will be retained.`} disabled={publish.busy} onConfirm={() => changeArticleStatus(draftOption)}><ArrowDownTrayIcon className="h-4 w-4" aria-hidden="true" />Unpublish</ConfirmDeleteButton>
+              ) : !task && canEdit && !editing && item.status !== 'published' && publishedOption ? (
+                <button
+                  type="button"
+                  className="btn-primary"
+                  disabled={publish.busy}
+                  aria-busy={publish.busy}
+                  onClick={() =>
+                    publish.run(`/knowledge/${item.id}`, 'PATCH', {
+                      revision: item.revision,
+                      statusOption: publishedOption.value,
+                    })
+                  }
+                >
+                  <ArrowUpTrayIcon className="h-4 w-4" aria-hidden="true" />
+                  Publish
+                </button>
+              ) : undefined
+            }
             onEdit={canEdit && !editing ? () => setEditingId(id) : undefined}
             sidebar={
               <>
@@ -861,7 +898,7 @@ function WorkForm({
     );
   };
   return (
-    <form
+    <ValidatedForm
       noValidate
       className="form-body"
       onSubmit={(event) => {
@@ -911,7 +948,7 @@ function WorkForm({
           },
           (result) => {
             if (item) onClose();
-            else navigate(`/${kind}/${result.item.id}`);
+            else navigate(`/${kind}/${result.item.id}`, { state: { createdRecord: true } });
           },
         );
       }}
@@ -1057,7 +1094,7 @@ function WorkForm({
           {save.busy ? 'Saving…' : item ? 'Save Changes' : `Create ${task ? 'Task' : 'Article'}`}
         </button>
       </RecordActions>
-    </form>
+    </ValidatedForm>
   );
 }
 

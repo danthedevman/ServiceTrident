@@ -1,4 +1,5 @@
 import { COLOR_SCHEMES } from '../../../shared/domain/color-schemes.js';
+import { useLocation } from 'react-router-dom';
 import React, {
   createContext,
   useContext,
@@ -51,20 +52,23 @@ function initialLayout() {
 
 /** Restore layout before paint and serialize authenticated preference writes to preserve toggle order. */
 export function PreferencesProvider({ children }) {
+  const publicStatus = useLocation().pathname.startsWith('/status/public/');
   const { user } = useContext(AuthContext);
   const [resolvedAccount, setResolvedAccount] = useState(null);
   const [values, setValues] = useState(initialLayout),
     [error, setError] = useState('');
   useLayoutEffect(() => {
+    const appearance = publicStatus ? uiPreferences() : values;
     const root = document.documentElement;
     const palette =
-      COLOR_SCHEMES.find((scheme) => scheme.id === values.colorScheme) ?? COLOR_SCHEMES[0];
+      COLOR_SCHEMES.find((scheme) => scheme.id === appearance.colorScheme) ?? COLOR_SCHEMES[0];
     root.dataset.colorScheme = palette.id;
-    root.dataset.contrast = values.highContrast ? 'high' : 'standard';
-    root.dataset.reduceMotion = String(values.reduceMotion);
-    root.dataset.textScale = values.textScale;
+    root.dataset.contrast = appearance.highContrast ? 'high' : 'standard';
+    root.dataset.reduceMotion = String(appearance.reduceMotion);
+    root.dataset.textScale = appearance.textScale;
     root.style.setProperty('--app-background-light', palette.background);
     root.style.setProperty('--app-background-dark', palette.dark);
+    root.style.setProperty('--app-surface-light', `hsl(${palette.neutral} 12% 99%)`);
     for (const [shade, lightness] of [
       [50, 97],
       [100, 94],
@@ -86,7 +90,13 @@ export function PreferencesProvider({ children }) {
           : `hsl(${palette.neutral} 12% ${lightness}%)`,
       );
     }
-  }, [values.colorScheme, values.highContrast, values.reduceMotion, values.textScale]);
+  }, [values.colorScheme, values.highContrast, values.reduceMotion, values.textScale, publicStatus]);
+  useLayoutEffect(() => {
+    document.documentElement.style.setProperty(
+      '--record-rail-width',
+      `${values.rightCollapsed ? 64 : values.rightPanelWidth}px`,
+    );
+  }, [values.rightCollapsed, values.rightPanelWidth]);
   const current = useRef(values),
     identity = useRef(user?.id),
     queue = useRef(Promise.resolve());

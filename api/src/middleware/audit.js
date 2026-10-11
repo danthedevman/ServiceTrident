@@ -41,30 +41,25 @@ const safeFields = new Set([
   'memberIds',
   'startsAt',
   'endsAt',
+  'scopes',
+  'apiKeyEnabled',
+  'oauthEnabled',
+  'expiresInDays',
 ]);
 const objectId = (value) => (/^[a-f\d]{24}$/i.test(String(value ?? '')) ? String(value) : '');
 
-/** Audit authenticated mutations and individual record reads, excluding background list polling.
+/** Audit every API response, including list reads, failures and machine authentication.
  * Append before ending the response. Mutations and audit inserts are separate writes; this is
  * application history, not a transactional or tamper-proof compliance ledger.
  */
 export function auditActivity(db) {
   return (req, res, next) => {
     const path = req.path;
-    if (path.startsWith('/tables/audit')) return next();
     const mutation = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method);
     const recordRead = req.method === 'GET' && /\/[a-f\d]{24}(?:\/|$)/i.test(path);
     const exporting =
       req.method === 'GET' && (req.query.export === 'csv' || path.endsWith('/export'));
-    if (!mutation && !recordRead && !exporting) return next();
-    const actor = {
-      workspaceId: req.workspaceId,
-      actorId: req.user._id,
-      actor: req.user.displayName || req.user.email,
-      actualRole: req.actualRole,
-      effectiveRole: req.role,
-      requestId: randomUUID(),
-    };
+    const requestId = randomUUID();
     const originalJson = res.json,
       originalEnd = res.end;
     let payload,
@@ -76,8 +71,18 @@ export function auditActivity(db) {
     res.end = function (...args) {
       if (ending) return this;
       ending = true;
+      // Identity is resolved later in the pipeline. Unverified requests never inherit
+      // a tenant from input, cookies, client IDs or record IDs.
+      const actor = {
+        workspaceId: req.workspaceId ?? null,
+        actorId: req.user?._id ?? '',
+        actor: req.user?.displayName || req.user?.email || 'System',
+        actualRole: req.actualRole || 'unauthenticated',
+        effectiveRole: req.serviceAccount ? 'service_account' : req.role || 'unauthenticated',
+        requestId,
+      };
       const route = typeof req.route?.path === 'string' ? req.route.path : '/api/unknown';
-      const parts = route.replace(/^\/api\//, '').split('/');
+      const parts = route.replace(/^\/api\//, '').replace(/^\//, '').split('/');
       const record =
         payload?.group ||
         payload?.item ||
@@ -101,19 +106,19 @@ export function auditActivity(db) {
               PUT: 'update',
               PATCH: 'update',
               DELETE: 'delete',
-            }[req.method];
+            }[req.method] || 'request';
       const entry = {
         ...actor,
         recordId,
         parentId:
           objectId(req.params.recordId) ||
           (parts.includes('comments') ? objectId(req.params.id) : ''),
-        recordType: parts.includes('comments')
+        recordType: res.locals.auditRecordType || (parts.includes('comments')
           ? 'comments'
           : parts[0] === 'tables'
             ? String(req.params.kind)
-            : parts[0],
-        operation: `${req.method} ${route}`,
+            : parts[0]),
+        operation: res.locals.auditOperation || `${req.method} ${route}`,
         action,
         fields:
           mutation && req.body && !Buffer.isBuffer(req.body)

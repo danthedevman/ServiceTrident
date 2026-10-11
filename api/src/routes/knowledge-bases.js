@@ -61,7 +61,7 @@ export function installKnowledgeBases(app, db) {
             deleting: { $exists: false },
           })
         : null;
-    if (mode === 'move' && (!target || targetId === req.params.id))
+    if (mode === 'move' && (!target || String(target._id) === String(current._id)))
       throw new InputError('Choose another available knowledge base in this workspace.');
     if (
       current.deleting &&

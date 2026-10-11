@@ -50,4 +50,9 @@ export function incidentQuery(query, req) {
 }
 
 /** Remove MongoDB identifiers from client-facing incident records. */
-export const incidentView = ({ _id, workspaceId, ...rest }) => ({ id: String(_id), ...rest });
+export const incidentView = ({ _id, workspaceId, triggeringChecks, ...rest }) => ({
+  id: String(_id),
+  ...rest,
+  monitorTriggersRecorded: Array.isArray(triggeringChecks),
+  hasMonitorEvents: (triggeringChecks?.length ?? 0) > 0,
+});

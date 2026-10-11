@@ -1,4 +1,6 @@
-import React, { createContext, useId, useState } from 'react';
+import React, { createContext, useContext, useId, useState } from 'react';
+
+export const ActivePanelContext = createContext(true);
 
 export const RelatedListContext = createContext(false);
 
@@ -12,6 +14,7 @@ export function RecordTabs({
   selectedId,
   onSelect,
 }) {
+  const parentActive = useContext(ActivePanelContext);
   const [selected, setSelected] = useState(selectedId ?? tabs[0]?.id),
     prefix = useId();
   const [visited, setVisited] = useState(() => new Set([selectedId ?? tabs[0]?.id]));
@@ -74,9 +77,11 @@ export function RecordTabs({
             aria-hidden={tab.id !== active}
             tabIndex={0}
           >
-            <RelatedListContext.Provider value={related}>
-              {(!lazy || tab.id === active || visited.has(tab.id)) && tab.content}
-            </RelatedListContext.Provider>
+            <ActivePanelContext.Provider value={parentActive && tab.id === active}>
+              <RelatedListContext.Provider value={related}>
+                {(!lazy || tab.id === active || visited.has(tab.id)) && tab.content}
+              </RelatedListContext.Provider>
+            </ActivePanelContext.Provider>
           </div>
         ))}
       </div>

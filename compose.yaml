@@ -70,6 +70,7 @@ services:
     environment:
       NODE_ENV: production
       CHECK_CONCURRENCY: ${CHECK_CONCURRENCY:-10}
+      APP_ORIGIN: ${APP_ORIGIN:-http://127.0.0.1:8090}
       INTEGRATION_ENCRYPTION_KEY: ${INTEGRATION_ENCRYPTION_KEY:-}
       INTEGRATION_KEY_FILE: /srv/secrets/integration.key
       SMTP_HOST: ${SMTP_HOST:-}

@@ -7,6 +7,10 @@ export function dashboardReportHref(report, value = '') {
 
 const definitions = {
   incidents: ['Unresolved Incidents', 'incidents'],
+  'my-incidents': ['Incidents Assigned to Me', 'incidents'],
+  'team-incidents': ['Incidents Assigned to My Team', 'incidents'],
+  'my-tasks': ['Tasks Assigned to Me', 'tasks'],
+  'team-tasks': ['Tasks Assigned to My Team', 'tasks'],
   urgent: ['Critical / High Unresolved Incidents', 'incidents'],
   unassigned: ['Unassigned Unresolved Incidents', 'incidents'],
   severity: [
@@ -48,13 +52,22 @@ export function dashboardReport(report, value = '') {
 }
 
 /** Same canonical predicates as the dashboard aggregates; UTC dates exclude today's tasks. */
-export function dashboardReportFilter({ report, value, kind }, workspaceId, today) {
+export function dashboardReportFilter(
+  { report, value, kind },
+  workspaceId,
+  today,
+  assignments = {},
+) {
   const filter = {
     workspaceId,
     status: {
       $in: kind === 'incidents' ? ['open', 'acknowledged'] : ['todo', 'in_progress', 'blocked'],
     },
   };
+  if (['my-incidents', 'my-tasks'].includes(report))
+    filter.assigneeId = assignments.assigneeId ?? { $in: [] };
+  if (['team-incidents', 'team-tasks'].includes(report))
+    filter.assignmentGroupId = { $in: assignments.teamIds ?? [] };
   if (report === 'urgent') filter.severity = { $in: ['critical', 'high'] };
   if (report === 'unassigned') filter.assigneeId = null;
   if (report === 'serviceIncidents') filter.serviceId = value === 'none' ? null : value;

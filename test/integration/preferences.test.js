@@ -54,6 +54,7 @@ test(
       { role: 'admin' },
       { leftCollapsed: 'true' },
       { filtersOpen: 'true' },
+      { compactTables: 'true' },
       { dashboardTab: 'unknown' },
       { leftCollapsed: true, userId: other.data.user.id },
     ])
@@ -84,6 +85,9 @@ test(
       200,
     );
     const appearance = {
+      compactTables: true,
+      rightPanelWidth: 456,
+      dashboardGreeting: 'Hello, {firstName}',
       colorScheme: 'forest',
       highContrast: true,
       reduceMotion: true,

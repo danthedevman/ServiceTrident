@@ -1,13 +1,18 @@
+import { DateTime } from '../preferences/date-time.jsx';
+import { ActivePanelContext } from './record-tabs.jsx';
+import { useRecordTabLabel } from './record-navigation.jsx';
+import { useRecordSidebarResize } from './record-sidebar-resize.jsx';
 import { Link } from 'react-router-dom';
 import { AuthContext } from '../auth/auth-context.js';
 import { ActionMenu } from './action-menu.jsx';
 import { StateBadge } from './state-badge.jsx';
 import { ReferenceValue } from './reference-value.jsx';
-import { RecordActionContext, RecordHeader } from './record-actions.jsx';
+import { RecordActionContext, RecordHeader, RecordRailContext } from './record-actions.jsx';
 import { recordNumber } from '../lib/record-number.js';
-import React, { useContext, useId, useState } from 'react';
+import React, { useContext, useId, useLayoutEffect, useState } from 'react';
 import {
   PencilSquareIcon,
+  AdjustmentsHorizontalIcon,
   ChevronDoubleLeftIcon,
   ChevronDoubleRightIcon,
 } from '@heroicons/react/24/outline';
@@ -28,11 +33,21 @@ export function RecordWorkspace({
   status,
   showToolbar = true,
 }) {
+  useRecordTabLabel(item?.title || item?.name || item?.displayName);
   const { user } = useContext(AuthContext);
   const showFormBuilder =
     user?.role === 'admin' && ['incidents', 'tasks', 'knowledge'].includes(kind);
-  const { rightCollapsed: collapsed, setPreference } = useUiPreferences(),
-    id = useId();
+  const preferences = useUiPreferences();
+  const { setPreference } = preferences;
+  const { collapsed, handle } = useRecordSidebarResize(preferences);
+  const id = useId();
+  const registerRail = useContext(RecordRailContext),
+    active = useContext(ActivePanelContext);
+  useLayoutEffect(() => {
+    if (!active || !registerRail) return;
+    registerRail(id, true);
+    return () => registerRail(id, false);
+  }, [active, registerRail, id]);
   const [toolbar, setToolbar] = useState(null);
   const state =
     status ??
@@ -50,7 +65,7 @@ export function RecordWorkspace({
   return (
     <div className="record-container">
       <div className="record-workspace">
-        <div className="record-body min-w-0 space-y-3">
+        <div className="record-body min-w-0 space-y-2">
           {showToolbar && (
             <RecordHeader>
               <div className="record-toolbar flex flex-wrap items-center justify-end gap-3">
@@ -58,7 +73,12 @@ export function RecordWorkspace({
                   {(showFormBuilder || secondaryActions) && (
                     <ActionMenu label="Record actions">
                       {secondaryActions}
-                      {showFormBuilder && <Link to={`/${kind}/fields`}>Form Builder</Link>}
+                      {showFormBuilder && (
+                        <Link to={`/${kind}/fields`}>
+                          <AdjustmentsHorizontalIcon className="h-5 w-5" aria-hidden="true" />
+                          Form Builder
+                        </Link>
+                      )}
                     </ActionMenu>
                   )}
                   <div ref={setToolbar} className="flex flex-wrap items-center gap-2">
@@ -71,7 +91,7 @@ export function RecordWorkspace({
           )}
           <RecordActionContext.Provider value={toolbar}>
             {item && (
-              <div className="record-identity flex flex-wrap items-center gap-3 py-2">
+              <div className="record-identity flex flex-wrap items-center gap-3 py-1">
                 <span
                   className="break-all font-mono text-xs text-slate-500"
                   aria-label="Record number"
@@ -85,6 +105,12 @@ export function RecordWorkspace({
           </RecordActionContext.Provider>
         </div>
         <aside aria-label={label} data-collapsed={collapsed} className="record-sidebar min-w-0">
+          <div
+            {...handle}
+            className="record-sidebar-resizer"
+            aria-controls={id}
+            title="Drag to resize; Arrow keys resize, Home collapses, End expands to maximum"
+          />
           <div className="record-sidebar-header">
             <button
               type="button"
@@ -120,21 +146,11 @@ export function RecordSection({ title, children }) {
   );
 }
 
-/** Expose an explicit audit allowlist, never whole API documents or credentials. Dates are labeled UTC. */
+/** Expose an explicit audit allowlist, never whole API documents or credentials. Dates follow the viewer's saved timezone and format. */
 export function RecordMetadata({ item, extra = [] }) {
   const members = useResource('/members');
-  const date = (value) => {
-    if (!value) return null;
-    const parsed = new Date(value);
-    return Number.isNaN(+parsed) ? null : (
-      <time dateTime={parsed.toISOString()}>
-        {parsed
-          .toISOString()
-          .replace('T', ' ')
-          .replace(/\.\d{3}Z$/, ' UTC')}
-      </time>
-    );
-  };
+  const date = (value) =>
+    value && !Number.isNaN(+new Date(value)) ? <DateTime value={value} /> : null;
   const person = (label, id) =>
     label ||
     members.data?.members.find((member) => member.id === id)?.displayName ||
@@ -150,7 +166,7 @@ export function RecordMetadata({ item, extra = [] }) {
       'Created by',
       <ReferenceValue
         key="created-by"
-        type="members"
+        type={item.createdByType === 'service_account' ? 'serviceAccounts' : 'members'}
         id={item.createdById}
         label={person(item.createdBy, item.createdById)}
       />,
@@ -160,7 +176,7 @@ export function RecordMetadata({ item, extra = [] }) {
       'Updated by',
       <ReferenceValue
         key="updated-by"
-        type="members"
+        type={item.updatedByType === 'service_account' ? 'serviceAccounts' : 'members'}
         id={item.updatedById}
         label={person(item.updatedBy, item.updatedById)}
       />,

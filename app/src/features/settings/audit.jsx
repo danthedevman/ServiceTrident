@@ -1,3 +1,4 @@
+import { DateTime } from '../../preferences/date-time.jsx';
 import React from 'react';
 import { DataTable } from '../../components/data-table.jsx';
 import { displayValue } from '../../lib/display-value.js';
@@ -9,7 +10,7 @@ export function AuditPage() {
       key: 'createdAt',
       label: 'Time',
       value: (row) => row.createdAt,
-      render: (row) => new Date(row.createdAt).toLocaleString('en-GB', { timeZone: 'UTC' }),
+      render: (row) => <DateTime value={row.createdAt} />,
     },
     { key: 'actor', label: 'Performed by', value: (row) => row.actor },
     {

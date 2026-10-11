@@ -1,4 +1,5 @@
 import { writeAudit } from '@servicetrident/shared/domain/audit';
+import { authenticatedIdentity } from '../auth/auth.js';
 import { ObjectId } from 'mongodb';
 
 import { InputError } from '@servicetrident/shared/validation/validation';
@@ -66,6 +67,7 @@ export function installInviteRoute(app, db, limit) {
       statusCode: 201,
     });
     await createSession(db, res, user._id);
+    authenticatedIdentity(req, user);
     res.status(201).json({ user: serializeUser(user) });
   });
 }

@@ -1,3 +1,4 @@
+import { systemActor } from '@servicetrident/shared/domain/audit';
 import { embeddedImageIds } from '@servicetrident/shared/files/rich-content';
 import { dashboardReportTable } from '../repositories/dashboard-report.js';
 import { Readable } from 'node:stream';
@@ -11,8 +12,13 @@ import { members, memberFilter } from '../repositories/members.js';
 import { settings } from '../repositories/settings.js';
 import { catalog, id } from './services.js';
 import { incidentAccess } from '../domain/incidents.js';
+import { incidentMonitorEvents } from '../repositories/incident-monitor-events.js';
 
-const view = ({ _id, ...row }) => ({ id: String(_id), ...row });
+const view = ({ _id, ...row }) => ({
+  id: String(_id),
+  ...row,
+  ...(row.actor && !row.actorId ? { actor: systemActor(row.actor) } : {}),
+});
 const fields = (...names) => Object.fromEntries(names.map((name) => [name, name]));
 /** Parent authorization is reused by related tables and their exports. */
 async function parent(db, req, kind = 'incidents') {
@@ -38,6 +44,10 @@ async function source(db, req) {
   )
     throw new InputError('Administrator access required.', 403);
   if (kind === 'dashboard-report') return dashboardReportTable(db, req);
+  if (kind === 'incident-monitor-events') {
+    const incident = await parent(db, req);
+    return incidentMonitorEvents(db, workspaceId, incident);
+  }
   if (kind === 'audit')
     return databaseTable(
       db,
@@ -141,6 +151,7 @@ async function source(db, req) {
         .filter((row) => ['admin', 'responder'].includes(req.role) || row.kind !== 'work_note')
         .map((row, index) => ({
           ...row,
+          by: systemActor(row.by),
           id: String(index),
           note: row.previousResolutionNotes
             ? `${row.note} — Previous resolution: ${row.previousResolutionNotes}`
@@ -464,6 +475,14 @@ async function source(db, req) {
 
 /** Every table and export uses the same authorization, predicates, and column allowlist. */
 export function installTableRoutes(app, db) {
+  app.get('/api/table-records/:kind/:id', async (req, res) => {
+    if (typeof req.params.id !== 'string' || req.params.id.length > 256)
+      throw new InputError('Record not found.', 404);
+    const definition = await source(db, req);
+    const item = await definition.record?.(req.params.id);
+    if (!item) throw new InputError('Record not found.', 404);
+    res.json({ item, fields: definition.fields, dateColumn: definition.dateColumn });
+  });
   app.get('/api/tables/:kind', async (req, res) => {
     const table = await source(db, req),
       q = tableQuery(req.query, table.fields, table.dateColumn);

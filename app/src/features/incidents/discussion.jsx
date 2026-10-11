@@ -1,7 +1,12 @@
+import { ValidatedForm } from '../../components/forms/validated-form.jsx';
 import { DateTime } from '../../preferences/date-time.jsx';
 import { Select } from '../../components/forms/select.jsx';
 import React, { useState } from 'react';
-import { ChatBubbleLeftRightIcon, LockClosedIcon } from '@heroicons/react/24/outline';
+import {
+  ChatBubbleLeftRightIcon,
+  LockClosedIcon,
+  TableCellsIcon,
+} from '@heroicons/react/24/outline';
 import { useSave } from '../../data/use-save.js';
 import { Field, Notice } from '../../components/forms/fields.jsx';
 import { AutoTextarea } from '../../components/forms/auto-textarea.jsx';
@@ -25,7 +30,7 @@ export function IncidentDiscussion({ incidentId, comments, role }) {
   return (
     <section className="min-w-0 space-y-5 p-4 sm:p-5">
       {role !== 'viewer' && (
-        <form
+        <ValidatedForm
           className="space-y-4 border-b border-slate-200 pb-5 dark:border-slate-700"
           noValidate
           onSubmit={(event) => {
@@ -93,7 +98,7 @@ export function IncidentDiscussion({ incidentId, comments, role }) {
               {save.busy ? 'Posting…' : kind === 'work_note' ? 'Add Work Note' : 'Post comment'}
             </button>
           </div>
-        </form>
+        </ValidatedForm>
       )}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="font-semibold">
@@ -103,9 +108,10 @@ export function IncidentDiscussion({ incidentId, comments, role }) {
         <div className="flex flex-wrap items-center gap-2">
           {staff && (
             <label className="flex items-center gap-2 text-sm">
-              Show
+              <span className="sr-only">Conversation filter</span>
               <Select
-                className="!mt-0"
+                className="!mt-0 !h-9 !py-0"
+                aria-label="Conversation filter"
                 value={filter}
                 onChange={(event) => {
                   setFilter(event.target.value);
@@ -120,11 +126,17 @@ export function IncidentDiscussion({ incidentId, comments, role }) {
           )}
           <button
             type="button"
-            className="btn-secondary"
+            className="btn-secondary !h-9 !w-9 !p-0"
+            aria-label={table ? 'Conversation view' : 'Table view'}
+            title={table ? 'Conversation view' : 'Table view'}
             aria-pressed={table}
             onClick={() => setTable(!table)}
           >
-            {table ? 'Conversation view' : 'Table view'}
+            {table ? (
+              <ChatBubbleLeftRightIcon className="h-4 w-4" aria-hidden="true" />
+            ) : (
+              <TableCellsIcon className="h-4 w-4" aria-hidden="true" />
+            )}
           </button>
         </div>
       </div>

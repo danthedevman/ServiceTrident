@@ -1,3 +1,6 @@
+import { TableRecordPage } from './features/records/table-record.jsx';
+import { IdentityProvidersPage } from './features/settings/identity-providers.jsx';
+import { ServiceAccountsPage } from './features/settings/service-accounts.jsx';
 import { KnowledgeBasesPage, KnowledgeBasePage } from './features/work/knowledge-bases.jsx';
 import { HelpPage } from './features/help/help.jsx';
 import { Toasts } from './components/toasts.jsx';
@@ -63,8 +66,8 @@ export function ServicesPage() {
 export function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <BrowserRouter>
+      <BrowserRouter>
+        <ThemeProvider>
           <Toasts />
           <ScrollToTop />
           <AuthProvider>
@@ -268,6 +271,17 @@ export function App() {
                     </AdminOnly>
                   }
                 />
+                <Route
+                  path="settings/identity-providers"
+                  element={
+                    <AdminOnly page>
+                      <IdentityProvidersPage />
+                    </AdminOnly>
+                  }
+                />
+                <Route path="records/:kind/:id" element={<TableRecordPage />} />
+                <Route path="settings/service-accounts" element={<AdminOnly page><ServiceAccountsPage /></AdminOnly>} />
+                <Route path="settings/service-accounts/:id" element={<AdminOnly page><ServiceAccountsPage /></AdminOnly>} />
                 <Route path="settings" element={<SettingsPage />} />
                 <Route path="dashboard" element={<Navigate to="/" replace />} />
                 <Route
@@ -342,8 +356,8 @@ export function App() {
               </Route>
             </Routes>
           </AuthProvider>
-        </BrowserRouter>
-      </ThemeProvider>
+        </ThemeProvider>
+      </BrowserRouter>
     </QueryClientProvider>
   );
 }

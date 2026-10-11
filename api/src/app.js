@@ -1,3 +1,8 @@
+import { installMachineRoutes, installServiceAccountSettings } from './routes/service-accounts.js';
+import {
+  installPublicIdentityRoutes,
+  installIdentitySettings,
+} from './routes/identity-providers.js';
 import { installKnowledgeBases } from './routes/knowledge-bases.js';
 import { installAI } from './routes/ai.js';
 import { installStatusSubscriptions } from './routes/status-subscriptions.js';
@@ -36,7 +41,7 @@ import { installEventRoutes } from './routes/events.js';
 /** Build an Express API with injected database access for integration testing.
  * @param {import('mongodb').Db} db @returns {import('express').Express}
  */
-export function createApp(db, { aiFetch } = {}) {
+export function createApp(db, { aiFetch, oidcFetch, integrationRequest } = {}) {
   const configuredOrigin = new URL(process.env.APP_ORIGIN ?? 'http://127.0.0.1:8090');
   if (!['http:', 'https:'].includes(configuredOrigin.protocol))
     throw new Error('APP_ORIGIN must use HTTP or HTTPS.');
@@ -49,6 +54,7 @@ export function createApp(db, { aiFetch } = {}) {
     res.set('Cache-Control', 'no-store');
     next();
   });
+  app.use('/api', auditActivity(db));
   app.get('/api/health', async (req, res) => {
     await db.command({ ping: 1 });
     res.json({ status: 'ok' });
@@ -64,6 +70,7 @@ export function createApp(db, { aiFetch } = {}) {
     }),
   );
   app.use(express.json({ limit: '256kb' }));
+  const machine = installMachineRoutes(app, db);
   installStatusSubscriptions(app, db, appOrigin);
   app.use('/api', (req, res, next) => {
     if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
@@ -97,6 +104,7 @@ export function createApp(db, { aiFetch } = {}) {
     message: { error: 'Too many sign-in attempts. Try again in 15 minutes.' },
   });
   installPublicAuthRoutes(app, db, authLimit);
+  installPublicIdentityRoutes(app, db, authLimit, appOrigin, oidcFetch);
 
   app.get('/api/public/status/:token/icon', async (req, res) => {
     if (!/^[a-f\d]{48}$/.test(req.params.token))
@@ -105,6 +113,7 @@ export function createApp(db, { aiFetch } = {}) {
       .collection('catalogs')
       .findOne({ publicToken: req.params.token, visibility: 'public' });
     if (!page) throw new InputError('Status page not found.', 404);
+    req.workspaceId = page._id;
     await sendStatusIcon(db, page._id, res);
   });
   app.get('/api/public/status/:token', async (req, res) => {
@@ -114,12 +123,14 @@ export function createApp(db, { aiFetch } = {}) {
       .collection('catalogs')
       .findOne({ publicToken: req.params.token, visibility: 'public' });
     if (!page) throw new InputError('Status page not found.', 404);
+    req.workspaceId = page._id;
     res.json(await statusData(db, page._id, serializeMonitor, true, req.query.range));
   });
   installInviteRoute(app, db, authLimit);
   app.use('/api', requireUser(db));
-  app.use('/api', auditActivity(db));
+  installServiceAccountSettings(app, db);
   installAccountRoutes(app, db, authLimit);
+  installIdentitySettings(app, db, appOrigin, oidcFetch, authLimit);
   installWorkspaceSettings(app, db);
   installTableRoutes(app, db);
   installReferenceRoutes(app, db);
@@ -148,10 +159,10 @@ export function createApp(db, { aiFetch } = {}) {
   installDemoRoutes(app, db);
   app.use('/api', demoWriteGuard(db));
   installAttachmentRoutes(app, db);
-  installOperationsRoutes(app, db, appOrigin);
+  installOperationsRoutes(app, db, appOrigin, integrationRequest, machine);
   installKnowledgeBases(app, db);
   installAI(app, db, aiFetch);
-  installWorkRoutes(app, db);
+  installWorkRoutes(app, db, machine);
   installRecordDeletionRoutes(app, db);
   installSearchRoute(app, db);
   installServiceRoutes(app, db);

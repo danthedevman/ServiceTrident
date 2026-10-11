@@ -1,3 +1,8 @@
+import {
+  dashboardReport,
+  dashboardReportFilter,
+} from '@servicetrident/shared/domain/dashboard-reports';
+import { reportAssignments } from '../repositories/report-assignments.js';
 import { memberFilter } from '../repositories/members.js';
 import { incidentView } from '../domain/incidents.js';
 /** Register response-dashboard routes; authentication and workspace policy run in app.js. */
@@ -100,6 +105,25 @@ export function installResponseDashboardRoutes(app, db, appOrigin) {
             .countDocuments({ $and: [memberFilter(workspaceId), { disabled: { $ne: true } }] })
         : null,
     ]);
+    const assignments = await reportAssignments(db, workspaceId, req.user._id);
+    const assignmentReports = ['my-incidents', 'team-incidents', 'my-tasks', 'team-tasks'];
+    const assignedWork = Object.fromEntries(
+      await Promise.all(
+        assignmentReports.map(async (key) => {
+          const report = dashboardReport(key);
+          const filter = dashboardReportFilter(report, workspaceId, today, assignments);
+          const attention =
+            report.kind === 'incidents'
+              ? { severity: { $in: ['critical', 'high'] } }
+              : { dueDate: { $type: 'string', $gt: '', $lt: today } };
+          const [total, needsAttention] = await Promise.all([
+            db.collection(report.kind).countDocuments(filter),
+            db.collection(report.kind).countDocuments({ ...filter, ...attention }),
+          ]);
+          return [key, { total, needsAttention }];
+        }),
+      ),
+    );
     const now = Date.now();
     const overview = {
       knowledgeBases: bases,
@@ -124,6 +148,8 @@ export function installResponseDashboardRoutes(app, db, appOrigin) {
     };
     res.json({
       overview,
+      assignedWork,
+      teamCount: assignments.teamIds.length,
       incidentStatus: Object.fromEntries(incidentStatus.map((row) => [row._id, row.count])),
       taskPriority: Object.fromEntries(taskPriority.map((row) => [row._id, row.count])),
       severity: Object.fromEntries(severity.map((row) => [row._id, row.count])),

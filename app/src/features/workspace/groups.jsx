@@ -1,3 +1,4 @@
+import { ValidatedForm } from '../../components/forms/validated-form.jsx';
 import { PlusIcon } from '@heroicons/react/24/outline';
 import { RecordActions } from '../../components/record-actions.jsx';
 import { CancelButton } from '../../components/forms/cancel-button.jsx';
@@ -57,7 +58,9 @@ export function GroupsPage({ form = false }) {
         revision={groups.data.revision}
         members={members.data.members}
         onClose={close}
-        onSaved={(result) => navigate(`/groups/${result.group.id}`)}
+        onSaved={(result) =>
+          navigate(`/groups/${result.group.id}`, { state: { createdRecord: !id } })
+        }
       />
     );
   if (id)
@@ -196,7 +199,7 @@ function GroupEditor({ initial, revision, members, onClose, onSaved }) {
   const [originalRevision] = useState(revision);
   return (
     <FormPage title={initial.id ? 'Edit Group' : 'Create Group'}>
-      <form
+      <ValidatedForm
         noValidate
         className="form-body"
         onSubmit={(e) => {
@@ -247,7 +250,7 @@ function GroupEditor({ initial, revision, members, onClose, onSaved }) {
             {save.busy ? 'Saving…' : 'Save group'}
           </button>
         </RecordActions>
-      </form>
+      </ValidatedForm>
     </FormPage>
   );
 }

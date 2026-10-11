@@ -1,3 +1,4 @@
+import { PageTitle } from '../../components/page-title.jsx';
 import { UsersIcon, UserGroupIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 import { AuthContext } from '../../auth/auth-context.js';
 import { ConfirmDeleteButton } from '../../components/confirm-delete-button.jsx';
@@ -69,6 +70,21 @@ function AdminSettings() {
         <Link className="btn-primary" to="/integrations">
           Manage integrations
         </Link>
+      </section>
+      <section className="panel space-y-4 p-6">
+        <h2 className="text-lg font-semibold">Identity Providers</h2>
+        <p>
+          Connect Auth0, Okta, Microsoft Entra ID, Google, and other OpenID Connect providers for
+          workspace sign-in.
+        </p>
+        <Link className="btn-primary" to="/settings/identity-providers">
+          Manage Identity Providers
+        </Link>
+      </section>
+      <section className="panel space-y-4 p-6">
+        <h2 className="text-lg font-semibold">Service Accounts</h2>
+        <p>Allow external integrations to create records with scoped API keys or OAuth client credentials.</p>
+        <Link className="btn-primary" to="/settings/service-accounts">Manage Service Accounts</Link>
       </section>
       <section className="panel space-y-4 p-6">
         <h2 className="text-lg font-semibold">Demo Data</h2>
@@ -226,7 +242,7 @@ export function SettingsPage() {
   ];
   return (
     <div className="space-y-6">
-      <h1 className="page-title">Settings</h1>
+      <PageTitle>Settings</PageTitle>
       <div className="grid gap-4 sm:grid-cols-2">
         {panels.map(({ title, to, Icon, description }) => (
           <Link

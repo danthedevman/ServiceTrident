@@ -61,6 +61,28 @@ test('demo route adds once and removes only its workspace batch', async (t) => {
   ])
     assert.equal(await db.collection(name).countDocuments({ demoBatchId: batchId }), 50, name);
   assert.equal(
+    await db
+      .collection('articles')
+      .countDocuments({ demoBatchId: batchId, articleType: 'article' }),
+    25,
+  );
+  assert.equal(
+    await db
+      .collection('articles')
+      .countDocuments({ demoBatchId: batchId, articleType: 'runbook' }),
+    25,
+  );
+  const runbooks = await db
+    .collection('articles')
+    .find({ demoBatchId: batchId, articleType: 'runbook' })
+    .toArray();
+  assert.ok(
+    runbooks.every(
+      (item) =>
+        item.steps.length === 3 && item.steps.every((step) => step.title && step.instructions),
+    ),
+  );
+  assert.equal(
     await db.collection('incidentComments').countDocuments({ demoBatchId: batchId }),
     100,
   );

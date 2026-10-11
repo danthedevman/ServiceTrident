@@ -1,3 +1,4 @@
+import { AutoTextarea } from '../../components/forms/auto-textarea.jsx';
 import { backgroundInk } from '../../../../shared/status/appearance.js';
 import { RecordActions } from '../../components/record-actions.jsx';
 import { ConfirmDeleteButton } from '../../components/confirm-delete-button.jsx';
@@ -112,51 +113,6 @@ function StatusEditor({ settings, services, integrations }) {
         </p>
       )}
       <section className="space-y-3">
-        <div className="space-y-2">
-          <label htmlFor="status-background-hex" className="field-label">
-            Page Background Colour
-          </label>
-          <div className="status-colour-control">
-            <label className="status-colour-swatch">
-              <span className="sr-only">Choose Background Colour</span>
-              <input
-                type="color"
-                value={/^#[a-f0-9]{6}$/i.test(backgroundColor) ? backgroundColor : '#f4f7fb'}
-                onChange={(event) => setBackgroundColor(event.target.value)}
-              />
-            </label>
-            <input
-              id="status-background-hex"
-              name="backgroundColor"
-              aria-label="Page Background Colour Hex"
-              type="text"
-              maxLength={7}
-              placeholder="App theme"
-              value={backgroundColor}
-              onChange={(event) => setBackgroundColor(event.target.value)}
-              spellCheck={false}
-              autoComplete="off"
-            />
-            <button type="button" className="btn-secondary" onClick={() => setBackgroundColor('')}>
-              Use App Theme
-            </button>
-          </div>
-          <div
-            className="status-colour-preview"
-            style={
-              /^#[a-f0-9]{6}$/i.test(backgroundColor)
-                ? { backgroundColor, color: backgroundInk(backgroundColor) }
-                : {}
-            }
-          >
-            <span className="font-medium">Status Page Preview</span>
-            <span className="text-xs">{backgroundColor || 'App theme'}</span>
-          </div>
-        </div>
-        <p className="text-sm text-slate-500">
-          Applies to private and public status pages. Heading text adjusts to keep contrast
-          readable.
-        </p>
         <label className="field-label">
           Visibility
           <Select
@@ -274,7 +230,11 @@ function StatusEditor({ settings, services, integrations }) {
             .map((service) => ({ id: service.id, label: service.name }))}
           onChange={(id) => {
             setServiceId('');
-            if (id) setMessages((current) => [...current, { serviceId: id, ...emptyMessage() }]);
+            if (id)
+              setMessages((current) => [
+                ...current,
+                { serviceId: id, ...emptyMessage(), enabled: true },
+              ]);
           }}
         />
         {messages.map((message) => (
@@ -325,6 +285,53 @@ function StatusEditor({ settings, services, integrations }) {
           </p>
         </div>
       </details>
+      <section className="space-y-3 border-t border-slate-200 pt-6 dark:border-slate-700">
+        <div className="space-y-2">
+          <label htmlFor="status-background-hex" className="field-label">
+            Page Background Color
+          </label>
+          <div className="status-color-control">
+            <label className="status-color-swatch">
+              <span className="sr-only">Choose Background Color</span>
+              <input
+                type="color"
+                value={/^#[a-f0-9]{6}$/i.test(backgroundColor) ? backgroundColor : '#f4f7fb'}
+                onChange={(event) => setBackgroundColor(event.target.value)}
+              />
+            </label>
+            <input
+              id="status-background-hex"
+              name="backgroundColor"
+              aria-label="Page Background Color Hex"
+              type="text"
+              maxLength={7}
+              placeholder="App theme"
+              value={backgroundColor}
+              onChange={(event) => setBackgroundColor(event.target.value)}
+              spellCheck={false}
+              autoComplete="off"
+            />
+            <button type="button" className="btn-secondary" onClick={() => setBackgroundColor('')}>
+              Use Default Background
+            </button>
+          </div>
+          <div
+            className="status-color-preview"
+            style={
+              /^#[a-f0-9]{6}$/i.test(backgroundColor)
+                ? { backgroundColor, color: backgroundInk(backgroundColor) }
+                : {}
+            }
+          >
+            <span className="font-medium">Status Page Preview</span>
+            <span className="text-xs">{backgroundColor || 'Default background'}</span>
+          </div>
+        </div>
+        <p className="text-sm text-slate-500">
+          Applies to private and public status pages. Heading text adjusts to keep contrast
+          readable.
+        </p>
+      </section>
       <RecordActions>
         <button
           type="button"
@@ -372,7 +379,7 @@ function MessageEditor({ title, value, onChange }) {
         </div>
         <label className="field-label">
           Message{value.enabled ? ' *' : ''}
-          <textarea
+          <AutoTextarea
             rows={3}
             maxLength={1000}
             required={value.enabled}

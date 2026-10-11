@@ -1,0 +1,30 @@
+# Help screenshots and browser verification
+
+Capture the actual local app in an isolated browser with synthetic responses. Never seed or clean up a live workspace, capture personal records or integration credentials, or use redaction as a substitute for synthetic fixtures. All `/api/**` requests are intercepted by `scripts/capture-help-screenshots.mjs` before navigation. Unmatched API paths receive synthetic responses; external requests are blocked. Each run creates a fresh browser context and leaves real application records unchanged.
+
+## Reproduce a capture
+
+Start the existing local Compose project and wait for the app/API to be healthy. Preserve its current environment, database volumes, and integration key. The default Docker app address is `http://127.0.0.1:8090`.
+
+Install Playwright in an isolated temporary directory rather than adding capture dependencies to production:
+
+```sh
+npm install --prefix /tmp/servicetrident-help-capture playwright
+PLAYWRIGHT_MODULE=/tmp/servicetrident-help-capture/node_modules/playwright/index.mjs HELP_CAPTURE_URL=http://127.0.0.1:8090 node scripts/capture-help-screenshots.mjs
+```
+
+The script uses installed Google Chrome on macOS by default. Set `CHROME_PATH` to the browser executable on other systems. Set `HELP_CAPTURE_OUTPUT` to a temporary directory when checking screenshots without replacing the bundled images; otherwise files are written under `app/public/help/`.
+
+The fixture definitions and browser assertions live in the capture script. Add bounded synthetic responses when a workflow changes; never copy live responses. Current checks cover theme/contrast changes, record tab session restoration and draft preservation, keyboard navigation, tab limits, task ordering and compact icons, on-call labels, dashboard control spacing, custom validation, ServiceNow errors, and permission-sensitive references. These checks do not prove real identity-provider or ticketing credentials work.
+
+## Deliver a visual change
+
+Review affected screenshots at their intended size. Update `app/src/features/help/topics.js` with accurate paths, useful alt text, and workflow captions; update README images or prose where needed. Help captions describe the controls without “Demo data only” or “Demo workspace” notices. Keep the fixture safety requirements in this guide and AGENTS.md.
+
+Rebuild the frontend after refreshing bundled images:
+
+```sh
+docker compose up -d --build --wait --no-deps app
+```
+
+Use `api workers scheduler` as well when shared/server behavior changed. Check affected service health and the app/API through the normal local URL. Include implementation, documentation, fixture changes, and refreshed screenshots in the same delivery.

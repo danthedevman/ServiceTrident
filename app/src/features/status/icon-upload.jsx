@@ -57,7 +57,7 @@ export function StatusIconUpload({ hasIcon }) {
       <h2 className="font-semibold">Status Page Icon</h2>
       <div className="flex flex-wrap items-center gap-4">
         <img
-          src={present ? `/api/status-settings/icon?v=${version}` : '/favicon.svg?v=trident'}
+          src={present ? `/api/status-settings/icon?v=${version}` : '/favicon.svg?v=service-nodes'}
           alt={present ? 'Custom status page icon' : 'Default ServiceTrident icon'}
           className="h-16 w-16 object-contain"
         />

@@ -1,3 +1,4 @@
+import { ValidatedForm } from '../../components/forms/validated-form.jsx';
 import { Modal } from '../../components/modal.jsx';
 import React, { useEffect, useId, useState } from 'react';
 import { api } from '../../data/api.js';
@@ -181,7 +182,7 @@ export function StatusSubscriptions({ token, capabilities }) {
               </div>
             )}
             {emailForm && (
-              <form id={formId} onSubmit={submit} className="form-body">
+              <ValidatedForm id={formId} onSubmit={submit} className="form-body">
                 {action ? (
                   <p>
                     {action.kind === 'confirm'
@@ -213,7 +214,7 @@ export function StatusSubscriptions({ token, capabilities }) {
                     </p>
                   </>
                 )}
-              </form>
+              </ValidatedForm>
             )}
             {error && (
               <p role="alert" className="text-rose-700 dark:text-rose-400">

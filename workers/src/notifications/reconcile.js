@@ -5,6 +5,7 @@ import { ObjectId } from 'mongodb';
 import { onCall } from '@servicetrident/shared/domain/on-call';
 import { serviceHealth } from '@servicetrident/shared/domain/service-health';
 import { BUILTIN_FIELDS } from '@servicetrident/shared/forms/schema';
+import { monitorContext, relatedMonitorChecks } from './monitor-context.js';
 
 /** Reconcile monitor rollups and write durable, idempotent notification records. */
 export async function reconcileOperations(db, queue) {
@@ -54,8 +55,23 @@ export async function reconcileOperations(db, queue) {
               severity: state === 'degraded' ? 'medium' : 'high',
               status: 'open',
               source: 'monitor',
-              createdBy: 'ServiceTrident',
-              updatedBy: 'ServiceTrident',
+              // Match immutable monitor/time pairs even if the event insert is still finishing.
+              triggeringChecks: relatedMonitorChecks(
+                service.id,
+                'impacted',
+                catalog.services,
+                monitors,
+                now,
+              )
+                .slice(0, 1000)
+                .map(({ monitor, service: checkedService }) => ({
+                  monitorId: String(monitor._id),
+                  checkedAt: monitor.lastCheck.checkedAt,
+                  monitorName: String(monitor.name ?? 'Monitor').slice(0, 200),
+                  serviceName: String(checkedService.name ?? '').slice(0, 200),
+                })),
+              createdBy: 'System',
+              updatedBy: 'System',
               activeAutomatic: true,
               fields: [],
               custom: {},
@@ -66,7 +82,7 @@ export async function reconcileOperations(db, queue) {
               timeline: [
                 {
                   at: now,
-                  by: 'ServiceTrident',
+                  by: 'System',
                   status: 'open',
                   note:
                     state === 'degraded'
@@ -96,7 +112,7 @@ export async function reconcileOperations(db, queue) {
                 statusLabel: 'Resolved',
                 activeAutomatic: false,
                 updatedAt: now,
-                updatedBy: 'ServiceTrident',
+                updatedBy: 'System',
                 updatedById: null,
                 resolvedAt: now,
                 resolutionNotes: 'All monitors and dependencies recovered.',
@@ -107,7 +123,7 @@ export async function reconcileOperations(db, queue) {
                   $each: [
                     {
                       at: now,
-                      by: 'ServiceTrident',
+                      by: 'System',
                       status: 'resolved',
                       note: 'All monitors and dependencies recovered.',
                     },
@@ -141,6 +157,15 @@ export async function reconcileOperations(db, queue) {
         for (const event of ['impacted', 'recovered']) {
           const flag = event === 'impacted' ? 'notifiedOpen' : 'notifiedResolved';
           if (incident[flag] || (event === 'recovered' && incident.status !== 'resolved')) continue;
+          const checks = await monitorContext(
+            db,
+            catalog._id,
+            incident,
+            event,
+            catalog.services,
+            monitors,
+            now,
+          );
           for (const integration of lock.integrations.filter(
             (i) =>
               !i.demoBatchId &&
@@ -160,6 +185,7 @@ export async function reconcileOperations(db, queue) {
                   integrationName: integration.name,
                   resolutionCycle: cycle,
                   event,
+                  monitorChecks: checks,
                   status: 'pending',
                   attempts: 0,
                   createdAt: now,

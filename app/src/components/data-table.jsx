@@ -1,17 +1,24 @@
+import { DateTime, useDateTime } from '../preferences/date-time.jsx';
+import { isTimestampField } from '../lib/date-time.js';
+import { RecordLink } from './record-navigation.jsx';
+import { BreadcrumbTitleContext, PageTitle } from './page-title.jsx';
 import { RecordHeader } from './record-actions.jsx';
 import { useUiPreferences } from '../preferences/ui-preferences.jsx';
 import { Skeleton } from './skeleton.jsx';
 import { RelatedListContext } from './record-tabs.jsx';
+import { Toggle } from './forms/toggle.jsx';
 import { Select } from './forms/select.jsx';
 import { ServerTable } from './server-table.jsx';
 import { useContext } from 'react';
 import { AuthContext } from '../auth/auth-context.js';
+import { TableFilterPanel } from './table-filter-panel.jsx';
 import { Modal } from './modal.jsx';
 import { writeApi } from '../data/query-client.js';
 import { ActionMenu } from './action-menu.jsx';
-import React, { useEffect, useId, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   FunnelIcon,
+  AdjustmentsHorizontalIcon,
   ArrowDownTrayIcon,
   ArrowUpIcon,
   ArrowDownIcon,
@@ -64,10 +71,14 @@ function DataTableView({
   tableClassName = 'w-full min-w-[520px] text-left text-sm',
   rowKey = (row) => row.id ?? JSON.stringify(row),
 }) {
+  const formatDate = useDateTime();
   const related = useContext(RelatedListContext);
+  const breadcrumbTitle = useContext(BreadcrumbTitleContext);
   const { user } = useContext(AuthContext);
   const { pathname } = useLocation();
-  const { filtersOpen, setPreference, tableLayouts, setTableLayout } = useUiPreferences();
+  const { tableLayouts, setTableLayout, compactTables, setPreference } = useUiPreferences();
+  const filtersAnchor = useRef(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const viewKey =
     `${pathname.replace(/\/[a-f\d]{24}(?=\/|$)/gi, '/record')}::${source?.split('?')[0] || filename}::${title}`
       .replace(/[^a-zA-Z0-9/_:-]/g, '-')
@@ -86,7 +97,6 @@ function DataTableView({
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState('');
   const [confirmRows, setConfirmRows] = useState(null);
-  const filtersId = useId();
   const Heading = fullPage ? 'h1' : 'h2';
   const [exporting, setExporting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -167,6 +177,7 @@ function DataTableView({
             ? 'data-table related-table overflow-hidden'
             : 'data-table panel overflow-hidden'
       }
+      data-compact={compactTables}
     >
       <Toolbar>
         <div
@@ -176,10 +187,16 @@ function DataTableView({
               : `flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 ${related ? 'px-4 py-3' : 'px-6 py-5'}`
           }
         >
-          <div className={related || fullPage ? 'sr-only' : undefined}>
-            <Heading className={fullPage ? 'page-title' : 'font-semibold'}>{title}</Heading>
-            {description && <p className="mt-1 text-xs text-slate-400">{description}</p>}
-          </div>
+          {(!fullPage || !breadcrumbTitle || description) && (
+            <div className={related || fullPage ? 'sr-only' : undefined}>
+              {fullPage ? (
+                <PageTitle>{title}</PageTitle>
+              ) : (
+                <Heading className="font-semibold">{title}</Heading>
+              )}
+              {description && <p className="mt-1 text-xs text-slate-400">{description}</p>}
+            </div>
+          )}
           <div className="flex flex-wrap gap-2">
             <TableColumns
               columns={orderedColumns}
@@ -202,12 +219,13 @@ function DataTableView({
             <button
               type="button"
               className="btn-secondary table-filter-toggle gap-2"
+              ref={filtersAnchor}
               aria-label="Filters"
               title="Filters"
               aria-expanded={filtersOpen}
               aria-pressed={filtersOpen}
-              aria-controls={filtersId}
-              onClick={() => setPreference('filtersOpen', !filtersOpen)}
+              aria-haspopup="dialog"
+              onClick={() => setFiltersOpen(true)}
             >
               <FunnelIcon className="h-5 w-5" aria-hidden="true" />
               {filtersActive && (
@@ -235,6 +253,21 @@ function DataTableView({
             )}
             <ActionMenu label={`${title} actions`}>
               {secondaryActions}
+              {fullPage &&
+                user?.role === 'admin' &&
+                ['/incidents', '/tasks', '/knowledge'].includes(deletePath) && (
+                  <Link to={`${deletePath}/fields`}>
+                    <AdjustmentsHorizontalIcon className="h-5 w-5" aria-hidden="true" />
+                    Form Builder
+                  </Link>
+                )}
+              <label className="table-density-toggle flex cursor-pointer items-center justify-between gap-4 rounded px-3 py-2.5 text-sm hover:bg-blue-50 dark:hover:bg-slate-800">
+                <span>Compact Rows</span>
+                <Toggle
+                  checked={compactTables}
+                  onChange={(event) => setPreference('compactTables', event.target.checked)}
+                />
+              </label>
               <button
                 type="button"
                 className="btn-secondary gap-2"
@@ -251,13 +284,15 @@ function DataTableView({
         </div>
       </Toolbar>
       {toolbar}
-      <div
-        id={filtersId}
-        className="table-filters border-b border-slate-100 px-6 py-4 dark:border-slate-800"
-        hidden={!filtersOpen}
-      >
-        {filters}
-      </div>
+      {filtersOpen && (
+        <TableFilterPanel
+          title="Filter"
+          anchorRef={filtersAnchor}
+          onClose={() => setFiltersOpen(false)}
+        >
+          {filters}
+        </TableFilterPanel>
+      )}
       {exportError && (
         <p role="alert" className="px-6 py-3 text-sm text-rose-700 dark:text-rose-400">
           {exportError}
@@ -412,14 +447,15 @@ function DataTableView({
                     </td>
                     <td>
                       {recordHref(row) ? (
-                        <Link
+                        <RecordLink
                           to={recordHref(row)}
+                          recordLabel={row.title || row.name || row.displayName || row.email}
                           className="inline-flex rounded p-2 text-blue-700 hover:bg-blue-50 dark:text-blue-300 dark:hover:bg-slate-800"
                           aria-label={`Open ${row.title || row.name || row.displayName || row.email || 'record'}`}
                           title="Open Record"
                         >
                           <ArrowTopRightOnSquareIcon className="h-4 w-4" aria-hidden="true" />
-                        </Link>
+                        </RecordLink>
                       ) : (
                         <span className="sr-only">No record view</span>
                       )}
@@ -431,16 +467,30 @@ function DataTableView({
                         ) : column.render ? (
                           <div
                             className="table-cell-value"
-                            title={String(column.value?.(row) ?? '')}
+                            title={
+                              isTimestampField(column.key) && column.value?.(row)
+                                ? formatDate(column.value(row))
+                                : String(column.value?.(row) ?? '')
+                            }
                           >
                             {column.render(row)}
                           </div>
                         ) : (
                           <div
                             className="table-cell-value"
-                            title={String(column.value(row) ?? '—')}
+                            title={
+                              isTimestampField(column.key) && column.value(row) ? (
+                                <DateTime value={column.value(row)} />
+                              ) : (
+                                String(column.value(row) ?? '—')
+                              )
+                            }
                           >
-                            {String(column.value(row) ?? '—')}
+                            {isTimestampField(column.key) && column.value(row) ? (
+                              <DateTime value={column.value(row)} />
+                            ) : (
+                              String(column.value(row) ?? '—')
+                            )}
                           </div>
                         )}
                       </td>

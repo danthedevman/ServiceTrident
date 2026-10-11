@@ -1,3 +1,6 @@
+import { Modal } from '../../components/modal.jsx';
+import { ValidatedForm } from '../../components/forms/validated-form.jsx';
+import { PageTitle } from '../../components/page-title.jsx';
 import { notify } from '../../data/toast.js';
 import { AIAssistant } from '../ai/ai.jsx';
 import { writeApi } from '../../data/query-client.js';
@@ -34,6 +37,7 @@ import { downloadCsv } from '../../lib/csv-download.js';
 import { CustomField, Field, Notice } from '../../components/forms/fields.jsx';
 import { useSave } from '../../data/use-save.js';
 import { ReferenceValue } from '../../components/reference-value.jsx';
+import { DateTime } from '../../preferences/date-time.jsx';
 
 /** Paginated incident reporting with identical server filters for CSV exports. */
 export function IncidentsPage({ initialServiceId = '', related = false }) {
@@ -104,7 +108,7 @@ export function IncidentsPage({ initialServiceId = '', related = false }) {
       key: 'createdAt',
       label: 'Created',
       value: (r) => r.createdAt,
-      render: (r) => new Date(r.createdAt).toLocaleString('en-GB', { timeZone: 'UTC' }),
+      render: (r) => <DateTime value={r.createdAt} />,
     },
   ];
   return (
@@ -216,7 +220,6 @@ export function IncidentPage({ edit = false }) {
   const [formVersion, setFormVersion] = useState(0);
   const [editingId, setEditingId] = useState(null);
   const [resolving, setResolving] = useState(false);
-  const transition = useSave();
   const editing = editingId === useParams().id;
   const incident = useResource(id ? `/incidents/${id}` : null),
     schema = useResource('/incident-fields'),
@@ -235,7 +238,7 @@ export function IncidentPage({ edit = false }) {
     <div className={id ? 'space-y-6' : 'form-page'}>
       {!id && (
         <div className="flex items-center justify-between gap-3">
-          {!id && <h1 className="page-title">Create Incident</h1>}
+          {!id && <PageTitle>Create Incident</PageTitle>}
           {!id && user?.role === 'admin' && (
             <RecordHeader>
               <ActionMenu label="Form actions">
@@ -247,7 +250,7 @@ export function IncidentPage({ edit = false }) {
           )}
         </div>
       )}
-      <Notice error={error || transition.error} />
+      <Notice error={error} />
       {loading ? (
         <FormSkeleton
           fields={(
@@ -317,37 +320,12 @@ export function IncidentPage({ edit = false }) {
                       <button
                         type="button"
                         className="btn-primary"
-                        disabled={transition.busy}
                         onClick={() => {
-                          const reopening = item.status === 'resolved';
-                          const notesRequired = schema.data.fields.some(
-                            (field) => field.id === 'resolutionNotes' && field.required,
-                          );
-                          if (reopening || !notesRequired) {
-                            const option = fieldChoices(
-                              'incidents',
-                              schema.data.fields.find((field) => field.id === 'status'),
-                            ).find(
-                              (entry) =>
-                                !entry.hidden && entry.base === (reopening ? 'open' : 'resolved'),
-                            );
-                            transition.run(`/incidents/${id}`, 'PATCH', {
-                              revision: item.revision,
-                              statusOption: option?.value || (reopening ? 'open' : 'resolved'),
-                            });
-                          } else {
-                            setResolving(true);
-                            setEditingId(id);
-                          }
+                          setResolving(true);
+                          setEditingId(id);
                         }}
                       >
-                        {transition.busy
-                          ? item.status === 'resolved'
-                            ? 'Reopening…'
-                            : 'Resolving…'
-                          : item.status === 'resolved'
-                            ? 'Reopen'
-                            : 'Resolve'}
+                        Resolve
                       </button>
                     )
                   ) : undefined
@@ -489,6 +467,7 @@ export function IncidentPage({ edit = false }) {
                 )}
                 <RecordTabs
                   related
+                  lazy
                   tabs={[
                     {
                       id: 'discussion',
@@ -543,6 +522,85 @@ export function IncidentPage({ edit = false }) {
                     },
                     ...(user?.role !== 'user'
                       ? [
+                          ...(item.source === 'monitor' &&
+                          (!item.monitorTriggersRecorded || item.hasMonitorEvents)
+                            ? [
+                                {
+                                  id: 'monitor-events',
+                                  label: 'Monitor Events',
+                                  content: (
+                                    <>
+                                      <p className="px-4 py-3 text-sm text-slate-500 dark:text-slate-400">
+                                        {item.monitorTriggersRecorded
+                                          ? 'Checks recorded when this incident opened · Last 30 days · Includes dependency monitors'
+                                          : 'Triggering checks were not recorded for this older incident.'}
+                                      </p>
+                                      <DataTable
+                                        source={`incident-monitor-events?recordId=${item.id}`}
+                                        title="Monitor Events"
+                                        rowHref={(row) =>
+                                          `/monitors/${row.monitorId}/events/${row.id}`
+                                        }
+                                        rowKey={(row) => row.id}
+                                        filename="incident-monitor-events.csv"
+                                        defaultSort="checkedAt:desc"
+                                        dateColumn="checkedAt"
+                                        columns={[
+                                          {
+                                            key: 'checkedAt',
+                                            label: 'Checked At',
+                                            value: (row) => row.checkedAt,
+                                            render: (row) => (
+                                              <Link
+                                                className="text-blue-700 hover:underline dark:text-blue-300"
+                                                to={`/monitors/${row.monitorId}/events/${row.id}`}
+                                              >
+                                                <DateTime value={row.checkedAt} />
+                                              </Link>
+                                            ),
+                                          },
+                                          {
+                                            key: 'monitorName',
+                                            label: 'Monitor',
+                                            value: (row) => row.monitorName,
+                                          },
+                                          {
+                                            key: 'serviceName',
+                                            label: 'Service',
+                                            value: (row) => row.serviceName,
+                                          },
+                                          {
+                                            key: 'status',
+                                            label: 'Status',
+                                            value: (row) => row.status,
+                                            render: (row) => <StateBadge status={row.status} />,
+                                          },
+                                          {
+                                            key: 'statusCode',
+                                            label: 'HTTP Status',
+                                            value: (row) => row.statusCode ?? 'No response',
+                                          },
+                                          {
+                                            key: 'durationMs',
+                                            label: 'Duration',
+                                            value: (row) => row.durationMs,
+                                            render: (row) =>
+                                              Number.isFinite(row.durationMs)
+                                                ? `${row.durationMs} ms`
+                                                : '—',
+                                          },
+                                          {
+                                            key: 'error',
+                                            label: 'Error',
+                                            value: (row) => row.error || '—',
+                                          },
+                                        ]}
+                                      />
+                                    </>
+                                  ),
+                                },
+                              ]
+                            : []),
                           {
                             id: 'tasks',
                             label: 'Tasks',
@@ -637,6 +695,8 @@ function IncidentEditor({
     { user } = useContext(AuthContext);
   const [current] = useState(incident);
   const formRef = useRef(null);
+  const [confirmResolution, setConfirmResolution] = useState(false);
+  const resolutionCancel = useRef(null);
   const [clientErrors, setClientErrors] = useState({});
   const errors = { ...save.fields, ...clientErrors };
   const [articleSearch, setArticleSearch] = useState('');
@@ -811,8 +871,19 @@ function IncidentEditor({
       </Field>
     );
   };
+  function commit() {
+    return save.run(
+      current ? `/incidents/${current.id}` : '/incidents',
+      current ? 'PATCH' : 'POST',
+      { ...value, attachmentIds: draft.ids, revision: current?.revision, note },
+      (result) => {
+        if (current) onClose();
+        else navigate(`/incidents/${result.incident.id}`, { state: { createdRecord: true } });
+      },
+    );
+  }
   const form = (
-    <form
+    <ValidatedForm
       ref={formRef}
       className="form-body"
       noValidate
@@ -828,15 +899,11 @@ function IncidentEditor({
           notify('Please correct the highlighted fields.', 'error');
           return;
         }
-        save.run(
-          current ? `/incidents/${current.id}` : '/incidents',
-          current ? 'PATCH' : 'POST',
-          { ...value, attachmentIds: draft.ids, revision: current?.revision, note },
-          (result) => {
-            if (current) onClose();
-            else navigate(`/incidents/${result.incident.id}`);
-          },
-        );
+        if (current?.status !== 'resolved' && selectedStatus === 'resolved') {
+          setConfirmResolution(true);
+          return;
+        }
+        commit();
       }}
     >
       <Notice
@@ -887,7 +954,49 @@ function IncidentEditor({
           </button>
         )}
       </RecordActions>
-    </form>
+    </ValidatedForm>
   );
-  return <section className="record-details space-y-6">{form}</section>;
+  return (
+    <section className="record-details space-y-6">
+      {form}
+      {confirmResolution && (
+        <Modal
+          title="Resolve Incident"
+          busy={save.busy}
+          initialFocusRef={resolutionCancel}
+          onClose={() => setConfirmResolution(false)}
+          footer={
+            <>
+              <button
+                ref={resolutionCancel}
+                type="button"
+                className="btn-secondary"
+                disabled={save.busy}
+                onClick={() => setConfirmResolution(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn-primary"
+                disabled={save.busy || draft.busy}
+                onClick={commit}
+              >
+                Resolve Incident
+              </button>
+            </>
+          }
+        >
+          <p>
+            Resolve “{value.title}”? This marks the incident resolved and may notify subscribers.
+          </p>
+          {save.error && (
+            <p role="alert" className="mt-3 text-rose-700 dark:text-rose-400">
+              {save.error}
+            </p>
+          )}
+        </Modal>
+      )}
+    </section>
+  );
 }
