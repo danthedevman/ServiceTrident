@@ -6,6 +6,15 @@ ServiceTrident is a free, open source application for service monitoring and inc
 
 > **Status: Alpha** — ServiceTrident is under active development and intended for evaluation, development environments, and small-team pilots. Expect changing features and occasional bugs. Back up your data before upgrading, and do not rely on it as your only system for critical monitoring or incident response.
 
+## Find what you need
+
+- [Capabilities](#what-you-can-do) and [app workflows](#working-in-the-app)
+- [Docker setup](#start-with-docker) and [database choices](#choose-your-database)
+- [Notifications and integrations](#connect-tools-without-adding-unnecessary-cost), [AI providers](#ai-providers), and [external API access](#external-integrations-and-service-accounts)
+- [Status pages](#status-pages) and [subscriptions](#email-and-rss-subscriptions)
+- [Scaling](#scaling-the-application), [deployment](#deploying-beyond-your-laptop), and [Render setup](#deploy-to-render)
+- [Local development](#local-development) and [contributing](#contributing)
+
 ## Why I built this
 
 After years of working with enterprise platforms, I wanted to take the parts that help teams do their work and make them available in a smaller, more approachable tool. Knowing what a service depends on, who owns it, what is broken, and what happened last time should be within reach of a team without a large platform budget.
@@ -19,8 +28,6 @@ ChatGPT, including Codex, has been a substantial part of building this applicati
 The motivation, product direction, and workflow decisions come from my experience with enterprise platforms. ChatGPT helped me move from those ideas to an implementation much faster. That help does not make the code automatically correct or secure: review, testing, and feedback still matter. This repository includes automated checks, and I welcome clear bug reports and improvements.
 
 ChatGPT was used during development. Running ServiceTrident does not require a ChatGPT subscription or an OpenAI API key.
-
-Optional AI features let a workspace connect its own OpenAI or Claude API account. Admins configure the provider, model identifier, and API key under **Integrations → AI Provider**. Keys use the existing encrypted integration storage. Summaries, article/runbook drafting, and knowledge answers become available when a provider is configured and are enabled by default; users can disable each feature in **Profile → AI Features**. Provider charges apply. Only selected record text, prompts, and matching published knowledge excerpts are sent; generated drafts require review and a normal record save. Generation is limited to 10 requests per user per minute and 1,000 per workspace per UTC day. Back up the integration-encryption key along with the database.
 
 ## App preview
 
@@ -75,27 +82,37 @@ Reference links and **Open Record** controls open app record tabs, including act
 
 Tab links and bounded labels survive refresh for the signed-in browser session; restored records fetch data only when selected. Switching tabs preserves mounted drafts, while refresh discards unsaved edits. Sign-out clears the session’s tabs. These tabs never change record permissions. New forms focus their first editable field. Drag the right record panel’s left edge to resize it, or use its keyboard controls; it snaps closed below the threshold and remembers your account preference.
 
-**Filters** opens a small anchored panel with full-width search and no overlay, leaving the table visible. Search, filters, sorting, paging, and CSV export run on the server. The ellipsis menu’s **Compact Rows** toggle saves reduced padding as an account preference. Columns remain configurable. Forms use consistent custom required/email errors and grow multiline fields as you type. Automated activity is attributed to **System**.
+**Filters** opens a small anchored panel with full-width search and no overlay, leaving the table visible. Search, filters, sorting, paging, and CSV export run on the server. The ellipsis menu’s **Compact Rows** toggle saves reduced padding as an account preference. Columns remain configurable. Forms use consistent custom required/email errors and grow multiline fields as you type. Form Builder is available from supported list and record secondary actions. Fields, form sections, dropdowns, filter panels, and button states follow your selected theme. Automated activity is attributed to **System**.
 
-### Incidents, tasks, and knowledge
+### Incident response
 
 Resolving an incident requires confirmation. Resolution notes are optional in the default form; admins can toggle **Required** for that system field in **Form Builder**. Existing saved requirements remain until changed. Reopening also requires confirmation. Conversation uses a compact message filter and icon-only table/conversation view controls.
 
-Task cards use small bare reorder icons. Lane titles, counts, reorder arrows, and refresh icons share one row; lanes support shared drag ordering and keyboard alternatives. List and archive navigation use icons. Knowledge-base deletion cannot move articles into the base being deleted. Admins and responders can **Publish** a saved unpublished article or runbook without entering Edit, using the configured Published status. Save draft edits first. Form Builder is available from supported list and record secondary actions.
+### Task boards
 
-### Status pages and sample records
+Task cards use small bare reorder icons. Lane titles, counts, reorder arrows, and refresh icons share one row; lanes support shared drag ordering and keyboard alternatives. List and archive navigation use icons.
 
-The app status page displays **Service Status**. On-call record titles identify the teammate and service scope. New status-page service messages default to **Display message**; enter their text and save to publish, or turn the setting off to keep them hidden. **Page Background Color** appears below other status settings and supports a swatch, hex value, and **Use Default Background**.
+### Knowledge articles and runbooks
 
-**Settings → Add demo data** creates 50 records per supported type. Knowledge includes 25 articles and 25 runbooks with triage, mitigation, and recovery steps. Demo users cannot sign in, demo monitors stay paused, and demo integrations do not send notifications. An existing batch is not altered by an upgrade: remove that demo batch and add a new one to include runbooks. Cleanup uses batch markers and preserves unrelated records.
+Knowledge-base deletion cannot move articles into the base being deleted. Admins and responders can **Publish** a saved unpublished article or runbook without entering Edit, using the configured Published status. Save draft edits first.
 
-### Identity providers and role preview
+Published articles show **Unpublish** with confirmation; it returns them to Draft and retains content. **Record actions → Archive Article** also requires confirmation and keeps content/history while removing the article from active lists. In All Articles, Create opens the article form; Knowledge Bases retains its separate base-creation action.
+
+### Sample records
+
+**Settings → Add demo data** creates 50 records per supported type. Knowledge includes 25 articles and 25 runbooks with triage, mitigation, and recovery steps. Demo users cannot sign in, demo monitors stay paused, and demo integrations do not send notifications. Only one demo batch can exist at a time. An existing batch is not altered by an upgrade: remove that demo batch and add a new one to include runbooks. Cleanup uses batch markers and preserves unrelated records.
+
+### Identity providers
 
 Workspace admins can configure Auth0, Okta, Microsoft Entra ID, Google, Keycloak, OneLogin, Ping Identity, and custom OpenID Connect sign-in under Settings → Identity Providers. Existing users connect their identity in Profile with password confirmation before using the workspace sign-in link. See [identity-provider operating requirements](docs/operations.md#workspace-identity-providers).
 
+### Role preview
+
 Admins can use **Impersonation** in the profile menu to preview another role’s permissions. This keeps the signed-in identity and workspace; permitted actions are real, affect records, and may send configured notifications. **Return to Admin** restores admin access. Audit entries retain the actual and effective roles. The bundled **Impersonation and Role Preview** Help article explains the workflow.
 
-### Managing users
+### People and on-call coverage
+
+On-call coverage uses a service selector above the calendar. Coverage record titles identify the teammate and service scope, with dates displayed using your profile preferences.
 
 Admins can create users with a name, email, role, initial password, and contact details. Share initial passwords privately; users can change them in Profile settings. To reset another user’s password, open their record and select **Reset password** from the actions menu. Confirm your current admin password and enter the new password twice. Resetting signs the user out of existing sessions. Workspace owners change their own password in Profile settings.
 
@@ -108,6 +125,10 @@ Down takes precedence over Degraded, including dependency failures. Degradation 
 Automatic incidents record up to 1,000 qualifying monitor check references when they first open, including dependency monitors. Admins, responders, and viewers can review these in the **Monitor Events** related tab, search or export the list, and open saved response details. Later checks do not replace the original references. Older incidents without saved references say so. The usual 30-day event retention and monitor deletion apply; end-user portals do not expose monitor events.
 
 When automatic incidents are enabled, degradation creates a medium-severity incident if no automatic incident is active for that service. Outages create high-severity incidents. Recovery resolves the automatic incident only when the service is fully Operational. Existing incident severity remains available for responders to manage. Public email and RSS updates include Degraded transitions when subscriptions are enabled.
+
+### Audit history
+
+Every API response is audited with safe metadata, including record changes, reads, polling, authentication, external API activity, failures, and audit-table access. Admins can review and export verified workspace activity. Requests without a verified workspace remain outside tenant-visible history. Entries preserve actual and effective roles without copying credentials, query strings, headers, or request/response contents. Audit records do not expire automatically. See [Audit history](docs/audit-log.md) for coverage and logging limitations.
 
 ## Start with Docker
 
@@ -144,7 +165,7 @@ Clone the repository and enter its directory:
 git clone https://github.com/danthedevman/ServiceTrident.git ServiceTrident
 cd ServiceTrident
 cp .env.example .env
-docker compose up -d --build
+docker compose up -d --build --wait
 ```
 
 These commands work in macOS/Linux shells and Windows PowerShell. In Windows Command Prompt, use `copy .env.example .env` instead of `cp .env.example .env`.
@@ -161,7 +182,7 @@ docker compose ps
 docker compose logs --tail=100 api workers scheduler
 
 # Rebuild and apply application changes
-docker compose up -d --build app api workers scheduler
+docker compose up -d --build --wait app api workers scheduler
 
 # Stop the stack while keeping its data
 docker compose down
@@ -177,7 +198,7 @@ docker compose down
 4. Connect one notification channel and confirm delivery before relying on it.
 5. Add a short runbook and an on-call schedule so an alert has an owner and a next step.
 
-To explore first, use **Settings → Add demo data**. It creates 50 sample records per supported type, with realistic scenarios. Sample users cannot sign in, sample monitors remain paused, and sample integrations do not send notifications. Only one demo batch can exist at a time. Deleting demo data uses internal batch markers rather than names and leaves unrelated records intact.
+To explore first, use **Settings → Add demo data**; see [Sample records](#sample-records) for the generated content, safety defaults, and cleanup behavior.
 
 ## Choose your database
 
@@ -218,6 +239,8 @@ If you already operate in AWS, **Amazon SES** is worth comparing for usage-based
 
 For channel setup, follow the official [Slack incoming webhook guide](https://docs.slack.dev/messaging/sending-messages-using-incoming-webhooks/) or [Teams workflow guidance](https://learn.microsoft.com/en-us/microsoftteams/platform/webhooks-and-connectors/how-to/add-incoming-webhook). Provider plans, quotas, and tenant permissions can change; a supported integration does not mean the provider is free or automatically enabled for your account.
 
+### Notification messages and delivery
+
 Messages use labeled fields, including **Description**, across email, Slack, Teams, and ServiceNow. ServiceNow uses a correlation ID to find an existing incident and adds recovery work notes; it does not automatically close the external incident. Email can notify end users about incident comments. Internal work notes are not included in those notifications.
 
 Slack messages put each field on its own **Key: Value** line, including **Incident: View Incident** as a clickable link instead of a raw ID. Multiline descriptions and errors stay on a single value line; HTTP status and HTTP reason appear on separate lines. Automatic monitor incidents include up to five relevant service/dependency checks with HTTP status and reason, check errors, response-reading errors, method, duration, and check time. Notification retries retain the queued diagnostics; raw response bodies, headers, and endpoint URLs are not sent. Set `APP_ORIGIN` on workers to the app origin reachable by recipients.
@@ -225,6 +248,16 @@ Slack messages put each field on its own **Key: Value** line, including **Incide
 New integrations default to enabled; saved integrations retain their setting. ServiceNow keeps its **Instance Root URL** visible, supports **Basic Auth** and **OAuth client credentials**, and uses the authenticated integration account as the Caller on new incidents. **Test Saved Connection** performs reads without creating an incident and reports safe HTTP 401/403 guidance. The account needs Incident table permissions and access to its own User record; see [ServiceNow setup](docs/operations.md#servicenow-authentication-and-caller-identity).
 
 Integration credentials are encrypted with a persistent key generated for the API and workers. Blank secret inputs retain existing credentials. Back up that key with the database. Review **Logs** for failures: a queued job is not proof that a provider accepted a message. Retries can occasionally deliver a duplicate if a process stops after provider acceptance.
+
+### AI providers
+
+Optional AI features let a workspace connect its own OpenAI or Claude API account. Admins configure the provider, model identifier, and API key under **Integrations → AI Provider**. Keys use the existing encrypted integration storage. Summaries, article/runbook drafting, and knowledge answers become available when a provider is configured and are enabled by default; users can disable each feature in **Profile → AI Features**. Provider charges apply. Only selected record text, prompts, and matching published knowledge excerpts are sent; generated drafts require review and a normal record save. Generation is limited to 10 requests per user per minute and 1,000 per workspace per UTC day. Back up the integration-encryption key along with the database.
+
+### External integrations and service accounts
+
+Admins open **Settings → Service Accounts** to give external sources scoped record-creation access. Select Create incidents, Create tasks, or Create knowledge; publishing new knowledge requires the separate knowledge:publish scope. Restrict the account to selected services, or explicitly permit all workspace services and unassigned records. Choose API Key, OAuth Client Credentials, or both. Credentials default to 90 days and must expire within 1–365 days. Copy their one-time values into a secret manager. Saved credentials cannot be retrieved. Account records provide generation, rotation, revocation, disabling, and confirmed deletion.
+
+The dedicated POST endpoints are `/api/external/v1/incidents`, `/api/external/v1/tasks`, and `/api/external/v1/knowledge`. OAuth clients obtain opaque bearer tokens from `/api/oauth/token` using the client_credentials grant; tokens last at most one hour. Machine credentials cannot use browser-session APIs, and these endpoints do not grant record reads, updates, deletes, uploads, or administrative access. Use HTTPS through a trusted proxy; direct loopback development requests may use HTTP. See [External API](docs/external-api.md) and [Audit history](docs/audit-log.md) for payloads, security boundaries, and logging behavior.
 
 ### Keep the running costs predictable
 
@@ -389,9 +422,15 @@ Commit the deployment configuration to the branch Render builds, then deploy the
 
 Keep database backups and the encryption-key backup outside the application containers. Increase worker capacity only after measuring queue delays, memory use, and database load; see [Scaling the application](#scaling-the-application).
 
-## Public status pages
+## Status pages
+
+The in-app page displays **Service Status** and follows your personal appearance. Admins manage visibility, subscriptions, branding, banners, and service messages in **Status Page Settings**. New service messages default to **Display message**; enter their text and save to publish, or turn the setting off to keep them hidden. **Page Background Color** appears below the other settings and supports a swatch or hex value.
+
+### Public visibility and appearance
 
 Open **Service status → Manage status page**, choose **Public**, and save. The public link uses `/status/public/<token>` and displays service health without the application sidebar. Switching back to Private revokes anonymous access. The page refreshes every 30 seconds.
+
+Public status pages always use fixed light styling and the background/icon/messages configured in Status Page Settings, independently of account, browser, or device themes. **Use Default Background** clears the custom background.
 
 Admins can upload a branding icon and publish a global banner or service-specific message with Information, Maintenance, Warning, or Critical severity. Disabled messages remain drafts. Messages are plain text and do not change measured health. Only publish information intended for your public audience.
 
@@ -399,7 +438,7 @@ History supports 7, 14, and 30 days, plus the current and previous UTC calendar 
 
 ### Email and RSS subscriptions
 
-Public visitors can use **Subscribe to updates**, beside the theme toggle, to choose email or copy the RSS feed URL into their feed reader. RSS needs no email provider. Feeds include the latest 50 public updates within the last 30 days.
+Public visitors can use **Subscribe to updates** in the public page header to choose email or copy the RSS feed URL into their feed reader. RSS needs no email provider. Feeds include the latest 50 public updates within the last 30 days.
 
 Status page settings let admins show or hide subscriptions and enable email and RSS independently. Hiding subscriptions also stops new signups, confirmation emails, email updates, and RSS access. Unsubscribe links remain available. Showing subscriptions restores access to the configured channels; the button is disabled if neither channel is available. Existing pages retain RSS access by default.
 
@@ -520,11 +559,3 @@ Never share credentials, webhook URLs, session cookies, or private record data i
 ## License
 
 ServiceTrident is available under the [MIT License](LICENSE). My intention is to keep this a useful, freely available tool that developers and small teams can run and adapt. Hosting and any third-party services you choose remain your responsibility.
-
-## External integrations and service accounts
-
-Admins open **Settings → Service Accounts** to give external sources scoped record-creation access. Select Create incidents, Create tasks, or Create knowledge; publishing new knowledge requires the separate knowledge:publish scope. Restrict the account to selected services, or explicitly permit all workspace services and unassigned records. Choose API Key, OAuth Client Credentials, or both. Credentials default to 90 days and must expire within 1–365 days. Copy their one-time values into a secret manager. Saved credentials cannot be retrieved. Account records provide generation, rotation, revocation, disabling, and confirmed deletion.
-
-The dedicated POST endpoints are `/api/external/v1/incidents`, `/api/external/v1/tasks`, and `/api/external/v1/knowledge`. OAuth clients obtain opaque bearer tokens from `/api/oauth/token` using the client_credentials grant; tokens last at most one hour. Machine credentials cannot use browser-session APIs, and these endpoints do not grant record reads, updates, deletes, uploads, or administrative access. Use HTTPS through a trusted proxy; direct loopback development requests may use HTTP. Every API response is audited with safe metadata, including machine access, authentication, polling, and failures. See [External API](docs/external-api.md) and [Audit history](docs/audit-log.md) for payloads, security boundaries, and logging behavior.
-
-Published articles show **Unpublish** with confirmation; it returns them to Draft and retains content. **Record actions → Archive Article** also requires confirmation and keeps content/history while removing the article from active lists. In All Articles, Create opens the article form; Knowledge Bases retains its separate base-creation action. Public status pages always use fixed light styling and the background/icon/messages configured in Status Page Settings, independently of account, browser, or device themes. **Use Default Background** clears the custom background.

@@ -8,7 +8,7 @@ import { digestToken } from '../../api/src/auth/auth.js';
 import { fieldChoices, workBuiltinFields } from '../../shared/forms/form-options.js';
 
 test('external API enforces credentials, scopes, tenant/service boundaries, expiry, revocation and safe auditing', { timeout: 30000 }, async (t) => {
-  process.env.DATABASE_SCHEMA = process.env.MONGODB_DB = `machine_${randomUUID().replaceAll('-', '')}`;
+  process.env.DATABASE_SCHEMA = process.env.MONGODB_DB = `machine_test_${randomUUID().replaceAll('-', '')}`;
   const { db, client } = await connectDatabase();
   const server = createApp(db).listen(0, '127.0.0.1');
   await new Promise((resolve) => server.once('listening', resolve));
