@@ -75,11 +75,13 @@ export function ServerTable({ source, render: View, ...props }) {
                 {invalid && <p role="alert">Choose a valid date range.</p>}
               </>
             )}
-            {(search || from || to) && (
+            {props.filters}
+            {(search || from || to || props.filtersActive) && (
               <button
                 type="button"
                 className="text-xs text-blue-700 dark:text-blue-400"
                 onClick={() => {
+                  props.onResetFilters?.();
                   setSearch('');
                   setFrom('');
                   setTo('');
@@ -99,7 +101,7 @@ export function ServerTable({ source, render: View, ...props }) {
           sort,
           pending: resource.pending,
           invalid,
-          filtersActive: !!(search || from || to),
+          filtersActive: !!(search || from || to || props.filtersActive),
           onPage: setPage,
           onPageSize: change(setSize),
           onSort: change(setSort),

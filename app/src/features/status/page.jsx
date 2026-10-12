@@ -1,12 +1,17 @@
+import { useTheme } from '../../preferences/theme.jsx';
 import { RecordHeader } from '../../components/record-actions.jsx';
 import { DateTime } from '../../preferences/date-time.jsx';
 import { StatusSubscriptions } from './subscriptions.jsx';
-import { Cog6ToothIcon, ArrowTopRightOnSquareIcon } from '@heroicons/react/24/outline';
+import {
+  Cog6ToothIcon,
+  ArrowTopRightOnSquareIcon,
+  SunIcon,
+  MoonIcon,
+} from '@heroicons/react/24/outline';
 import { Select } from '../../components/forms/select.jsx';
 import { statusRange } from '../../../../shared/domain/status-range.js';
 import { StatusMessage } from './message.jsx';
-import React, { useEffect } from 'react';
-import { backgroundInk } from '../../../../shared/status/appearance.js';
+import React, { useLayoutEffect, useState } from 'react';
 import { ServiceHistory } from './service-history.jsx';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { AdminOnly } from '../../auth/role-gates.jsx';
@@ -15,7 +20,7 @@ import { Logo } from '../../components/brand.jsx';
 import { Badge, ErrorNotice } from '../../components/feedback.jsx';
 
 /** A service-only status list shared by authenticated and explicitly public views. */
-export function StatusPage({ publicView = false }) {
+export function StatusPage({ publicView = false, appearanceOverride }) {
   const { token } = useParams();
   const [params, setParams] = useSearchParams();
   const requestedRange = params.get('range') || params.get('days') || '30';
@@ -26,32 +31,25 @@ export function StatusPage({ publicView = false }) {
     `${publicView ? `/public/status/${token}` : '/status'}?range=${range}`,
     30000,
   );
-  useEffect(() => {
-    if (!data?.backgroundColor && !publicView) return;
+  const appearance = appearanceOverride || (data?.statusTheme === 'dark' ? 'dark' : 'light');
+  const { setPageAppearance } = useTheme();
+  useLayoutEffect(() => {
     const previous = document.body.style.backgroundColor;
-    document.body.style.backgroundColor = data?.backgroundColor || '#f7f9fa';
+    setPageAppearance(appearance);
+    document.body.style.backgroundColor = appearance === 'dark' ? '#000000' : '#ffffff';
     return () => {
+      setPageAppearance(null);
       document.body.style.backgroundColor = previous;
     };
-  }, [data?.backgroundColor, publicView]);
-  const ink = backgroundInk(data?.backgroundColor);
+  }, [appearance, setPageAppearance]);
   return (
-    <section
-      className="space-y-6"
-      style={
-        data?.backgroundColor
-          ? { backgroundColor: data.backgroundColor, padding: '1.5rem', borderRadius: '4px' }
-          : undefined
-      }
-    >
+    <section className="space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           {!publicView && data?.iconUrl && (
             <img src={data.iconUrl} alt="" className="h-10 w-10 object-contain" />
           )}
-          <h1 className="text-2xl font-semibold" style={{ color: ink }}>
-            Service Status
-          </h1>
+          <h1 className="text-2xl font-semibold">Service Status</h1>
         </div>
         <div className="flex w-full min-w-0 items-center gap-2 sm:w-auto">
           <label className="field-label !min-w-0 flex-1 sm:w-64">
@@ -108,7 +106,7 @@ export function StatusPage({ publicView = false }) {
       ) : (
         <>
           <StatusMessage message={data.banner} />
-          <ul className="panel px-5 divide-y divide-slate-200 border-y border-slate-200 dark:divide-slate-800 dark:border-slate-800">
+          <ul className="divide-y divide-slate-200 dark:divide-slate-800">
             {data.services.map((service) => (
               <li
                 key={service.id}
@@ -131,9 +129,7 @@ export function StatusPage({ publicView = false }) {
           {!data.services.length && (
             <p className="text-sm text-slate-500">No services have been added yet.</p>
           )}
-          <p style={{ color: ink }} className="text-xs text-slate-500">
-            Updated {<DateTime value={data.generatedAt} />}
-          </p>
+          <p className="text-xs text-slate-500">Updated {<DateTime value={data.generatedAt} />}</p>
         </>
       )}
     </section>
@@ -158,6 +154,7 @@ function PublicStatusLink() {
 }
 /** Public pages omit private record links and management actions. */
 export function PublicStatusPage() {
+  const [visitorAppearance, setVisitorAppearance] = useState(null);
   const { token } = useParams();
   const [params] = useSearchParams();
   const requestedRange = params.get('range') || params.get('days') || '30';
@@ -167,7 +164,7 @@ export function PublicStatusPage() {
   const { data } = useResource(`/public/status/${token}?range=${range}`, 30000);
   return (
     <div className="mx-auto max-w-4xl px-5 py-8">
-      <header className="mb-10 flex items-center justify-between gap-4">
+      <header className="mb-4 flex items-center justify-between gap-4">
         <div className="flex h-14 min-w-0 items-center">
           {data &&
             (data.iconUrl ? (
@@ -181,11 +178,35 @@ export function PublicStatusPage() {
             ))}
         </div>
         <div className="flex flex-wrap items-center justify-end gap-3">
+          {data && (
+            <button
+              type="button"
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center border-0 bg-transparent p-0 text-slate-600 hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-offset-2 dark:text-slate-300 dark:hover:text-white"
+              aria-label="Toggle status page appearance"
+              title={
+                (visitorAppearance || data.statusTheme) === 'dark'
+                  ? 'Switch to light mode'
+                  : 'Switch to dark mode'
+              }
+              aria-pressed={(visitorAppearance || data.statusTheme) === 'dark'}
+              onClick={() =>
+                setVisitorAppearance(
+                  (visitorAppearance || data.statusTheme) === 'dark' ? 'light' : 'dark',
+                )
+              }
+            >
+              {(visitorAppearance || data.statusTheme) === 'dark' ? (
+                <SunIcon className="h-5 w-5" aria-hidden="true" />
+              ) : (
+                <MoonIcon className="h-5 w-5" aria-hidden="true" />
+              )}
+            </button>
+          )}
           <StatusSubscriptions token={token} capabilities={data?.subscriptions} />
         </div>
       </header>
       <main id="main">
-        <StatusPage publicView />
+        <StatusPage publicView appearanceOverride={visitorAppearance} />
       </main>
     </div>
   );

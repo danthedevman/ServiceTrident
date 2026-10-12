@@ -236,6 +236,14 @@ export function IncidentPage({ edit = false }) {
   if (edit) return <Navigate replace to={`/incidents/${id}`} />;
   return (
     <div className={id ? 'space-y-6' : 'form-page'}>
+      {resolving && item && canEdit && (
+        <ResolveIncidentDialog
+          key={id}
+          item={item}
+          schema={schema.data.fields}
+          onClose={() => setResolving(false)}
+        />
+      )}
       {!id && (
         <div className="flex items-center justify-between gap-3">
           {!id && <PageTitle>Create Incident</PageTitle>}
@@ -322,7 +330,6 @@ export function IncidentPage({ edit = false }) {
                         className="btn-primary"
                         onClick={() => {
                           setResolving(true);
-                          setEditingId(id);
                         }}
                       >
                         Resolve
@@ -451,16 +458,20 @@ export function IncidentPage({ edit = false }) {
                         </div>
                       </dl>
                     )}
-                    {item.fields.length > 0 && (
+                    {recordFields(schema.data.fields, item.fields).some(
+                      (field) => !field.archived,
+                    ) && (
                       <dl className="grid gap-4 sm:grid-cols-2">
-                        {item.fields.map((field) => (
-                          <div key={field.id}>
-                            <dt className="text-sm font-medium">{field.label}</dt>
-                            <dd className="whitespace-pre-wrap break-words text-sm">
-                              {String(item.custom[field.id] ?? '—')}
-                            </dd>
-                          </div>
-                        ))}
+                        {recordFields(schema.data.fields, item.fields)
+                          .filter((field) => !field.archived)
+                          .map((field) => (
+                            <div key={field.id}>
+                              <dt className="text-sm font-medium">{field.label}</dt>
+                              <dd className="whitespace-pre-wrap break-words text-sm">
+                                {String(item.custom[field.id] ?? '—')}
+                              </dd>
+                            </div>
+                          ))}
                       </dl>
                     )}
                   </section>
@@ -936,12 +947,12 @@ function IncidentEditor({
             disabled={save.busy || draft.busy}
             title="Reopen Incident"
             confirmation={`Save changes and reopen “${current.title}”? This returns the incident to an active status and may notify responders.`}
-            confirmLabel="Save and Reopen"
+            confirmLabel="Save"
             busyLabel="Saving…"
             confirmClassName="btn-primary"
             onConfirm={() => formRef.current.requestSubmit()}
           >
-            Save incident
+            Save
           </ConfirmDeleteButton>
         ) : (
           <button className="btn-primary" disabled={save.busy || draft.busy}>
@@ -950,7 +961,7 @@ function IncidentEditor({
               : resolving
                 ? 'Resolve incident'
                 : current
-                  ? 'Save incident'
+                  ? 'Save'
                   : 'Create Incident'}
           </button>
         )}
@@ -999,5 +1010,82 @@ function IncidentEditor({
         </Modal>
       )}
     </section>
+  );
+}
+
+/** Resolve from the read-only record without mounting or submitting the full editor. */
+function ResolveIncidentDialog({ item, schema, onClose }) {
+  const save = useSave();
+  const cancel = useRef(null);
+  const [notes, setNotes] = useState(item.resolutionNotes || '');
+  const field = schema.find((row) => row.id === 'resolutionNotes');
+  const option = fieldChoices(
+    'incidents',
+    schema.find((row) => row.id === 'status'),
+  ).find((choice) => !choice.hidden && choice.base === 'resolved');
+  return (
+    <Modal
+      title="Resolve Incident"
+      busy={save.busy}
+      initialFocusRef={cancel}
+      onClose={onClose}
+      footer={
+        <>
+          <button
+            ref={cancel}
+            type="button"
+            className="btn-secondary"
+            disabled={save.busy}
+            onClick={onClose}
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            form="resolve-incident-form"
+            className="btn-primary"
+            disabled={save.busy || !option}
+          >
+            Resolve Incident
+          </button>
+        </>
+      }
+    >
+      <ValidatedForm
+        id="resolve-incident-form"
+        className="space-y-4"
+        onSubmit={(event) => {
+          event.preventDefault();
+          save.run(
+            `/incidents/${item.id}`,
+            'PATCH',
+            { revision: item.revision, statusOption: option.value, resolutionNotes: notes },
+            onClose,
+          );
+        }}
+      >
+        <p>Resolve “{item.title}”? This marks the incident resolved and may notify subscribers.</p>
+        {item.source === 'monitor' && (
+          <p className="text-sm text-slate-500">
+            Resolving while the service is still down can create a new monitoring incident.
+          </p>
+        )}
+        <Notice error={save.error} />
+        <Field
+          name="resolutionNotes"
+          label={field?.label || 'Resolution notes'}
+          errors={save.fields}
+        >
+          <AutoTextarea
+            name="resolutionNotes"
+            aria-label={field?.label || 'Resolution notes'}
+            required={!!field?.required}
+            value={notes}
+            onChange={(event) => setNotes(event.target.value)}
+            maxLength={2000}
+          />
+        </Field>
+      </ValidatedForm>
+    </Modal>
   );
 }

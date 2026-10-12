@@ -140,7 +140,7 @@ function ProviderForm({ item, onClose, onSaved }) {
           Cancel
         </button>
         <button className="btn-primary" disabled={busy}>
-          Save Provider
+          Save
         </button>
       </div>
     </ValidatedForm>

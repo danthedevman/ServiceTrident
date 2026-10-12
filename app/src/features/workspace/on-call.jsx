@@ -59,6 +59,7 @@ function Calendar({ schedule, members, services, admin, form, id, onReset }) {
   const navigate = useNavigate(),
     formId = useId();
   const [quickDate, setQuickDate] = useState(null);
+  const [viewedShift, setViewedShift] = useState(null);
   const existing = schedule.shifts.find((shift) => shift.id === id);
   const coverageTitle = existing ? onCallLabel(existing, members, services) : undefined;
   useRecordTabLabel(coverageTitle);
@@ -104,7 +105,19 @@ function Calendar({ schedule, members, services, admin, form, id, onReset }) {
       : 'Unavailable teammate';
   };
   const active = members.filter((m) => !m.disabled);
-  const edit = (shift) => navigate(`/on-call/${shift.id}/edit`);
+  const edit = (shift) => setViewedShift(shift);
+  const editViewed = () => {
+    setQuickDate(viewedShift.start.slice(0, 10));
+    setEditor({
+      ...viewedShift,
+      start: utcInput(viewedShift.start),
+      end: utcInput(viewedShift.end),
+      revision: schedule.revision,
+    });
+    setRotation(false);
+    setError('');
+    setViewedShift(null);
+  };
   const fresh = (day = new Date()) => {
     const start = new Date(Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate()));
     setRotation(false);
@@ -267,7 +280,7 @@ function Calendar({ schedule, members, services, admin, form, id, onReset }) {
         Cancel
       </button>
       <button type="submit" form={formId} className="btn-primary" disabled={save.busy}>
-        {save.busy ? 'Saving…' : 'Save coverage'}
+        {save.busy ? 'Saving…' : 'Save'}
       </button>
     </div>
   ) : null;
@@ -371,9 +384,73 @@ function Calendar({ schedule, members, services, admin, form, id, onReset }) {
     );
   return (
     <>
+      {viewedShift && (
+        <Modal
+          title="Coverage"
+          className="coverage-modal"
+          onClose={() => setViewedShift(null)}
+          footer={
+            <>
+              <button type="button" className="btn-secondary" onClick={() => setViewedShift(null)}>
+                Close
+              </button>
+              {admin && (
+                <button type="button" className="btn-primary" onClick={editViewed}>
+                  Edit Coverage
+                </button>
+              )}
+            </>
+          }
+        >
+          <dl className="space-y-4">
+            <div>
+              <dt className="field-label">On Call</dt>
+              <dd>
+                <ReferenceValue
+                  type="members"
+                  id={viewedShift.userId}
+                  label={name(viewedShift.userId)}
+                />
+              </dd>
+            </div>
+            <div>
+              <dt className="field-label">Services</dt>
+              <dd>
+                {viewedShift.serviceIds.length ? (
+                  <ReferenceValues
+                    type="services"
+                    ids={viewedShift.serviceIds}
+                    getLabel={(serviceId) =>
+                      services.find((service) => service.id === serviceId)?.name
+                    }
+                  />
+                ) : (
+                  'All services'
+                )}
+              </dd>
+            </div>
+            <div>
+              <dt className="field-label">Start</dt>
+              <dd>
+                <DateTime value={viewedShift.start} />
+              </dd>
+            </div>
+            <div>
+              <dt className="field-label">End</dt>
+              <dd>
+                <DateTime value={viewedShift.end} />
+              </dd>
+            </div>
+          </dl>
+        </Modal>
+      )}
       {quickDate && admin && (
         <Modal
-          title={`Add coverage · ${quickDate}`}
+          title={
+            schedule.shifts.some((shift) => shift.id === editor?.id)
+              ? `Edit coverage · ${quickDate}`
+              : `Add coverage · ${quickDate}`
+          }
           className="coverage-modal"
           onClose={closeEditor}
           busy={save.busy}
@@ -460,7 +537,6 @@ function Calendar({ schedule, members, services, admin, form, id, onReset }) {
                   {shifts.map((s) => (
                     <button
                       key={s.id}
-                      disabled={!admin}
                       onClick={() => edit({ ...s, start: utcInput(s.start), end: utcInput(s.end) })}
                       title={`${name(s.userId)}: ${s.start} – ${s.end}`}
                       className="mt-1 block w-full truncate rounded bg-blue-100 px-2 py-1 text-left text-xs text-blue-900 dark:bg-blue-950 dark:text-blue-200"

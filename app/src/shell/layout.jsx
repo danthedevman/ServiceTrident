@@ -42,6 +42,7 @@ export function Layout() {
   const recordLayout = recordPage || formPage;
   const listPage = [
     '/dashboard/reports',
+    '/events',
     '/settings/audit',
     '/services',
     '/collections',
@@ -89,6 +90,7 @@ export function Layout() {
         data-app-shell
         style={{ '--record-tabs-height': `${tabHeight}px` }}
         data-nav-collapsed={collapsed}
+        data-record-tabs-visible={recordLayout && tabHeight > 0 ? true : undefined}
         className={`min-h-screen ${collapsed ? 'md:pl-20' : 'md:pl-72'}`}
       >
         <Sidebar
@@ -110,7 +112,9 @@ export function Layout() {
         >
           <RolePreview banner />
           <RecordNavigationBar onHeightChange={setTabHeight} />
-          <div className={`record-sticky-header${dashboardPage ? ' dashboard-header' : ''}`}>
+          <div
+            className={`record-sticky-header${dashboardPage ? ' dashboard-header' : ''}${recordLayout && tabHeight > 0 ? ' record-header-with-tabs' : ''}`}
+          >
             {!dashboardPage && <Breadcrumbs resolveNames={!sessionLoading} />}
             <div ref={setRecordHeader} />
           </div>
@@ -126,7 +130,7 @@ export function Layout() {
                     ? 'list-outlet'
                     : recordLayout
                       ? 'record-scroll-area space-y-6'
-                      : 'page-scroll-area space-y-6'
+                      : `page-scroll-area space-y-6${dashboardPage ? ' dashboard-scroll-area' : ''}`
                 }
               />
             </BreadcrumbTitleContext.Provider>

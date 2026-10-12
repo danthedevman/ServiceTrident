@@ -1,5 +1,4 @@
 import { AutoTextarea } from '../../components/forms/auto-textarea.jsx';
-import { backgroundInk } from '../../../../shared/status/appearance.js';
 import { RecordActions } from '../../components/record-actions.jsx';
 import { ConfirmDeleteButton } from '../../components/confirm-delete-button.jsx';
 import { Select } from '../../components/forms/select.jsx';
@@ -64,7 +63,7 @@ function StatusEditor({ settings, services, integrations }) {
     settings.subscriptionIntegrationId ?? '',
   );
   const [publicOrigin, setPublicOrigin] = useState(settings.publicOrigin ?? '');
-  const [backgroundColor, setBackgroundColor] = useState(settings.backgroundColor ?? '');
+  const [statusTheme, setStatusTheme] = useState(settings.statusTheme || 'light');
   const [initial] = useState(settings);
   const [visibility, setVisibility] = useState(settings.visibility);
   const [banner, setBanner] = useState(settings.banner ?? emptyMessage());
@@ -83,7 +82,7 @@ function StatusEditor({ settings, services, integrations }) {
     try {
       const body = {
         visibility,
-        backgroundColor,
+        statusTheme,
         subscriptionButtonVisible,
         rssSubscriptions,
         emailSubscriptions,
@@ -286,50 +285,20 @@ function StatusEditor({ settings, services, integrations }) {
         </div>
       </details>
       <section className="space-y-3 border-t border-slate-200 pt-6 dark:border-slate-700">
-        <div className="space-y-2">
-          <label htmlFor="status-background-hex" className="field-label">
-            Page Background Color
-          </label>
-          <div className="status-color-control">
-            <label className="status-color-swatch">
-              <span className="sr-only">Choose Background Color</span>
-              <input
-                type="color"
-                value={/^#[a-f0-9]{6}$/i.test(backgroundColor) ? backgroundColor : '#f4f7fb'}
-                onChange={(event) => setBackgroundColor(event.target.value)}
-              />
-            </label>
-            <input
-              id="status-background-hex"
-              name="backgroundColor"
-              aria-label="Page Background Color Hex"
-              type="text"
-              maxLength={7}
-              placeholder="App theme"
-              value={backgroundColor}
-              onChange={(event) => setBackgroundColor(event.target.value)}
-              spellCheck={false}
-              autoComplete="off"
-            />
-            <button type="button" className="btn-secondary" onClick={() => setBackgroundColor('')}>
-              Use Default Background
-            </button>
-          </div>
-          <div
-            className="status-color-preview"
-            style={
-              /^#[a-f0-9]{6}$/i.test(backgroundColor)
-                ? { backgroundColor, color: backgroundInk(backgroundColor) }
-                : {}
-            }
+        <label className="field-label block max-w-xs">
+          Appearance
+          <Select
+            aria-label="Status Page Appearance"
+            value={statusTheme}
+            onChange={(event) => setStatusTheme(event.target.value)}
           >
-            <span className="font-medium">Status Page Preview</span>
-            <span className="text-xs">{backgroundColor || 'Default background'}</span>
-          </div>
-        </div>
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+          </Select>
+        </label>
         <p className="text-sm text-slate-500">
-          Applies to private and public status pages. Heading text adjusts to keep contrast
-          readable.
+          Applies to private and public status pages. Personal theme preferences do not change this
+          page.
         </p>
       </section>
       <RecordActions>
@@ -342,7 +311,7 @@ function StatusEditor({ settings, services, integrations }) {
           Cancel
         </button>
         <button className="btn-primary" disabled={busy}>
-          {busy ? 'Saving…' : 'Save Status Page'}
+          {busy ? 'Saving…' : 'Save'}
         </button>
       </RecordActions>
     </ValidatedForm>

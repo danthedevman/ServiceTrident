@@ -39,13 +39,19 @@ export function slackMessage(incident, delivery) {
       : [];
   const escape = (value) =>
     value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+  // Separate full-width sections keep fields vertically stacked in Slack clients.
+  // Reserve one of Slack's 50 message blocks for the incident link.
+  const lines = [summary, ...diagnostics]
+    .flatMap((text) => text.split('\n'))
+    .filter(Boolean)
+    .slice(0, 49);
   return {
     text: `${escape([summary, ...diagnostics].join('\n\n'))}\nIncident: ${url}`,
     mrkdwn: false,
     unfurl_links: false,
     unfurl_media: false,
     blocks: [
-      ...[summary, ...diagnostics].map((text) => ({
+      ...lines.map((text) => ({
         type: 'section',
         text: { type: 'plain_text', text, emoji: false },
       })),

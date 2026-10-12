@@ -4,13 +4,35 @@ import { csvRow } from '@servicetrident/shared/files/csv';
 
 import { InputError } from '@servicetrident/shared/validation/validation';
 
-import { requireMonitor } from './services.js';
+import { requireMonitor, catalog } from './services.js';
+import { workspaceMonitorEvents } from '../repositories/workspace-monitor-events.js';
 
 import { eventQuery } from '../domain/event-query.js';
 
 import { objectId } from '../domain/identifiers.js';
 /** Register monitor history, detail, and CSV routes; authentication and workspace policy run in app.js. */
 export function installEventRoutes(app, db) {
+  app.get('/api/event-metrics', async (req, res) => {
+    if (req.role === 'user') throw new InputError('Your role cannot view monitor events.', 403);
+    const data = await catalog(db, req.workspaceId);
+    res.json(
+      await workspaceMonitorEvents(
+        db,
+        req.workspaceId,
+        (
+          await db
+            .collection('monitors')
+            .find({ userId: req.workspaceId }, { projection: { name: 1, serviceId: 1 } })
+            .toArray()
+        ).map((monitor) => ({
+          ...monitor,
+          service: data.services.find((service) => String(service.id) === String(monitor.serviceId))
+            ?.name,
+        })),
+        req.query,
+      ).metrics(),
+    );
+  });
   app.get('/api/monitors/:id/events', async (req, res) => {
     const monitorId = objectId(req.params.id);
     const monitor = await requireMonitor(db, req.params.id, req.workspaceId);

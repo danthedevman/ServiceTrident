@@ -14,7 +14,7 @@ import React, { useContext, useState } from 'react';
 import { AuthContext } from '../../auth/auth-context.js';
 import { useResource } from '../../data/use-resource.js';
 import { DataTable } from '../../components/data-table.jsx';
-import { RecordTabs } from '../../components/record-tabs.jsx';
+import { RecordTabs, RelatedCountsContext } from '../../components/record-tabs.jsx';
 import { RefreshButton } from '../../components/icon-button.jsx';
 import { Notice } from '../../components/forms/fields.jsx';
 import { newId } from '../../lib/identifiers.js';
@@ -119,10 +119,17 @@ export function IntegrationsPage({ form = false }) {
                   'Provider',
                   providers.find((provider) => provider.id === item.type)?.name || item.type,
                 ],
-                ...(item.type === 'servicenow' ? [
-                  ['Instance Root URL', item.instanceUrl || 'Not configured'],
-                  ['Authentication', item.authType === 'oauth' ? 'OAuth Client Credentials' : 'Basic Authentication'],
-                ] : []),
+                ...(item.type === 'servicenow'
+                  ? [
+                      ['Instance Root URL', item.instanceUrl || 'Not configured'],
+                      [
+                        'Authentication',
+                        item.authType === 'oauth'
+                          ? 'OAuth Client Credentials'
+                          : 'Basic Authentication',
+                      ],
+                    ]
+                  : []),
                 ['Delivery', item.enabled ? 'Enabled' : 'Disabled'],
                 ['Recovery notifications', item.recovery ? 'Enabled' : 'Disabled'],
                 ['On-call recipients', item.onCall ? 'Enabled' : 'Disabled'],
@@ -188,110 +195,120 @@ export function IntegrationsPage({ form = false }) {
         </div>
       </RecordHeader>
       <Notice error={config.error || save.error} />
-      <RecordTabs
-        related
-        lazy
-        label="Integration Views"
-        tabs={[
-          {
-            id: 'catalog',
-            label: 'App Catalog',
-            content: (
-              <IntegrationCatalog integrations={config.data?.integrations} loading={!config.data} />
-            ),
-          },
-          {
-            id: 'integrations',
-            label: 'Configured Apps',
-            content: (
-              <DataTable
-                fullPage
-                loading={!config.data}
-                title="Configured Apps"
-                onRefresh={config.refresh}
-                onDeleteRow={async (row) => {
-                  const current = await api('/integrations');
-                  await writeApi(`/integrations/${row.id}`, {
-                    method: 'DELETE',
-                    body: { revision: current.revision },
-                  });
-                }}
-                source="integrations"
-                filename="integrations.csv"
-                rowKey={(r) => r.id}
-                rows={config.data?.integrations ?? []}
-                columns={[
-                  { key: 'name', label: 'Name', value: (r) => r.name },
-                  { key: 'type', label: 'Provider', value: (r) => displayValue(r.type) },
-                  { key: 'destination', label: 'Destination', value: (r) => r.destination },
-                  {
-                    key: 'enabled',
-                    label: 'Enabled',
-                    value: (r) => (r.enabled ? 'Yes' : 'No'),
-                    render: (r) => <StateBadge status={r.enabled ? 'enabled' : 'disabled'} />,
-                  },
-                  {
-                    key: 'actions',
-                    label: 'Actions',
-                    sortable: false,
-                    value: () => '',
-                    render: (r) => (
-                      <button className="btn-secondary" onClick={() => edit(r)}>
-                        Configure
-                      </button>
-                    ),
-                  },
-                ]}
-              />
-            ),
-          },
-          {
-            id: 'deliveries',
-            label: 'Logs',
-            content: (
-              <DataTable
-                fullPage
-                title="Logs"
-                source="deliveries"
-                filename="integration-deliveries.csv"
-                rowKey={(r) => r.id}
-                dateColumn="createdAt"
-                defaultSort="createdAt:desc"
-                columns={[
-                  { key: 'createdAt', label: 'Created', value: (r) => r.createdAt },
-                  { key: 'integrationName', label: 'Integration', value: (r) => r.integrationName },
-                  { key: 'event', label: 'Event', value: (r) => displayValue(r.event) },
-                  {
-                    key: 'status',
-                    label: 'Status',
-                    value: (r) => displayValue(r.status),
-                    render: (r) => <StateBadge status={r.status} />,
-                  },
-                  { key: 'attempts', label: 'Attempts', value: (r) => r.attempts },
-                  { key: 'externalId', label: 'External incident', value: (r) => r.externalId },
-                  { key: 'error', label: 'Details', value: (r) => r.error },
-                  {
-                    key: 'actions',
-                    label: 'Actions',
-                    sortable: false,
-                    value: () => '',
-                    render: (r) =>
-                      r.status === 'failed' ? (
-                        <button
-                          disabled={save.busy}
-                          className="btn-secondary"
-                          onClick={() => save.run(`/deliveries/${r.id}/retry`, 'POST', {})}
-                        >
-                          Retry
+      <RelatedCountsContext.Provider value={{ kind: 'integrations', id: 'all' }}>
+        <RecordTabs
+          related
+          lazy
+          label="Integration Views"
+          tabs={[
+            {
+              id: 'catalog',
+              count: providers.length,
+              label: 'App Catalog',
+              content: (
+                <IntegrationCatalog
+                  integrations={config.data?.integrations}
+                  loading={!config.data}
+                />
+              ),
+            },
+            {
+              id: 'integrations',
+              label: 'Configured Apps',
+              content: (
+                <DataTable
+                  fullPage
+                  loading={!config.data}
+                  title="Configured Apps"
+                  onRefresh={config.refresh}
+                  onDeleteRow={async (row) => {
+                    const current = await api('/integrations');
+                    await writeApi(`/integrations/${row.id}`, {
+                      method: 'DELETE',
+                      body: { revision: current.revision },
+                    });
+                  }}
+                  source="integrations"
+                  filename="integrations.csv"
+                  rowKey={(r) => r.id}
+                  rows={config.data?.integrations ?? []}
+                  columns={[
+                    { key: 'name', label: 'Name', value: (r) => r.name },
+                    { key: 'type', label: 'Provider', value: (r) => displayValue(r.type) },
+                    { key: 'destination', label: 'Destination', value: (r) => r.destination },
+                    {
+                      key: 'enabled',
+                      label: 'Enabled',
+                      value: (r) => (r.enabled ? 'Yes' : 'No'),
+                      render: (r) => <StateBadge status={r.enabled ? 'enabled' : 'disabled'} />,
+                    },
+                    {
+                      key: 'actions',
+                      label: 'Actions',
+                      sortable: false,
+                      value: () => '',
+                      render: (r) => (
+                        <button className="btn-secondary" onClick={() => edit(r)}>
+                          Configure
                         </button>
-                      ) : null,
-                  },
-                ]}
-              />
-            ),
-          },
-        ]}
-      />
+                      ),
+                    },
+                  ]}
+                />
+              ),
+            },
+            {
+              id: 'deliveries',
+              label: 'Logs',
+              content: (
+                <DataTable
+                  fullPage
+                  title="Logs"
+                  source="deliveries"
+                  filename="integration-deliveries.csv"
+                  rowKey={(r) => r.id}
+                  dateColumn="createdAt"
+                  defaultSort="createdAt:desc"
+                  columns={[
+                    { key: 'createdAt', label: 'Created', value: (r) => r.createdAt },
+                    {
+                      key: 'integrationName',
+                      label: 'Integration',
+                      value: (r) => r.integrationName,
+                    },
+                    { key: 'event', label: 'Event', value: (r) => displayValue(r.event) },
+                    {
+                      key: 'status',
+                      label: 'Status',
+                      value: (r) => displayValue(r.status),
+                      render: (r) => <StateBadge status={r.status} />,
+                    },
+                    { key: 'attempts', label: 'Attempts', value: (r) => r.attempts },
+                    { key: 'externalId', label: 'External incident', value: (r) => r.externalId },
+                    { key: 'error', label: 'Details', value: (r) => r.error },
+                    {
+                      key: 'actions',
+                      label: 'Actions',
+                      sortable: false,
+                      value: () => '',
+                      render: (r) =>
+                        r.status === 'failed' ? (
+                          <button
+                            disabled={save.busy}
+                            className="btn-secondary"
+                            onClick={() => save.run(`/deliveries/${r.id}/retry`, 'POST', {})}
+                          >
+                            Retry
+                          </button>
+                        ) : null,
+                    },
+                  ]}
+                />
+              ),
+            },
+          ]}
+        />
+      </RelatedCountsContext.Provider>
     </div>
   );
 }

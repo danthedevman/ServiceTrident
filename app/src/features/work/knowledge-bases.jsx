@@ -17,7 +17,8 @@ import { useResource, useInfiniteResource } from '../../data/use-resource.js';
 import { useSave } from '../../data/use-save.js';
 import { RecordWorkspace, RecordMetadata } from '../../components/record-workspace.jsx';
 import { RecordActions } from '../../components/record-actions.jsx';
-import { WorkTable } from './work.jsx';
+import { DateTime } from '../../preferences/date-time.jsx';
+import { RecordLink } from '../../components/record-navigation.jsx';
 
 /** Search stays server-side while cards present each base as a home for its articles. */
 export function KnowledgeBasesPage() {
@@ -28,7 +29,7 @@ export function KnowledgeBasesPage() {
   );
   const items = resource.data?.pages.flatMap((page) => page.items) ?? [];
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-6" aria-busy={resource.pending}>
       <RecordHeader>
         <header className="flex items-center justify-end gap-3">
           <PageTitle>Knowledge Bases</PageTitle>
@@ -74,7 +75,6 @@ export function KnowledgeBasesPage() {
           </Link>
         ))}
       </div>
-      {resource.pending && <p role="status">Loading knowledge bases…</p>}
       {resource.data && !items.length && (
         <p>
           {search
@@ -144,13 +144,13 @@ export function KnowledgeBasePage({ create = false }) {
                 <h2 className="field-label">Description</h2>
                 <p>{item.description || 'No description'}</p>
               </div>
-              <WorkTable kind="knowledge" initialKnowledgeBaseId={id} />
+              <KnowledgeBaseArticles key={id} knowledgeBaseId={id} />
               <AIAssistant key={id} action="answer" knowledgeBaseId={id} />
             </div>
           )}
         </RecordWorkspace>
       ) : (
-        <p role="status">Loading knowledge base…</p>
+        <Skeleton className="h-64" />
       )}
     </div>
   );
@@ -199,7 +199,7 @@ function KnowledgeBaseForm({ item, onClose }) {
           Cancel
         </button>
         <button className="btn-primary" disabled={save.busy}>
-          {item ? 'Save Changes' : 'Create Knowledge Base'}
+          {item ? 'Save' : 'Create Knowledge Base'}
         </button>
       </RecordActions>
     </ValidatedForm>
@@ -298,5 +298,85 @@ function DeleteKnowledgeBase({ item, onClose, onDeleted, refresh }) {
       )}
       <Notice error={error} />
     </Modal>
+  );
+}
+
+function KnowledgeBaseArticles({ knowledgeBaseId }) {
+  const { user } = useContext(AuthContext);
+  const [search, setSearch] = useState('');
+  const [status, setStatus] = useState('');
+  const resource = useInfiniteResource(
+    `/knowledge?${new URLSearchParams({ knowledgeBaseId, search, status, pageSize: 25, sortBy: 'updatedAt', order: 'desc' })}`,
+  );
+  const articles = resource.data?.pages.flatMap((page) => page.items) ?? [];
+  return (
+    <section className="space-y-4" aria-label="Articles" aria-busy={resource.pending}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-lg font-semibold">Articles</h2>
+        {['admin', 'responder'].includes(user?.role) && (
+          <Link
+            className="btn-primary"
+            to={`/knowledge/new?knowledgeBaseId=${encodeURIComponent(knowledgeBaseId)}`}
+          >
+            <PlusIcon className="h-5 w-5" aria-hidden="true" />
+            Create
+          </Link>
+        )}
+      </div>
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="field-label min-w-0 flex-1">
+          <span className="sr-only">Search Articles</span>
+          <input
+            type="search"
+            placeholder="Search articles"
+            maxLength={100}
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+        </label>
+        <label className="field-label w-full sm:w-48">
+          <span className="sr-only">Status</span>
+          <Select
+            aria-label="Status"
+            value={status}
+            onChange={(event) => setStatus(event.target.value)}
+          >
+            <option value="">Active articles</option>
+            <option value="draft">Draft</option>
+            <option value="published">Published</option>
+            <option value="archived">Archived</option>
+          </Select>
+        </label>
+      </div>
+      <Notice error={resource.error} />
+      {!resource.data && resource.pending && <Skeleton className="h-48" />}
+      <ul className="space-y-3">
+        {articles.map((article) => (
+          <li key={article.id}>
+            <RecordLink
+              to={`/knowledge/${article.id}`}
+              recordLabel={article.title}
+              className="panel block p-4 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500 dark:hover:bg-slate-800"
+            >
+              <h3 className="text-base font-semibold text-blue-700 dark:text-blue-300">
+                {article.title}
+              </h3>
+              <div className="mt-2 flex flex-wrap gap-x-6 gap-y-2 text-sm text-slate-600 dark:text-slate-300">
+                <span>Author: {article.createdBy || 'Not recorded'}</span>
+                <span>
+                  Last Updated: <DateTime value={article.updatedAt} />
+                </span>
+              </div>
+            </RecordLink>
+          </li>
+        ))}
+      </ul>
+      {resource.data && !articles.length && <p>No articles match your search and status.</p>}
+      {resource.hasMore && (
+        <button className="btn-secondary" disabled={resource.pending} onClick={resource.loadMore}>
+          Load More Articles
+        </button>
+      )}
+    </section>
   );
 }

@@ -19,19 +19,14 @@ export function Logo({ className = '', compact = false }) {
         aria-hidden={compact ? undefined : true}
       >
         <rect width="32" height="32" rx="8" className="fill-blue-700 dark:fill-blue-600" />
-        <g
-          fill="none"
+        {/* Three upward points represent coordinated service response; a single stem anchors the mark. */}
+        <path
+          d="M16 5 12.5 9H14.8V18.6L9.2 15.4V11H11.5L8 7 4.5 11H6.8V16.8L14.8 21.4V27H17.2V21.4L25.2 16.8V11H27.5L24 7 20.5 11H22.8V15.4L17.2 18.6V9H19.5Z"
+          fill="#fff"
           stroke="#fff"
-          strokeWidth="1.45"
-          strokeLinecap="round"
+          strokeWidth="0.25"
           strokeLinejoin="round"
-        >
-          {/* Connected service nodes converge into a response stem; the center carries a health pulse. */}
-          <circle cx="8" cy="9" r="2" />
-          <circle cx="16" cy="7" r="2" />
-          <circle cx="24" cy="9" r="2" />
-          <path d="M8 11v4a8 8 0 0 0 16 0v-4M16 9v5l-2 2 4 2-2 2v6M13 26h6" />
-        </g>
+        />
       </svg>
       {!compact && (
         <span>

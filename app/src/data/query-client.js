@@ -23,11 +23,14 @@ export function resourceOptions(path, account) {
   return {
     queryKey: resourceKey(path, account),
     queryFn: ({ signal }) => api(path, { signal }),
-    staleTime: path?.includes('/events/')
-      ? 5 * 60_000
-      : ['/services', '/collections', '/status-settings'].includes(path)
-        ? 60_000
-        : 15_000,
+    ...(path?.startsWith('/related-counts/') ? { refetchOnWindowFocus: false } : {}),
+    staleTime: path?.startsWith('/related-counts/')
+      ? 60_000
+      : path?.includes('/events/')
+        ? 5 * 60_000
+        : ['/services', '/collections', '/status-settings'].includes(path)
+          ? 60_000
+          : 15_000,
   };
 }
 

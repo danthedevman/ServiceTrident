@@ -45,6 +45,7 @@ import { Layout } from './shell/layout.jsx';
 import { MonitorList } from './features/monitors/list.jsx';
 import { EditMonitor } from './features/monitors/form.jsx';
 import { MonitorForm } from './features/monitors/form.jsx';
+import { EventsPage } from './features/monitors/events.jsx';
 import { MonitorDetail } from './features/monitors/detail.jsx';
 
 import { EventDetail } from './features/monitors/event-detail.jsx';
@@ -81,6 +82,7 @@ export function App() {
               <Route path="/join/:token" element={<JoinPage />} />
               <Route element={<Layout />}>
                 <Route index element={<HomePage />} />
+                <Route path="events" element={<EventsPage />} />
                 <Route path="dashboard/reports" element={<DashboardReport />} />
                 <Route path="help" element={<HelpPage />} />
                 <Route path="tasks" element={<WorkPage key="tasks" />} />
@@ -280,8 +282,22 @@ export function App() {
                   }
                 />
                 <Route path="records/:kind/:id" element={<TableRecordPage />} />
-                <Route path="settings/service-accounts" element={<AdminOnly page><ServiceAccountsPage /></AdminOnly>} />
-                <Route path="settings/service-accounts/:id" element={<AdminOnly page><ServiceAccountsPage /></AdminOnly>} />
+                <Route
+                  path="settings/service-accounts"
+                  element={
+                    <AdminOnly page>
+                      <ServiceAccountsPage />
+                    </AdminOnly>
+                  }
+                />
+                <Route
+                  path="settings/service-accounts/:id"
+                  element={
+                    <AdminOnly page>
+                      <ServiceAccountsPage />
+                    </AdminOnly>
+                  }
+                />
                 <Route path="settings" element={<SettingsPage />} />
                 <Route path="dashboard" element={<Navigate to="/" replace />} />
                 <Route

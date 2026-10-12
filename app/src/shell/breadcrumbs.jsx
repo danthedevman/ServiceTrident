@@ -16,6 +16,7 @@ const sections = {
   services: 'Services',
   collections: 'Collections',
   monitors: 'Monitors',
+  events: 'Events',
   groups: 'Groups',
   integrations: 'Integrations',
   workspace: 'Users',
@@ -51,9 +52,14 @@ export function Breadcrumbs({ resolveNames = true }) {
           : null
       : null;
   const basePath = kind === 'knowledge' && id === 'bases';
-  const accountRecord = kind === 'settings' && id === 'service-accounts' && /^[a-f\d]{24}$/i.test(action || '');
+  const accountRecord =
+    kind === 'settings' && id === 'service-accounts' && /^[a-f\d]{24}$/i.test(action || '');
   const { data } = useResource(
-    accountRecord ? `/settings/service-accounts/${action}` : basePath && action && action !== 'new' ? `/knowledge-bases/${action}` : path,
+    accountRecord
+      ? `/settings/service-accounts/${action}`
+      : basePath && action && action !== 'new'
+        ? `/knowledge-bases/${action}`
+        : path,
   );
   const coverageRecord = resolveNames && kind === 'on-call' && id && id !== 'new';
   const coverageMembers = useResource(coverageRecord ? '/members' : null);
@@ -123,10 +129,12 @@ export function Breadcrumbs({ resolveNames = true }) {
     crumbs.push({ label: 'Identity Providers' });
   else if (kind === 'settings' && id === 'audit') crumbs.push({ label: 'Audit Log' });
   else if (kind === 'settings' && id === 'service-accounts') {
-    crumbs.push({ label: 'Service Accounts', to: action ? '/settings/service-accounts' : undefined });
+    crumbs.push({
+      label: 'Service Accounts',
+      to: action ? '/settings/service-accounts' : undefined,
+    });
     if (action) crumbs.push({ label: name || 'Service Account' });
-  }
-  else if (id === 'settings') crumbs.push({ label: 'Settings' });
+  } else if (id === 'settings') crumbs.push({ label: 'Settings' });
   else if (kind === 'integrations' && id === 'ai') crumbs.push({ label: 'AI Provider' });
   else if (id && kind !== 'records') {
     crumbs.push({
@@ -137,6 +145,14 @@ export function Breadcrumbs({ resolveNames = true }) {
     if (action === 'edit') crumbs.push({ label: 'Edit' });
     if (action === 'events') crumbs.push({ label: 'Check Event' });
   }
+  if (kind === 'monitors' && action === 'events')
+    crumbs.splice(
+      0,
+      crumbs.length,
+      { label: 'Events', to: '/events' },
+      { label: name || 'Monitor', to: `/monitors/${id}` },
+      { label: 'Check Event' },
+    );
   return (
     <nav aria-label="Breadcrumb">
       <ol className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-slate-500 dark:text-slate-400">

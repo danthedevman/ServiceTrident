@@ -13,7 +13,7 @@ test('layout preferences accept only boolean changes and exclude unrelated user 
     tableLayouts: {},
     dashboardTab: 'overview',
     dashboardGreeting: 'Welcome, {firstName}',
-    colorScheme: 'ocean',
+    colorScheme: 'black',
     highContrast: false,
     reduceMotion: false,
     textScale: 'standard',
@@ -113,4 +113,12 @@ test('record sidebar sizes validate saved widths and snap collapsed drags', asyn
     assert.throws(() => preferencePatch({ rightPanelWidth }));
   assert.equal(uiPreferences({ rightPanelWidth: 999 }).rightPanelWidth, 320);
   assert.deepEqual(preferencePatch({ rightPanelWidth: 456 }), { rightPanelWidth: 456 });
+});
+
+test('primary neutral themes and Events dashboard are valid preferences', () => {
+  assert.deepEqual(preferencePatch({ colorScheme: 'white', dashboardTab: 'events' }), {
+    colorScheme: 'white',
+    dashboardTab: 'events',
+  });
+  assert.equal(uiPreferences().colorScheme, 'black');
 });

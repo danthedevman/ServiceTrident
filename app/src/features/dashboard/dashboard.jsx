@@ -1,3 +1,4 @@
+import { ReferenceField } from '../../components/forms/reference-field.jsx';
 import { RecordHeader } from '../../components/record-actions.jsx';
 import { useUiPreferences } from '../../preferences/ui-preferences.jsx';
 import { DateTime } from '../../preferences/date-time.jsx';
@@ -202,8 +203,15 @@ export function Dashboard() {
     setPreference,
     ready: preferencesReady,
   } = useUiPreferences();
-  const response = useResource('/response-dashboard', 30000),
-    health = useResource('/status', 30000),
+  const [eventServiceId, setEventServiceId] = React.useState('');
+  const eventMetrics = useResource(
+    dashboardTab === 'events'
+      ? `/event-metrics${eventServiceId ? `?serviceId=${encodeURIComponent(eventServiceId)}` : ''}`
+      : null,
+    30000,
+  );
+  const response = useResource(dashboardTab === 'events' ? null : '/response-dashboard', 30000),
+    health = useResource(dashboardTab === 'events' ? null : '/status', 30000),
     data = response.data;
   const chart = health.data ? dashboardData(health.data, 30) : null;
   const total = (values) => Object.values(values ?? {}).reduce((sum, value) => sum + value, 0);
@@ -546,13 +554,18 @@ export function Dashboard() {
                 <option value="incidents">Incidents</option>
                 <option value="tasks">Tasks</option>
                 <option value="services">Service Health</option>
+                <option value="events">Events</option>
               </Select>
             </label>
             <RefreshButton
-              busy={response.pending || health.pending}
+              busy={response.pending || health.pending || eventMetrics.pending}
               label="Refresh dashboard"
               bare
-              onClick={() => Promise.all([response.refresh(), health.refresh()])}
+              onClick={() =>
+                dashboardTab === 'events'
+                  ? eventMetrics.refresh()
+                  : Promise.all([response.refresh(), health.refresh()])
+              }
             />
           </div>
         </div>
@@ -570,6 +583,12 @@ export function Dashboard() {
             services={health.data?.services ?? []}
             reportHref={reportHref}
           />
+        ) : dashboardTab === 'events' ? (
+          <EventDashboard
+            state={eventMetrics}
+            serviceId={eventServiceId}
+            setService={setEventServiceId}
+          />
         ) : dashboardTab === 'tasks' ? (
           tasks
         ) : dashboardTab === 'services' ? (
@@ -577,9 +596,15 @@ export function Dashboard() {
         ) : (
           incidents
         ))}
-      {data && (
+      {(data || eventMetrics.data) && (
         <p className="text-xs text-slate-500">
-          Updated {<DateTime value={data.generatedAt} />} · Refreshes every 30 seconds
+          Updated{' '}
+          {
+            <DateTime
+              value={dashboardTab === 'events' ? eventMetrics.data?.generatedAt : data.generatedAt}
+            />
+          }{' '}
+          · Refreshes every 30 seconds
         </p>
       )}
     </div>
@@ -590,29 +615,57 @@ export function Dashboard() {
 function Overview({ data, chart, services, reportHref }) {
   if (!data?.overview || !chart) return null;
   const overview = data.overview;
-  const count = (values) => Object.values(values ?? {}).reduce((sum, value) => sum + value, 0);
   return (
     <div className="space-y-6">
-      <section className="panel p-5" aria-labelledby="important-reports-title">
-        <h2 id="important-reports-title" className="font-semibold">
-          Important Reports
-        </h2>
-        <div className="mt-4 flex flex-wrap gap-3">
+      <section className="space-y-4" aria-labelledby="overview-work-title">
+        <div>
+          <h2 id="overview-work-title" className="text-lg font-semibold">
+            Your Work
+          </h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Start with your active assignments, then review work shared with your team.
+          </p>
+        </div>
+        <div className="grid gap-4 lg:grid-cols-2">
           {[
-            ['Incidents Assigned to Me', reportHref('my-incidents')],
-            ['Incidents Assigned to My Team', reportHref('team-incidents')],
-            ['Tasks Assigned to Me', reportHref('my-tasks')],
-            ['Tasks Assigned to My Team', reportHref('team-tasks')],
-            ['Critical and High Incidents', reportHref('urgent')],
-            ['Unassigned Incidents', reportHref('unassigned')],
-            ['Overdue Tasks', reportHref('overdue')],
-            ['Monitor Health', reportHref('monitors')],
-            ['Knowledge Articles', '/knowledge/articles'],
-            ['Service Status', '/status'],
-          ].map(([label, href]) => (
-            <Link key={label} className="btn-secondary" to={href}>
-              {label}
-            </Link>
+            ['My Assignments', 'my'],
+            ['My Team', 'team'],
+          ].map(([title, scope]) => (
+            <div key={scope} className="panel p-5">
+              <h3 className="font-semibold">{title}</h3>
+              <div className="mt-3 space-y-2">
+                {['incidents', 'tasks'].map((kind) => {
+                  const report = `${scope}-${kind}`;
+                  const work = data.assignedWork?.[report];
+                  return (
+                    <Link
+                      key={kind}
+                      to={reportHref(report)}
+                      className="flex items-center justify-between gap-4 rounded-lg p-3 hover:bg-slate-100 dark:hover:bg-slate-800"
+                    >
+                      <div>
+                        <span className="font-medium">
+                          {kind === 'incidents' ? 'Unresolved incidents' : 'Outstanding tasks'}
+                        </span>
+                        <p className="mt-1 text-sm text-slate-500">
+                          {scope === 'team' && !data.teamCount
+                            ? 'No assignment group membership'
+                            : `${work?.needsAttention ?? 0} ${kind === 'incidents' ? 'critical or high priority' : 'overdue'}`}
+                        </p>
+                      </div>
+                      <span className="text-2xl font-semibold text-blue-700 dark:text-blue-300">
+                        {work?.total ?? 0}
+                      </span>
+                    </Link>
+                  );
+                })}
+              </div>
+              {scope === 'team' && (
+                <p className="mt-3 text-xs text-slate-500">
+                  Includes all your assignment groups and may overlap your personal assignments.
+                </p>
+              )}
+            </div>
           ))}
         </div>
       </section>
@@ -626,7 +679,7 @@ function Overview({ data, chart, services, reportHref }) {
             label="Critical / High Incidents"
             tone={(data.severity.critical ?? 0) + (data.severity.high ?? 0) ? 'rose' : 'emerald'}
             value={(data.severity.critical ?? 0) + (data.severity.high ?? 0)}
-            note="Unresolved incidents requiring priority response"
+            note="Prioritize unresolved incidents"
             href={reportHref('urgent')}
           />
           <Score
@@ -634,7 +687,7 @@ function Overview({ data, chart, services, reportHref }) {
             label="Unassigned Incidents"
             tone={data.unassigned ? 'amber' : 'emerald'}
             value={data.unassigned}
-            note="Active incidents without an owner"
+            note="Find work that needs an owner"
             href={reportHref('unassigned')}
           />
           <Score
@@ -653,20 +706,21 @@ function Overview({ data, chart, services, reportHref }) {
                 ? 'rose'
                 : services.some((service) => service.status === 'degraded')
                   ? 'amber'
-                  : services.some((service) => !service.status || service.status === 'unknown')
+                  : services.some((service) => !service.status || service.status === 'unknown') ||
+                      !services.length
                     ? 'slate'
                     : 'emerald'
             }
             value={services.filter((service) => service.status === 'down').length}
-            note={`${services.filter((service) => service.status === 'degraded').length} degraded · ${services.filter((service) => !service.status || service.status === 'unknown').length} unknown services`}
+            note={`${services.filter((service) => service.status === 'degraded').length} degraded · ${services.filter((service) => !service.status || service.status === 'unknown').length} unknown`}
             href={reportHref('serviceHealth', 'down')}
           />
         </div>
       </section>
       <div className="grid gap-6 lg:grid-cols-2" aria-label="Overview charts">
         <BarChart
-          title="Incident Severity"
-          note="Unresolved incidents by severity"
+          title="Incident Priority"
+          note="Select a severity to review unresolved incidents"
           href={reportHref('incidents')}
           rows={['critical', 'high', 'medium', 'low'].map((key) => ({
             label: displayValue(key),
@@ -676,107 +730,8 @@ function Overview({ data, chart, services, reportHref }) {
           }))}
         />
         <PieChart
-          title="Task Status"
-          note="Outstanding tasks by workflow status"
-          href={reportHref('tasks')}
-          rows={['todo', 'in_progress', 'blocked'].map((key) => ({
-            label: displayValue(key),
-            value: data.taskStatus[key] ?? 0,
-            href: reportHref('taskStatus', key),
-          }))}
-        />
-      </div>
-      <section className="space-y-4" aria-labelledby="overview-work-title">
-        <h2 id="overview-work-title" className="text-lg font-semibold">
-          My Work and My Team
-        </h2>
-        <p className="text-sm text-slate-500">
-          Active work only. Team reports include assignments to any group you belong to, including
-          work also assigned to you.
-        </p>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {[
-            ['my-incidents', 'Incidents Assigned to Me'],
-            ['team-incidents', 'Incidents Assigned to My Team'],
-            ['my-tasks', 'Tasks Assigned to Me'],
-            ['team-tasks', 'Tasks Assigned to My Team'],
-          ].map(([report, label]) => (
-            <Score
-              compact
-              key={report}
-              label={label}
-              href={reportHref(report)}
-              value={data.assignedWork?.[report]?.total ?? 0}
-              note={
-                report.startsWith('team-') && !data.teamCount
-                  ? 'You are not in an assignment group'
-                  : `${data.assignedWork?.[report]?.needsAttention ?? 0} ${report.endsWith('incidents') ? 'critical or high' : 'overdue'}`
-              }
-            />
-          ))}
-        </div>
-      </section>
-      <section className="space-y-4" aria-labelledby="overview-workspace-title">
-        <h2 id="overview-workspace-title" className="text-lg font-semibold">
-          Workspace Snapshot
-        </h2>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <Score
-            compact
-            label="Unresolved Incidents"
-            value={count(data.severity)}
-            note="Open and acknowledged"
-            href={reportHref('incidents')}
-          />
-          <Score
-            compact
-            label="Outstanding Tasks"
-            value={count(data.taskStatus)}
-            note={`${data.taskStatus.blocked ?? 0} blocked`}
-            href={reportHref('tasks')}
-          />
-          <Score
-            compact
-            label="Services"
-            value={overview.services}
-            note={`${chart.counts.down ?? 0} down monitors · ${chart.counts.degraded ?? 0} degraded monitors`}
-            href={reportHref('services')}
-          />
-          <Score
-            compact
-            label="On-call Coverage"
-            tone={overview.activeShifts ? 'emerald' : 'amber'}
-            value={overview.activeShifts}
-            note={`${overview.scheduledShifts} current or upcoming shifts`}
-            href="/on-call"
-          />
-        </div>
-        <div className="flex flex-wrap gap-3">
-          <Link className="btn-secondary" to="/knowledge">
-            Knowledge Bases: {overview.knowledgeBases}
-          </Link>
-          <Link className="btn-secondary" to="/collections">
-            Collections: {overview.collections}
-          </Link>
-          <Link className="btn-secondary" to="/groups">
-            Groups: {overview.groups}
-          </Link>
-          {overview.users !== undefined && (
-            <Link className="btn-secondary" to="/workspace">
-              Active Users: {overview.users}
-            </Link>
-          )}
-          {overview.enabledIntegrations !== undefined && (
-            <Link className="btn-secondary" to="/integrations">
-              Enabled Integrations: {overview.enabledIntegrations}
-            </Link>
-          )}
-        </div>
-      </section>
-      <div className="grid gap-6 lg:grid-cols-2" aria-label="Service and knowledge charts">
-        <PieChart
           title="Service Health"
-          note="Current health across services"
+          note="Select a health state to see affected services"
           href={reportHref('services')}
           rows={['up', 'degraded', 'down', 'unknown'].map((key) => ({
             label: key === 'up' ? 'Operational' : displayValue(key),
@@ -784,17 +739,89 @@ function Overview({ data, chart, services, reportHref }) {
             href: reportHref('serviceHealth', key),
           }))}
         />
-        <BarChart
-          title="Knowledge Article Status"
-          note="Articles across all knowledge bases"
-          href="/knowledge/articles"
-          rows={Object.entries(overview.articleStatus).map(([key, value]) => ({
-            label: displayValue(key),
-            value,
-            href: '/knowledge/articles',
-          }))}
-        />
       </div>
+      <section className="panel p-5" aria-labelledby="important-reports-title">
+        <h2 id="important-reports-title" className="font-semibold">
+          Useful Shortcuts
+        </h2>
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <Link className="btn-secondary" to="/knowledge">
+            Browse Knowledge
+          </Link>
+          <Link className="btn-secondary" to="/on-call">
+            On-call Coverage · {overview.activeShifts} active
+          </Link>
+          <Link className="btn-secondary" to="/status">
+            Service Status
+          </Link>
+        </div>
+      </section>
     </div>
+  );
+}
+
+function EventDashboard({ state, serviceId, setService }) {
+  const eventsHref = `/events?${new URLSearchParams({ serviceId })}`;
+  const data = state.data;
+  const outcomes = data?.outcomes || [];
+  const total = outcomes.reduce((sum, row) => sum + row.count, 0);
+  const up = outcomes.find((row) => row.status === 'up')?.count || 0;
+  const durationCount = outcomes.reduce((sum, row) => sum + row.durationCount, 0);
+  const average = durationCount
+    ? outcomes.reduce((sum, row) => sum + (row.durationTotal || 0), 0) / durationCount
+    : null;
+  return (
+    <section className="space-y-6" aria-busy={state.pending}>
+      <ReferenceField
+        label="Service"
+        referenceType="services"
+        value={serviceId}
+        onChange={setService}
+      />
+      <p className="text-sm text-slate-500">
+        Monitor checks from the last 30 days. Successful checks do not imply current service health.
+      </p>
+      {state.error && <p role="alert">{state.error}</p>}
+      {data && (
+        <>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Score compact label="Checks" value={total} href={eventsHref} />
+            <Score
+              compact
+              label="Successful Checks"
+              value={total ? `${((100 * up) / total).toFixed(1)}%` : '—'}
+              tone={total && up === total ? 'emerald' : 'amber'}
+              href={eventsHref}
+            />
+            <Score
+              compact
+              label="Average Duration"
+              value={average === null ? '—' : `${Math.round(average)} ms`}
+              href={eventsHref}
+            />
+          </div>
+          <div className="grid gap-6 lg:grid-cols-2">
+            <BarChart
+              title="Check Outcomes"
+              rows={outcomes.map((row) => ({
+                label: row.status === 'up' ? 'Operational' : 'Down',
+                value: row.count,
+                href: eventsHref,
+              }))}
+              href={eventsHref}
+            />
+            <BarChart
+              title="HTTP Responses"
+              rows={data.http.map((row) => ({
+                label: row.statusCode === null ? 'No response' : String(row.statusCode),
+                value: row.count,
+                href: eventsHref,
+              }))}
+              href={eventsHref}
+            />
+          </div>
+        </>
+      )}
+    </section>
   );
 }

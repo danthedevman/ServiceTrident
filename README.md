@@ -1,6 +1,6 @@
 # ServiceTrident
 
-**Know the impact · Own the response**
+**Detect, Respond, Resolve**
 
 ServiceTrident is a free, open source application for service monitoring and incident response. It brings services, health checks, incidents, tasks, knowledge, and on-call coverage into one place that developers and small teams can run themselves.
 
@@ -51,7 +51,7 @@ These current screenshots use the **default Ocean theme in dark mode** and conta
 
 ### Profile themes
 
-![Dark-mode demo profile with ten color schemes and accessibility settings](app/public/help/readme-themes-dark.png)
+![Dark-mode demo profile with twelve color schemes and accessibility settings](app/public/help/readme-themes-dark.png)
 
 ## What you can do
 
@@ -74,29 +74,33 @@ Admins manage configuration and membership. Responders work on incidents, tasks,
 
 Open the profile menu at the bottom of the navigation for **Profile**, **Settings**, and **Help**. Settings is no longer a main navigation link; available configuration actions still depend on your role.
 
-Overview starts with **Important Reports** and **Needs Attention**, followed by visual charts and compact scores. **Assigned to Me** and **Assigned to My Team** reports cover unresolved incidents and outstanding tasks; team reports use your current assignment-group memberships. Score colors identify urgent, pending, healthy, and unknown states. Report links open server-filtered lists.
+Dashboard spacing stays consistent when returning from record tabs or refreshing. Overview starts with **Your Work**, separating personal and team assignments with active totals and priority or overdue counts. **Needs Attention** provides actionable links for urgent incidents, unassigned work, overdue tasks, and services down. Incident Priority and Service Health charts open matching reports. **Useful Shortcuts** links to knowledge, on-call coverage, and service status. Team assignments include your current assignment groups and may overlap personal work.
 
-A compact **Dashboard View** picker and refresh icon sit to the right of your first-name greeting, with padding beneath the sticky controls. Change the greeting in **Profile → Dashboard Greeting**, using `{firstName}` where needed. Profile also controls color scheme, light/dark appearance, contrast, text size, timezone, and date/time formats. Logs, audit activity, monitor checks, coverage record dates, and metadata use these date preferences; explicitly UTC schedule editors, date filters, exports, and status-history day buckets retain their documented formats. The thinner trident mark combines connected service nodes and a health pulse; the logo and right record panel follow the selected theme.
+A compact **Dashboard View** picker and refresh icon sit to the right of your first-name greeting, with padding and a bottom border beneath the sticky controls. Change the greeting in **Profile → Dashboard Greeting**, using `{firstName}` where needed. Default is the default neutral theme; Light uses a white background and light-gray surfaces. Both appear first under Profile → Theme; selecting them also sets the matching dark or light appearance. Existing saved preferences remain respected. Profile also controls color scheme, light/dark appearance, contrast, text size, timezone, and date/time formats. Logs, audit activity, monitor checks, coverage record dates, and metadata use these date preferences; explicitly UTC schedule editors, date filters, exports, and status-history day buckets retain their documented formats. The geometric trident mark uses three upward points and a unified stem to represent coordinated service response; the logo and right record panel follow the selected theme.
 
 ### Records, tabs, and tables
 
-Reference links and **Open Record** controls open app record tabs, including activity and delivery-log details. Chrome-style tabs span the record area above both panes and show the record title and type without identifier suffixes or “From” text. Text stays on one line; full labels appear on hover. Horizontal scrolling and arrow-key navigation work with the scrollbar hidden. Tabs sit above the record header and appear only on record routes with more than one record open. Up to ten tabs can be open; the limit notice asks you to close tabs, and **Close All Tabs** closes other tabs while keeping the current record and its draft open. Closing edited tabs requires confirmation. When the tab limit is reached, opening a new record from a list or another non-record page refreshes the tab set to that record. Unsaved edits require confirmation before refreshing; Cancel keeps the existing tabs. Related-record links still show the limit notice.
+Reference links and **Open Record** controls open app record tabs, including activity and delivery-log details. Chrome-style tabs span the record area above both panes and show the record title and type without identifier suffixes or “From” text. Newly opened and restored active tabs scroll into view immediately, and record content starts at the top beneath the tab strip. Text stays on one line; full labels appear on hover. Horizontal scrolling and arrow-key navigation work with the scrollbar hidden. A matching top border across the record header and right panel separates visible tabs from record content. Tabs sit above the record header and appear only on record routes with more than one record open. Up to 20 record tabs can be open. Opening another record replaces the oldest opened tab; opening an existing record selects its tab. If the oldest tab has unsaved changes, confirm replacement or cancel to keep it. Close All Tabs keeps the current record and its draft open.
 
 Tab links and bounded labels survive refresh for the signed-in browser session; restored records fetch data only when selected. Switching tabs preserves mounted drafts, while refresh discards unsaved edits. Sign-out clears the session’s tabs. These tabs never change record permissions. New forms focus their first editable field. Drag the right record panel’s left edge to resize it, or use its keyboard controls; it snaps closed below the threshold and remembers your account preference.
 
-**Filters** opens a small anchored panel with full-width search and no overlay, leaving the table visible. Search, filters, sorting, paging, and CSV export run on the server. The ellipsis menu’s **Compact Rows** toggle saves reduced padding as an account preference. Columns remain configurable. Forms use consistent custom required/email errors and grow multiline fields as you type. Form Builder is available from supported list and record secondary actions. Fields, form sections, dropdowns, filter panels, and button states follow your selected theme. Automated activity is attributed to **System**.
+**Filters** opens a small anchored panel with full-width search and no overlay, leaving the table visible. Search, filters, sorting, paging, and CSV export run on the server. The ellipsis menu’s **Compact Rows** toggle saves reduced padding as an account preference. Columns remain configurable. Forms use consistent custom required/email errors and grow multiline fields as you type. Form Builder is available from supported list and record secondary actions. Archived custom fields are hidden from record forms and read-only views, including knowledge articles; stored values are retained for restoration. Fields, form sections, dropdowns, filter panels, and button states follow your selected theme. Automated activity is attributed to **System**.
 
 ### Incident response
 
 In incident and task create/edit forms, **Assign to Me** beside the assignee field selects your logged-in account. Save to apply it. Admins and responders can use this action; a selected assignment group must include you.
 
-Resolving an incident requires confirmation. Resolution notes are optional in the default form; admins can toggle **Required** for that system field in **Form Builder**. Existing saved requirements remain until changed. Reopening also requires confirmation. Conversation uses a compact message filter and icon-only table/conversation view controls.
+Resolving an incident requires confirmation. Resolve opens a confirmation dialog directly from the read-only record, without entering Edit. Resolution notes are optional in the default form; admins can toggle **Required** for that system field in **Form Builder**. Existing saved requirements remain until changed. Reopening also requires confirmation. Conversation uses a compact message filter and icon-only table/conversation view controls.
 
 ### Task boards
 
 Task cards use small bare reorder icons. Lane titles, counts, reorder arrows, and refresh icons share one row; lanes support shared drag ordering and keyboard alternatives. List and archive navigation use icons.
 
 ### Knowledge articles and runbooks
+
+Inside a knowledge base, articles appear as clickable panels showing title, author, and last updated. Search Articles searches the base’s articles on the server; Status provides publication status, including archived articles. Author uses the recorded creator, or Not recorded when historical attribution is unavailable. Dates follow your profile preferences.
+
+Knowledge-base cards scroll vertically as the list grows, with **Load More Knowledge Bases** below the cards when more results are available.
 
 Knowledge-base deletion cannot move articles into the base being deleted. Admins and responders can **Publish** a saved unpublished article or runbook without entering Edit, using the configured Published status. Save draft edits first.
 
@@ -116,9 +120,17 @@ Admins can use **Impersonation** in the profile menu to preview another role’s
 
 ### People and on-call coverage
 
+Select a coverage item on the calendar to view its teammate, services, start, and end in a modal. Admins can choose Edit Coverage to update or remove it without leaving the calendar.
+
 On-call coverage uses a service selector above the calendar. Coverage record titles identify the teammate and service scope, with dates displayed using your profile preferences.
 
 Admins can create users with a name, email, role, initial password, and contact details. Share initial passwords privately; users can change them in Profile settings. To reset another user’s password, open their record and select **Reset password** from the actions menu. Confirm your current admin password and enter the new password twice. Resetting signs the user out of existing sessions. Workspace owners change their own password in Profile settings.
+
+### Monitor Events
+
+**Events** lists monitor-generated checks across the workspace, newest first. Admins, responders, and viewers can search, sort, export, and filter by service, monitor, outcome, or UTC date range. Open a row to view its saved response details; the Events breadcrumb returns to the main list. Lists and metrics cover retained checks from the last 30 days; deleted monitors remove their events. Response bodies and headers are excluded from list and metric responses. End users cannot access monitor events.
+
+Choose **Events** in Dashboard View for check totals, success rate, average duration of recorded timings, and outcome/HTTP response charts. Filter by service; report links carry that service filter. These are historical checks, not current service health. Related-list tab badges show unfiltered totals from one lightweight summary request per active record. Counts refresh at most once a minute and after record writes; inactive record tabs do not poll or load related lists. Collapsed and expanded navigation use the same links and order, with scrolling when needed. Navigation prioritizes Dashboard, Incidents, Events, Tasks, and On Call, followed by Services, Knowledge, and Status Page.
 
 ### Degraded service health
 
@@ -247,7 +259,7 @@ For channel setup, follow the official [Slack incoming webhook guide](https://do
 
 Messages use labeled fields, including **Description**, across email, Slack, Teams, and ServiceNow. ServiceNow uses a correlation ID to find an existing incident and adds recovery work notes; it does not automatically close the external incident. Email can notify end users about incident comments. Internal work notes are not included in those notifications.
 
-Slack messages put each field on its own **Key: Value** line, including **Incident: View Incident** as a clickable link instead of a raw ID. Multiline descriptions and errors stay on a single value line; HTTP status and HTTP reason appear on separate lines. Automatic monitor incidents include up to five relevant service/dependency checks with HTTP status and reason, check errors, response-reading errors, method, duration, and check time. Notification retries retain the queued diagnostics; raw response bodies, headers, and endpoint URLs are not sent. Set `APP_ORIGIN` on workers to the app origin reachable by recipients.
+Slack messages put each field in a separate full-width section, stacked vertically as **Key: Value**, including **Incident: View Incident** as a clickable link instead of a raw ID. Multiline descriptions and errors stay on a single value line; HTTP status and HTTP reason appear on separate lines. Automatic monitor incidents include up to five relevant service/dependency checks with HTTP status and reason, check errors, response-reading errors, method, duration, and check time. Notification retries retain the queued diagnostics; raw response bodies, headers, and endpoint URLs are not sent. Set `APP_ORIGIN` on workers to the app origin reachable by recipients.
 
 New integrations default to enabled; saved integrations retain their setting. ServiceNow keeps its **Instance Root URL** visible, supports **Basic Auth** and **OAuth client credentials**, and uses the authenticated integration account as the Caller on new incidents. **Test Saved Connection** performs reads without creating an incident and reports safe HTTP 401/403 guidance. The account needs Incident table permissions and access to its own User record; see [ServiceNow setup](docs/operations.md#servicenow-authentication-and-caller-identity).
 
@@ -428,13 +440,13 @@ Keep database backups and the encryption-key backup outside the application cont
 
 ## Status pages
 
-The in-app page displays **Service Status** and follows your personal appearance. Admins manage visibility, subscriptions, branding, banners, and service messages in **Status Page Settings**. New service messages default to **Display message**; enter their text and save to publish, or turn the setting off to keep them hidden. **Page Background Color** appears below the other settings and supports a swatch or hex value.
+The in-app page displays **Service Status** and uses the saved status-page appearance. Service history sits flush with the page, without an outer card background or border. Admins manage visibility, subscriptions, branding, banners, and service messages in **Status Page Settings**. New service messages default to **Display message**; enter their text and save to publish, or turn the setting off to keep them hidden. **Appearance** offers Light or Dark for both private and public status pages; arbitrary background colors are no longer used.
 
 ### Public visibility and appearance
 
 Open **Service status → Manage status page**, choose **Public**, and save. The public link uses `/status/public/<token>` and displays service health without the application sidebar. Switching back to Private revokes anonymous access. The page refreshes every 30 seconds.
 
-Public status pages always use fixed light styling and the background/icon/messages configured in Status Page Settings, independently of account, browser, or device themes. **Use Default Background** clears the custom background.
+Public status pages use the saved Light or Dark Appearance and configured icon/messages, independently of account, browser, or device themes. Existing custom background colors are ignored. Public visitors can switch Light/Dark for the current visit; this never changes profile preferences and resets on reload. The compact logo header keeps a smaller gap above Service Status.
 
 Admins can upload a branding icon and publish a global banner or service-specific message with Information, Maintenance, Warning, or Critical severity. Disabled messages remain drafts. Messages are plain text and do not change measured health. Only publish information intended for your public audience.
 

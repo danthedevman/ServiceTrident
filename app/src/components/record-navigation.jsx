@@ -29,7 +29,7 @@ import { ActivePanelContext } from './record-tabs.jsx';
 import { RecordHeaderContext } from './record-actions.jsx';
 import { Modal } from './modal.jsx';
 
-export const RECORD_TAB_LIMIT = 10;
+export const RECORD_TAB_LIMIT = 20;
 const RecordNavigationContext = createContext(null);
 const names = {
   incidents: 'Incident',
@@ -109,7 +109,7 @@ export function RecordNavigationProvider({ children, owner }) {
   const [tabs, setTabs] = useState(() => {
     const restored = restoreTabs(owner);
     if (key && !restored.some((tab) => tab.key === key)) {
-      if (restored.length === RECORD_TAB_LIMIT) restored.pop();
+      if (restored.length === RECORD_TAB_LIMIT) restored.shift();
       restored.push({
         key,
         to: location.pathname + location.search,
@@ -159,22 +159,13 @@ export function RecordNavigationProvider({ children, owner }) {
         update((list) => list.map((tab) => (tab.key === key ? { ...tab, to } : tab)));
       return;
     }
-    if (current.current.length >= RECORD_TAB_LIMIT && !recordTabKey(prior)) {
-      const fresh = { key, to, label: fallbackLabel(location), dirty: false };
-      if (current.current.some((tab) => tab.dirty)) {
-        setClosing({ reset: fresh });
-        navigate(prior.pathname + prior.search, { replace: true });
-      } else {
-        update(() => [fresh]);
-        setNotice('');
-      }
-      return;
-    }
     if (current.current.length >= RECORD_TAB_LIMIT) {
-      setNotice(
-        `You can open up to ${RECORD_TAB_LIMIT} record tabs. Close a tab before opening another.`,
-      );
-      navigate(current.current.at(-1).to, { replace: true });
+      const fresh = { key, to, label: fallbackLabel(location), dirty: false };
+      const oldest = current.current[0];
+      if (oldest.dirty) {
+        setClosing({ replace: fresh, oldestKey: oldest.key });
+        navigate(prior.pathname + prior.search, { replace: true });
+      } else update((list) => [...list.slice(1), fresh]);
       return;
     }
     update((list) => [
@@ -200,26 +191,20 @@ export function RecordNavigationProvider({ children, owner }) {
         return;
       }
       const found = current.current.find((tab) => tab.key === nextKey);
-      if (!found && current.current.length >= RECORD_TAB_LIMIT && !key) {
+      if (!found && current.current.length >= RECORD_TAB_LIMIT) {
         const fresh = {
           key: nextKey,
           to: url.pathname + url.search,
           label: label || fallbackLabel(url),
           dirty: false,
         };
-        // List navigation starts a fresh tab set; related links retain the limit.
-        if (current.current.some((tab) => tab.dirty)) setClosing({ reset: fresh });
+        const oldest = current.current[0];
+        if (oldest.dirty) setClosing({ replace: fresh, oldestKey: oldest.key });
         else {
-          update(() => [fresh]);
+          update((list) => [...list.slice(1), fresh]);
           setNotice('');
           navigate(fresh.to);
         }
-        return;
-      }
-      if (!found && current.current.length >= RECORD_TAB_LIMIT) {
-        setNotice(
-          `You can open up to ${RECORD_TAB_LIMIT} record tabs. Close a tab before opening another.`,
-        );
         return;
       }
       if (!found)
@@ -291,11 +276,13 @@ export function RecordNavigationProvider({ children, owner }) {
       {closing && (
         <Modal
           title={
-            closing.reset
-              ? 'Refresh Record Tabs?'
-              : closing.all
-                ? 'Close All Record Tabs?'
-                : 'Close Record Tab?'
+            closing.replace
+              ? 'Replace Oldest Record Tab?'
+              : closing.reset
+                ? 'Refresh Record Tabs?'
+                : closing.all
+                  ? 'Close All Record Tabs?'
+                  : 'Close Record Tab?'
           }
           onClose={() => setClosing(null)}
           footer={
@@ -306,7 +293,14 @@ export function RecordNavigationProvider({ children, owner }) {
               <button
                 className="btn-danger"
                 onClick={() => {
-                  if (closing.reset) {
+                  if (closing.replace) {
+                    update((list) => [
+                      ...list.filter((tab) => tab.key !== closing.oldestKey),
+                      closing.replace,
+                    ]);
+                    navigate(closing.replace.to);
+                    setClosing(null);
+                  } else if (closing.reset) {
                     update(() => [closing.reset]);
                     setNotice('');
                     navigate(closing.reset.to);
@@ -315,21 +309,25 @@ export function RecordNavigationProvider({ children, owner }) {
                   else close(closing);
                 }}
               >
-                {closing.reset
-                  ? 'Refresh Tabs and Open Record'
-                  : closing.all
-                    ? 'Close All Tabs'
-                    : 'Close Tab'}
+                {closing.replace
+                  ? 'Replace Tab and Open Record'
+                  : closing.reset
+                    ? 'Refresh Tabs and Open Record'
+                    : closing.all
+                      ? 'Close All Tabs'
+                      : 'Close Tab'}
               </button>
             </>
           }
         >
           <p>
-            {closing.reset
-              ? 'Opening this record will refresh your full tab set. Any unsaved changes in edited tabs will be lost. Cancel to keep them.'
-              : closing.all
-                ? 'The current record stays open. Unsaved changes in the other edited tabs will be lost.'
-                : 'This tab has been edited. Any unsaved changes will be lost when you close it.'}
+            {closing.replace
+              ? 'The oldest tab has unsaved changes. Replace it and discard those changes to open this record?'
+              : closing.reset
+                ? 'Opening this record will refresh your full tab set. Any unsaved changes in edited tabs will be lost. Cancel to keep them.'
+                : closing.all
+                  ? 'The current record stays open. Unsaved changes in the other edited tabs will be lost.'
+                  : 'This tab has been edited. Any unsaved changes will be lost when you close it.'}
           </p>
         </Modal>
       )}
@@ -468,10 +466,28 @@ export function RecordNavigationBar({ onHeightChange }) {
     return () => observer.disconnect();
   }, [key, tabs.length, onHeightChange]);
   useLayoutEffect(() => {
-    bar.current
-      ?.querySelector('[aria-selected="true"]')
-      ?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-  }, [key]);
+    const strip = bar.current?.querySelector('.record-navigation-scroll');
+    if (!strip) return;
+    const reveal = () => {
+      const tab = strip.querySelector('[data-active="true"]');
+      if (!tab) return;
+      const bounds = strip.getBoundingClientRect();
+      const target = tab.getBoundingClientRect();
+      const offset =
+        target.left < bounds.left
+          ? target.left - bounds.left
+          : target.right > bounds.right
+            ? target.right - bounds.right
+            : 0;
+      if (offset) strip.scrollTo({ left: strip.scrollLeft + offset, behavior: 'instant' });
+    };
+    reveal();
+    const observer = new ResizeObserver(reveal);
+    observer.observe(strip);
+    const tab = strip.querySelector('[data-active="true"]');
+    if (tab) observer.observe(tab);
+    return () => observer.disconnect();
+  }, [key, tabs]);
   return (
     <>
       {key && tabs.length > 1 && (
@@ -554,6 +570,11 @@ export function RecordNavigationBar({ onHeightChange }) {
 
 function RecordPane({ focusFirst, route, active, children, ...props }) {
   const root = useRef(null);
+  useLayoutEffect(() => {
+    if (!active) return;
+    root.current?.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  }, [active, route]);
   useFirstFormFieldFocus(root, focusFirst, active, route);
   return (
     <div {...props} ref={root}>

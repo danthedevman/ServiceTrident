@@ -208,7 +208,7 @@ function UserDetailsForm({ member, own, onClose }) {
           Cancel
         </button>
         <button className="btn-primary" disabled={save.busy}>
-          {save.busy ? 'Saving…' : 'Save Changes'}
+          {save.busy ? 'Saving…' : 'Save'}
         </button>
       </RecordActions>
     </ValidatedForm>

@@ -54,7 +54,7 @@ export function GreetingSettings() {
             className="btn-primary"
             disabled={!ready || !draft.trim() || draft.trim() === dashboardGreeting}
           >
-            Save Greeting
+            Save
           </button>
         </div>
       </ValidatedForm>

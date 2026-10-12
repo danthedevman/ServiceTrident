@@ -264,7 +264,7 @@ export function CatalogForm({
           {busy
             ? 'Saving…'
             : item
-              ? 'Save Changes'
+              ? 'Save'
               : `Create ${kind === 'services' ? 'Service' : 'Collection'}`}
         </button>
       </RecordActions>

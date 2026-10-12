@@ -52,13 +52,14 @@ function initialLayout() {
 
 /** Restore layout before paint and serialize authenticated preference writes to preserve toggle order. */
 export function PreferencesProvider({ children }) {
-  const publicStatus = useLocation().pathname.startsWith('/status/public/');
+  const pathname = useLocation().pathname;
+  const publicStatus = pathname.startsWith('/status/public/') || pathname === '/status';
   const { user } = useContext(AuthContext);
   const [resolvedAccount, setResolvedAccount] = useState(null);
   const [values, setValues] = useState(initialLayout),
     [error, setError] = useState('');
   useLayoutEffect(() => {
-    const appearance = publicStatus ? uiPreferences() : values;
+    const appearance = publicStatus ? { ...uiPreferences(), colorScheme: 'white' } : values;
     const root = document.documentElement;
     const palette =
       COLOR_SCHEMES.find((scheme) => scheme.id === appearance.colorScheme) ?? COLOR_SCHEMES[0];
@@ -68,7 +69,10 @@ export function PreferencesProvider({ children }) {
     root.dataset.textScale = appearance.textScale;
     root.style.setProperty('--app-background-light', palette.background);
     root.style.setProperty('--app-background-dark', palette.dark);
-    root.style.setProperty('--app-surface-light', `hsl(${palette.neutral} 12% 99%)`);
+    root.style.setProperty(
+      '--app-surface-light',
+      `hsl(${palette.neutral} ${palette.neutralSaturation ?? 12}% 99%)`,
+    );
     for (const [shade, lightness] of [
       [50, 97],
       [100, 94],
@@ -86,11 +90,17 @@ export function PreferencesProvider({ children }) {
       root.style.setProperty(
         `--color-slate-${shade}`,
         shade === 500 || shade === 400
-          ? `light-dark(hsl(${palette.neutral} 12% ${shade === 500 ? 40 : 42}%), hsl(${palette.neutral} 12% ${shade === 500 ? 68 : 79}%))`
-          : `hsl(${palette.neutral} 12% ${lightness}%)`,
+          ? `light-dark(hsl(${palette.neutral} ${palette.neutralSaturation ?? 12}% ${shade === 500 ? 40 : 42}%), hsl(${palette.neutral} ${palette.neutralSaturation ?? 12}% ${shade === 500 ? 68 : 79}%))`
+          : `hsl(${palette.neutral} ${palette.neutralSaturation ?? 12}% ${lightness}%)`,
       );
     }
-  }, [values.colorScheme, values.highContrast, values.reduceMotion, values.textScale, publicStatus]);
+  }, [
+    values.colorScheme,
+    values.highContrast,
+    values.reduceMotion,
+    values.textScale,
+    publicStatus,
+  ]);
   useLayoutEffect(() => {
     document.documentElement.style.setProperty(
       '--record-rail-width',

@@ -1,5 +1,25 @@
-/** Palette identifiers are persisted; role colours for errors and health remain distinct. */
+/** Palette identifiers are persisted; role colors for errors and health remain distinct. */
 export const COLOR_SCHEMES = [
+  {
+    id: 'black',
+    name: 'Default',
+    hue: 215,
+    neutral: 0,
+    neutralSaturation: 0,
+    background: '#ffffff',
+    dark: '#000000',
+    mode: 'dark',
+  },
+  {
+    id: 'white',
+    name: 'Light',
+    hue: 215,
+    neutral: 0,
+    neutralSaturation: 0,
+    background: '#ffffff',
+    dark: '#000000',
+    mode: 'light',
+  },
   { id: 'ocean', name: 'Ocean', hue: 215, neutral: 215, background: '#f4f7fb', dark: '#0c1524' },
   { id: 'forest', name: 'Forest', hue: 145, neutral: 145, background: '#f2f7f3', dark: '#0d1a12' },
   { id: 'teal', name: 'Teal', hue: 180, neutral: 180, background: '#f0f8f8', dark: '#0b1b1b' },

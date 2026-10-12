@@ -198,7 +198,7 @@ function MonitorEditor({ monitor, onReset, defaults }) {
         <RecordActions>
           <CancelButton onCancel={onReset} to="/monitors" disabled={busy} />
           <button className="btn-primary" disabled={busy}>
-            {busy ? 'Saving…' : monitor ? 'Save Changes' : 'Create Monitor'}
+            {busy ? 'Saving…' : monitor ? 'Save' : 'Create Monitor'}
           </button>
         </RecordActions>
       </ValidatedForm>

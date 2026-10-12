@@ -10,7 +10,7 @@ export const DEFAULT_UI_PREFERENCES = Object.freeze({
   tableLayouts: {},
   dashboardTab: 'overview',
   dashboardGreeting: 'Welcome, {firstName}',
-  colorScheme: 'ocean',
+  colorScheme: 'black',
   highContrast: false,
   reduceMotion: false,
   textScale: 'standard',
@@ -66,7 +66,7 @@ function validPreference(key, value) {
   if (key === 'colorScheme') return colorSchemeIds.includes(value);
   if (key === 'textScale') return ['standard', 'large', 'larger'].includes(value);
   if (key === 'tableLayouts') return validTableLayouts(value);
-  if (key === 'dashboardTab') return ['overview', 'incidents', 'tasks', 'services'].includes(value);
+  if (key === 'dashboardTab') return ['overview', 'incidents', 'tasks', 'services', 'events'].includes(value);
   return typeof value === 'boolean';
 }
 

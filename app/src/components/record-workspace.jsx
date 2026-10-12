@@ -1,5 +1,5 @@
 import { DateTime } from '../preferences/date-time.jsx';
-import { ActivePanelContext } from './record-tabs.jsx';
+import { ActivePanelContext, RelatedCountsContext } from './record-tabs.jsx';
 import { useRecordTabLabel } from './record-navigation.jsx';
 import { useRecordSidebarResize } from './record-sidebar-resize.jsx';
 import { Link } from 'react-router-dom';
@@ -101,7 +101,9 @@ export function RecordWorkspace({
                 {state && <StateBadge status={state} label={item?.statusLabel} />}
               </div>
             )}
-            {children}
+            <RelatedCountsContext.Provider value={item?.id ? { kind, id: item.id } : null}>
+              {children}
+            </RelatedCountsContext.Provider>
           </RecordActionContext.Provider>
         </div>
         <aside aria-label={label} data-collapsed={collapsed} className="record-sidebar min-w-0">

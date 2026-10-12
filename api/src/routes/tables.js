@@ -12,6 +12,7 @@ import { members, memberFilter } from '../repositories/members.js';
 import { settings } from '../repositories/settings.js';
 import { catalog, id } from './services.js';
 import { incidentAccess } from '../domain/incidents.js';
+import { workspaceMonitorEvents } from '../repositories/workspace-monitor-events.js';
 import { incidentMonitorEvents } from '../repositories/incident-monitor-events.js';
 
 const view = ({ _id, ...row }) => ({
@@ -43,6 +44,24 @@ async function source(db, req) {
     req.role !== 'admin'
   )
     throw new InputError('Administrator access required.', 403);
+  if (kind === 'events') {
+    const data = await catalog(db, workspaceId);
+    return workspaceMonitorEvents(
+      db,
+      workspaceId,
+      (
+        await db
+          .collection('monitors')
+          .find({ userId: req.workspaceId }, { projection: { name: 1, serviceId: 1 } })
+          .toArray()
+      ).map((monitor) => ({
+        ...monitor,
+        service: data.services.find((service) => String(service.id) === String(monitor.serviceId))
+          ?.name,
+      })),
+      req.query,
+    );
+  }
   if (kind === 'dashboard-report') return dashboardReportTable(db, req);
   if (kind === 'incident-monitor-events') {
     const incident = await parent(db, req);
@@ -475,6 +494,98 @@ async function source(db, req) {
 
 /** Every table and export uses the same authorization, predicates, and column allowlist. */
 export function installTableRoutes(app, db) {
+  // Count-only queries avoid fetching inactive panels or their response bodies.
+  app.get('/api/related-counts/:kind/:id', async (req, res) => {
+    const kind = req.params.kind,
+      recordId = req.params.id,
+      workspaceId = req.workspaceId;
+    const count = (name, filter) => db.collection(name).countDocuments(filter);
+    if (kind === 'integrations' && recordId === 'all') {
+      if (req.role !== 'admin') throw new InputError('Administrator access required.', 403);
+      const [integrations, logs] = await Promise.all([
+        settings(db, workspaceId).then((config) => (config.integrations || []).length),
+        count('deliveries', { workspaceId }),
+      ]);
+      return res.json({ counts: { integrations, deliveries: logs } });
+    }
+    const _id = id(recordId);
+    if (kind === 'services') {
+      if (req.role === 'user') throw new InputError('Your role cannot view services.', 403);
+      const data = await catalog(db, workspaceId);
+      if (!data.services.some((service) => String(service.id) === recordId))
+        throw new InputError('Service not found.', 404);
+      const [incidents, tasks, knowledge, monitors] = await Promise.all([
+        count('incidents', { workspaceId, serviceId: recordId }),
+        count('tasks', { workspaceId, serviceId: recordId, status: { $ne: 'archived' } }),
+        count('articles', { workspaceId, serviceId: recordId, status: { $ne: 'archived' } }),
+        count('monitors', { userId: workspaceId, serviceId: _id }),
+      ]);
+      return res.json({ counts: { incidents, tasks, knowledge, monitors } });
+    }
+    if (kind === 'monitors') {
+      if (req.role === 'user') throw new InputError('Your role cannot view monitors.', 403);
+      if (
+        !(await db
+          .collection('monitors')
+          .findOne({ _id, userId: workspaceId }, { projection: { _id: 1 } }))
+      )
+        throw new InputError('Monitor not found.', 404);
+      return res.json({
+        counts: {
+          events: await count('events', {
+            monitorId: _id,
+            userId: workspaceId,
+            checkedAt: { $gte: new Date(Date.now() - 30 * 86400000) },
+          }),
+        },
+      });
+    }
+    if (!['incidents', 'tasks', 'knowledge'].includes(kind))
+      throw new InputError('Record not found.', 404);
+    const record = await parent(db, { ...req, query: { recordId } }, kind);
+    if (req.role === 'user' && kind !== 'incidents')
+      throw new InputError('Your role cannot view this record.', 403);
+    const attachments = await count('attachments', {
+      workspaceId,
+      _id: {
+        $in: (record.attachmentIds || [])
+          .filter((value) => !embeddedImageIds(record.contentDocument).includes(value))
+          .map(id),
+      },
+    });
+    if (kind !== 'incidents') return res.json({ counts: { attachments } });
+    const internal = ['admin', 'responder'].includes(req.role);
+    const counts = {
+      attachments,
+      discussion: await count('incidentComments', {
+        workspaceId,
+        incidentId: _id,
+        ...(!internal ? { kind: 'comment' } : {}),
+      }),
+      activity: (record.timeline || []).filter((row) => internal || row.kind !== 'work_note')
+        .length,
+    };
+    if (req.role !== 'user') {
+      const [tasks, knowledge, monitorEvents] = await Promise.all([
+        count('tasks', { workspaceId, incidentId: recordId, status: { $ne: 'archived' } }),
+        count('articles', { workspaceId, _id: { $in: (record.knowledgeIds || []).map(id) } }),
+        db.collection('events').countDocuments({
+          userId: workspaceId,
+          checkedAt: { $gte: new Date(Date.now() - 30 * 86400000) },
+          ...(record.triggeringChecks?.length
+            ? {
+                $or: record.triggeringChecks.slice(0, 1000).map((check) => ({
+                  monitorId: id(check.monitorId),
+                  checkedAt: new Date(check.checkedAt),
+                })),
+              }
+            : { _id: { $in: [] } }),
+        }),
+      ]);
+      Object.assign(counts, { tasks, knowledge, 'monitor-events': monitorEvents });
+    }
+    res.json({ counts });
+  });
   app.get('/api/table-records/:kind/:id', async (req, res) => {
     if (typeof req.params.id !== 'string' || req.params.id.length > 256)
       throw new InputError('Record not found.', 404);

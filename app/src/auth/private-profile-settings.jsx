@@ -97,7 +97,7 @@ export function PrivateProfileSettings({ member }) {
         </label>
         <div className="form-actions">
           <button className="btn-primary" disabled={busy}>
-            {busy ? 'Saving…' : 'Save Profile'}
+            {busy ? 'Saving…' : 'Save'}
           </button>
         </div>
       </ValidatedForm>

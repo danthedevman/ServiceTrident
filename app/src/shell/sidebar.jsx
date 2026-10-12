@@ -33,9 +33,10 @@ import { ThemeToggle } from '../preferences/theme.jsx';
 const links = [
   ['/', 'Dashboard', Squares2X2Icon],
   ['/incidents', 'Incidents', ExclamationTriangleIcon],
-  ['/services', 'Services', ServerStackIcon],
+  ['/events', 'Events', SignalIcon],
   ['/tasks', 'Tasks', ClipboardDocumentListIcon],
   ['/on-call', 'On Call', CalendarDaysIcon],
+  ['/services', 'Services', ServerStackIcon],
   ['/knowledge', 'Knowledge', BookOpenIcon],
   ['/status', 'Status Page', ChartBarSquareIcon],
 ];
@@ -192,11 +193,9 @@ export function Sidebar({ user, logout, busy, collapsed, setCollapsed, renderBra
     }
     setCreateOpen(true);
   };
-  const primaryPaths = ['/', '/incidents', '/services', '/tasks', '/on-call'];
   const visibleLinks = user
     ? links.filter(([to]) => user.role !== 'user' || to === '/incidents')
     : [];
-  const secondaryLinks = visibleLinks.filter(([to]) => !primaryPaths.includes(to));
   const content = (compact, mobile = false) => (
     <>
       <div
@@ -296,48 +295,26 @@ export function Sidebar({ user, logout, busy, collapsed, setCollapsed, renderBra
       )}
       <nav
         aria-label="Main navigation"
-        className={`min-h-0 flex-1 space-y-2 p-3 ${compact ? 'overflow-hidden' : 'overflow-y-auto overflow-x-hidden'}`}
+        className={`min-h-0 flex-1 space-y-2 p-3 overflow-y-auto overflow-x-hidden`}
       >
-        {visibleLinks
-          .filter(([to]) => !compact || primaryPaths.includes(to))
-          .map(([to, label, Icon]) => (
-            <Tooltip key={to} label={compact ? label : null}>
-              <NavLink
-                to={to}
-                onMouseEnter={() => prefetchRoute(to, user)}
-                onFocus={() => prefetchRoute(to, user)}
-                end={to === '/'}
-                onClick={close}
-                title={compact ? label : undefined}
-                className={`nav-link ${(to === '/services' && pathname.startsWith('/monitors/')) || (to === '/settings' && /^\/(groups|workspace)(\/|$)/.test(pathname)) ? 'active' : ''} flex items-center gap-3 ${compact ? 'mx-auto h-11 w-11 justify-center !gap-0 !p-0' : ''}`}
-              >
-                <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
-                <span className={compact ? 'sr-only' : ''}>
-                  {user?.role === 'user' && to === '/incidents' ? 'My incidents' : label}
-                </span>
-              </NavLink>
-            </Tooltip>
-          ))}
-        {compact && secondaryLinks.length > 0 && (
-          <div className="flex justify-center">
-            <Tooltip label="More">
-              <span>
-                <ActionMenu label="More" borderless>
-                  {secondaryLinks.map(([to, label]) => (
-                    <NavLink
-                      key={to}
-                      to={to}
-                      className={`nav-link ${to === '/settings' && /^\/(groups|workspace)(\/|$)/.test(pathname) ? 'active' : ''}`}
-                      onClick={close}
-                    >
-                      {label}
-                    </NavLink>
-                  ))}
-                </ActionMenu>
+        {visibleLinks.map(([to, label, Icon]) => (
+          <Tooltip key={to} label={compact ? label : null}>
+            <NavLink
+              to={to}
+              onMouseEnter={() => prefetchRoute(to, user)}
+              onFocus={() => prefetchRoute(to, user)}
+              end={to === '/'}
+              onClick={close}
+              title={compact ? label : undefined}
+              className={`nav-link ${(to === '/services' && pathname.startsWith('/monitors/')) || (to === '/settings' && /^\/(groups|workspace)(\/|$)/.test(pathname)) ? 'active' : ''} flex items-center gap-3 ${compact ? 'mx-auto h-11 w-11 justify-center !gap-0 !p-0' : ''}`}
+            >
+              <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
+              <span className={compact ? 'sr-only' : ''}>
+                {user?.role === 'user' && to === '/incidents' ? 'My incidents' : label}
               </span>
-            </Tooltip>
-          </div>
-        )}
+            </NavLink>
+          </Tooltip>
+        ))}
       </nav>
       <div
         className={`sidebar-profile shrink-0 border-t border-slate-200 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] dark:border-slate-700 ${mobile ? '!hidden' : ''}`}

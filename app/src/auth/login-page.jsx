@@ -55,9 +55,9 @@ export function AuthPage({ register = false }) {
       <section>
         <Logo />
         <h1 className="mt-14 text-5xl font-semibold leading-[1.12] tracking-tight text-slate-900 dark:text-slate-100">
-          Know the impact
+          Detect, Respond,
           <br />
-          <span className="text-blue-700 dark:text-blue-400">Own the response</span>
+          <span className="text-blue-700 dark:text-blue-400">Resolve</span>
         </h1>
 
         <div className="mt-10 flex gap-6 text-sm text-slate-500 dark:text-slate-400">

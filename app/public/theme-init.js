@@ -10,12 +10,12 @@
   try {
     theme = localStorage.getItem('servicetrident-theme');
   } catch {
-    /* Use device preference. */
+    /* Use the default black appearance. */
   }
   if (theme !== 'light' && theme !== 'dark') {
-    theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    theme = 'dark';
   }
   document.documentElement.dataset.theme = theme;
-  document.documentElement.style.backgroundColor = theme === 'dark' ? '#020617' : '#f7f9fa';
+  document.documentElement.style.backgroundColor = theme === 'dark' ? '#000000' : '#ffffff';
   document.documentElement.style.colorScheme = theme;
 })();

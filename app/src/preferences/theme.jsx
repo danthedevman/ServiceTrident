@@ -13,22 +13,24 @@ export function ThemeProvider({ children }) {
     try {
       const saved = localStorage.getItem('servicetrident-theme');
       if (saved === 'light' || saved === 'dark') return saved;
-    } catch { /* Browser storage may be disabled. */ }
-    return document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light';
+    } catch {
+      /* Browser storage may be disabled. */
+    }
+    return document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
   });
+  const [pageAppearance, setPageAppearance] = useState(null);
   useLayoutEffect(() => {
-    const appearance = publicStatus ? 'light' : theme;
+    const appearance = pageAppearance || (publicStatus ? 'light' : theme);
     document.documentElement.dataset.theme = appearance;
     document.documentElement.style.backgroundColor = 'var(--app-background)';
     document.documentElement.style.colorScheme = appearance;
     document
       .querySelector('meta[name="theme-color"]')
       ?.setAttribute('content', appearance === 'dark' ? '#020617' : '#1d4ed8');
-  }, [theme, publicStatus]);
+  }, [theme, publicStatus, pageAppearance]);
 
   /** Persist an explicit preference; the toggle still works if storage is unavailable. */
-  function toggleTheme() {
-    const next = theme === 'dark' ? 'light' : 'dark';
+  function setAppearance(next) {
     try {
       localStorage.setItem('servicetrident-theme', next);
     } catch {
@@ -37,7 +39,18 @@ export function ThemeProvider({ children }) {
     setTheme(next);
   }
 
-  return <ThemeContext.Provider value={{ theme, toggleTheme }}>{children}</ThemeContext.Provider>;
+  return (
+    <ThemeContext.Provider
+      value={{
+        theme,
+        setAppearance,
+        setPageAppearance,
+        toggleTheme: () => setAppearance(theme === 'dark' ? 'light' : 'dark'),
+      }}
+    >
+      {children}
+    </ThemeContext.Provider>
+  );
 }
 
 /** Keyboard-accessible appearance switch available before and after sign-in. */
@@ -69,4 +82,8 @@ export function ThemeToggle({ menu = false }) {
       )}
     </button>
   );
+}
+
+export function useTheme() {
+  return useContext(ThemeContext);
 }

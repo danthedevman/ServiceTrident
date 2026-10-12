@@ -111,14 +111,40 @@ test('Slack links replace IDs and monitor failures are plain text with bounded o
       },
     ],
   });
-  assert.match(payload.blocks[1].text.text, /HTTP status: 503\nHTTP reason: Service Unavailable/);
-  assert.match(payload.blocks[1].text.text, /Response error: Response body was interrupted/);
+  assert.match(
+    payload.blocks.map((block) => block.text.text).join('\n'),
+    /HTTP status: 503\nHTTP reason: Service Unavailable/,
+  );
+  assert.match(
+    payload.blocks.map((block) => block.text.text).join('\n'),
+    /Response error: Response body was interrupted/,
+  );
   assert.equal(payload.blocks[1].text.type, 'plain_text');
   assert.equal(
     payload.blocks.at(-1).text.text,
     'Incident: <https://app.example.test/incidents/0123456789abcdef01234567|View Incident>',
   );
-  assert.ok(!payload.blocks[0].text.text.includes(incident._id));
+  for (const block of payload.blocks.slice(0, -1)) {
+    assert.equal(block.text.type, 'plain_text');
+    assert.ok(!block.text.text.includes('\n'));
+    assert.ok(!block.text.text.includes(incident._id));
+  }
+  assert.ok(
+    slackMessage(incident, {
+      event: 'comment',
+      monitorChecks: Array(5).fill({
+        name: 'Check',
+        service: 'API',
+        statusCode: 500,
+        statusMessage: 'Error',
+        method: 'GET',
+        checkedAt: 'now',
+        durationMs: 5,
+        error: 'Failure',
+        responseError: 'Interrupted',
+      }),
+    }).blocks.length <= 50,
+  );
   assert.ok(payload.text.includes('&lt;!channel&gt;'));
   const multiline = slackMessage(
     { ...incident, title: 'Outage\r\nDetails', description: 'First line\nSecond line' },
@@ -129,8 +155,14 @@ test('Slack links replace IDs and monitor failures are plain text with bounded o
       ],
     },
   );
-  assert.match(multiline.blocks[0].text.text, /Description: First line Second line/);
-  assert.match(multiline.blocks[1].text.text, /Error: Failure Details/);
+  assert.match(
+    multiline.blocks.map((block) => block.text.text).join('\n'),
+    /Description: First line Second line/,
+  );
+  assert.match(
+    multiline.blocks.map((block) => block.text.text).join('\n'),
+    /Error: Failure Details/,
+  );
   for (const block of multiline.blocks) {
     for (const line of block.text.text.split('\n')) assert.match(line, /^[A-Za-z ]+: .+/);
   }
@@ -146,7 +178,7 @@ test('Slack links replace IDs and monitor failures are plain text with bounded o
       },
     ],
   });
-  assert.match(noResponse.blocks[1].text.text, /No HTTP response/);
+  assert.match(noResponse.blocks.map((block) => block.text.text).join('\n'), /No HTTP response/);
   const long = slackMessage({ ...incident, description: 'x'.repeat(10000) }, { event: 'impacted' });
   assert.ok(long.blocks[0].text.text.length <= 3000);
   process.env.APP_ORIGIN = 'https://user:password@app.example.test';

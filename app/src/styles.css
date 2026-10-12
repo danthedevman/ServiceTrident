@@ -248,6 +248,11 @@
   display: flex;
   overflow: hidden;
 }
+/* Non-table lists also need a scroll owner when the viewport-height shell fills. */
+.list-outlet {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
 .list-outlet,
 .list-page {
   flex-direction: column;
@@ -1721,7 +1726,7 @@ body {
 
 .record-sticky-header.dashboard-header {
   padding-inline: 0;
-  border-bottom: 0;
+  border-bottom: 1px solid light-dark(var(--color-slate-200), var(--color-slate-800));
 }
 .dashboard-header > div {
   width: 100%;
@@ -1905,7 +1910,7 @@ body {
   min-height: 0;
   padding-bottom: 1rem;
 }
-.dashboard-header + .page-scroll-area {
+.dashboard-scroll-area {
   padding-top: 1rem;
 }
 
@@ -2118,4 +2123,12 @@ body {
     top: var(--record-tabs-height, 0px);
     height: calc(100dvh - var(--record-tabs-height, 0px));
   }
+}
+
+.record-sticky-header.record-header-with-tabs {
+  border-top: 1px solid light-dark(var(--color-slate-200), var(--color-slate-800));
+}
+
+[data-record-tabs-visible='true'] .record-sidebar {
+  border-top: 1px solid light-dark(var(--color-slate-200), var(--color-slate-800));
 }

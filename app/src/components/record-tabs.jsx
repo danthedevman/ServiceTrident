@@ -1,6 +1,9 @@
+import { useResource } from '../data/use-resource.js';
 import React, { createContext, useContext, useId, useState } from 'react';
 
 export const ActivePanelContext = createContext(true);
+
+export const RelatedCountsContext = createContext(null);
 
 export const RelatedListContext = createContext(false);
 
@@ -14,6 +17,11 @@ export function RecordTabs({
   selectedId,
   onSelect,
 }) {
+  const scope = useContext(RelatedCountsContext);
+  const counts = useResource(
+    related && scope ? `/related-counts/${scope.kind}/${scope.id}` : null,
+    60000,
+  );
   const parentActive = useContext(ActivePanelContext);
   const [selected, setSelected] = useState(selectedId ?? tabs[0]?.id),
     prefix = useId();
@@ -60,6 +68,14 @@ export function RecordTabs({
             }}
           >
             {tab.label}
+            {related && Number.isSafeInteger(tab.count ?? counts.data?.counts?.[tab.id]) && (
+              <span
+                aria-hidden="true"
+                className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs tabular-nums dark:bg-slate-800"
+              >
+                {tab.count ?? counts.data.counts[tab.id]}
+              </span>
+            )}
           </button>
         ))}
       </div>

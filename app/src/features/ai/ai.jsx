@@ -158,7 +158,7 @@ function ProviderForm({ data, refresh }) {
           Cancel
         </Link>
         <button className="btn-primary" disabled={busy}>
-          {busy ? 'Saving…' : 'Save Provider'}
+          {busy ? 'Saving…' : 'Save'}
         </button>
       </RecordActions>
     </ValidatedForm>

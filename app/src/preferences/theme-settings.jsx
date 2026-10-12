@@ -1,13 +1,14 @@
 import React from 'react';
 import { COLOR_SCHEMES } from '../../../shared/domain/color-schemes.js';
 import { useUiPreferences } from './ui-preferences.jsx';
-import { ThemeToggle } from './theme.jsx';
+import { ThemeToggle, useTheme } from './theme.jsx';
 import { Toggle } from '../components/forms/toggle.jsx';
 import { Select } from '../components/forms/select.jsx';
 
 /** Native radios make palette cards usable with a keyboard and expose selected state. */
 export function ThemeSettings() {
   const preferences = useUiPreferences();
+  const { setAppearance } = useTheme();
   return (
     <section className="space-y-5" aria-labelledby="theme-settings-title">
       <header className="flex items-center justify-between gap-3">
@@ -17,11 +18,11 @@ export function ThemeSettings() {
         <ThemeToggle />
       </header>
       <p className="text-sm text-slate-500">
-        Choose colours for backgrounds, navigation, links, and controls. Each scheme supports light
-        and dark mode.
+        Default and Light are the primary neutral themes. Choose colors for backgrounds, navigation,
+        links, and controls. Each scheme supports light and dark mode.
       </p>
       <fieldset>
-        <legend className="field-label mb-3">Colour Scheme</legend>
+        <legend className="field-label mb-3">Color Scheme</legend>
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
           {COLOR_SCHEMES.map((scheme) => (
             <label
@@ -30,7 +31,7 @@ export function ThemeSettings() {
             >
               <span
                 className="mb-3 flex h-12 overflow-hidden rounded"
-                style={{ background: scheme.background }}
+                style={{ background: scheme.mode === 'dark' ? scheme.dark : scheme.background }}
                 aria-hidden="true"
               >
                 <span className="w-1/3" style={{ background: `hsl(${scheme.hue} 62% 28%)` }} />
@@ -39,10 +40,13 @@ export function ThemeSettings() {
               <span className="flex items-center gap-2">
                 <input
                   type="radio"
-                  name="colourScheme"
+                  name="colorScheme"
                   value={scheme.id}
                   checked={preferences.colorScheme === scheme.id}
-                  onChange={() => preferences.setPreference('colorScheme', scheme.id)}
+                  onChange={() => {
+                    preferences.setPreference('colorScheme', scheme.id);
+                    if (scheme.mode) setAppearance(scheme.mode);
+                  }}
                 />
                 <span className="text-sm font-medium">{scheme.name}</span>
               </span>
@@ -80,7 +84,7 @@ export function ThemeSettings() {
         </label>
         <p className="text-sm text-slate-500">
           Your device’s reduced-motion preference is always respected. Health and error indicators
-          retain distinct colours and text labels.
+          retain distinct colors and text labels.
         </p>
       </fieldset>
       {preferences.error && (

@@ -654,13 +654,14 @@ test(
     assert.equal((await request('/services', user.cookie)).data.services[0].ownerIds, undefined);
     const publicSettings = await request('/status-settings', owner.cookie, 'PATCH', {
       visibility: 'public',
-      backgroundColor: '#e8f2ed',
+      statusTheme: 'dark',
     });
     const publicStatus = await request(
       publicSettings.data.publicPath.replace('/status/public/', '/public/status/'),
     );
     assert.equal(publicStatus.status, 200);
-    assert.equal(publicStatus.data.backgroundColor, '#e8f2ed');
+    assert.equal(publicStatus.data.statusTheme, 'dark');
+    assert.equal(publicStatus.data.backgroundColor, undefined);
     assert.equal(publicStatus.data.services[0].ownerIds, undefined);
     assert.equal(publicStatus.data.services[0].primaryContactId, undefined);
     assert.equal(publicStatus.data.services[0].ownerGroupIds, undefined);

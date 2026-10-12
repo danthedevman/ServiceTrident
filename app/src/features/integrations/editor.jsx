@@ -304,7 +304,7 @@ export function IntegrationEditor({ initial, services, close, onSaved, onDeleted
           )}
           <CancelButton onCancel={close} to="/integrations" disabled={save.busy} />
           <button className="btn-primary" disabled={save.busy}>
-            {save.busy ? 'Saving…' : 'Save integration'}
+            {save.busy ? 'Saving…' : 'Save'}
           </button>
         </RecordActions>
       </ValidatedForm>

@@ -247,7 +247,7 @@ function GroupEditor({ initial, revision, members, onClose, onSaved }) {
         <RecordActions>
           <CancelButton onCancel={onClose} to={'/groups'} disabled={save.busy} />
           <button className="btn-primary" disabled={save.busy}>
-            {save.busy ? 'Saving…' : 'Save group'}
+            {save.busy ? 'Saving…' : 'Save'}
           </button>
         </RecordActions>
       </ValidatedForm>

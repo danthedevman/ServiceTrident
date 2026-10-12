@@ -125,6 +125,7 @@ export function WorkTable({
   initialServiceId = '',
   initialIncidentId = '',
   initialKnowledgeBaseId = '',
+  simpleArticles = false,
   create = false,
   onCreateClose,
   related = false,
@@ -224,6 +225,18 @@ export function WorkTable({
       render: (r) => <DateTime value={r.updatedAt} />,
     },
   ];
+  const displayedColumns = simpleArticles
+    ? [
+        { ...columns[0], label: 'Title' },
+        {
+          key: 'createdBy',
+          label: 'Author',
+          sortable: false,
+          value: (row) => row.createdBy || 'Not recorded',
+        },
+        { ...columns.find((column) => column.key === 'updatedAt'), label: 'Last Updated' },
+      ]
+    : columns;
   return (
     <div className={fullPage ? 'list-page' : 'space-y-4'}>
       <Notice error={resource.error || services.error} />
@@ -264,9 +277,11 @@ export function WorkTable({
             </button>
           )
         }
-        title={task ? (archived ? 'Archived Tasks' : 'Tasks') : 'Knowledge'}
+        title={
+          simpleArticles ? 'Articles' : task ? (archived ? 'Archived Tasks' : 'Tasks') : 'Knowledge'
+        }
         rows={resource.data?.items ?? []}
-        columns={columns}
+        columns={displayedColumns}
         rowKey={(r) => r.id}
         remote={{
           filtersActive: Boolean(search || status || serviceId !== initialServiceId),
@@ -288,25 +303,44 @@ export function WorkTable({
           onRefresh: resource.refresh,
           onExport: (signal) => downloadCsv(`/${kind}/export?${query}`, `${kind}.csv`, signal),
         }}
+        toolbar={
+          simpleArticles && (
+            <label className="field-label block px-3 pb-3">
+              <span className="sr-only">Search Articles</span>
+              <input
+                type="search"
+                placeholder="Search articles"
+                maxLength={100}
+                value={search}
+                onChange={(event) => {
+                  setSearch(event.target.value);
+                  setPage(1);
+                }}
+              />
+            </label>
+          )
+        }
         filters={
           <div className="flex flex-wrap items-end gap-4">
-            <TableSearch
-              columns={columns}
-              search={search}
-              column={searchColumn}
-              onSearch={(value) => {
-                setSearch(value);
-                setPage(1);
-              }}
-              onColumn={(value) => {
-                setSearchColumn(value);
-                setPage(1);
-              }}
-            />
+            {!simpleArticles && (
+              <TableSearch
+                columns={columns}
+                search={search}
+                column={searchColumn}
+                onSearch={(value) => {
+                  setSearch(value);
+                  setPage(1);
+                }}
+                onColumn={(value) => {
+                  setSearchColumn(value);
+                  setPage(1);
+                }}
+              />
+            )}
             {!archived && (
               <label className="field-label">
                 Status
-                <Select value={status} onChange={change(setStatus)}>
+                <Select aria-label="Status" value={status} onChange={change(setStatus)}>
                   <option value="">All active statuses</option>
                   {(task && fullPage
                     ? TASK_STATUSES.filter((v) => v !== 'archived')
@@ -365,7 +399,11 @@ export function WorkDetail({ kind = 'tasks' }) {
   const task = kind === 'tasks';
   const item = resource.data?.item;
   const publish = useSave();
-  const articleSchema = useResource(!task && canEdit ? '/knowledge-fields' : null);
+  const articleSchema = useResource(task ? '/task-fields' : '/knowledge-fields');
+  const visibleFields =
+    articleSchema.data && item
+      ? recordFields(articleSchema.data.fields, item.fields).filter((field) => !field.archived)
+      : [];
   const publishedOption = articleSchema.data
     ? fieldChoices(
         'knowledge',
@@ -487,7 +525,7 @@ export function WorkDetail({ kind = 'tasks' }) {
                 onClose={resetForm}
               />
             ) : !task ? (
-              <KnowledgeReader item={item} />
+              <KnowledgeReader item={item} fields={visibleFields} />
             ) : (
               <article className="record-details space-y-6">
                 {!task && (
@@ -601,16 +639,18 @@ export function WorkDetail({ kind = 'tasks' }) {
                     </Suspense>
                   </section>
                 )}
-                <dl className="grid gap-4 sm:grid-cols-2">
-                  {item.fields?.map((field) => (
-                    <div key={field.id}>
-                      <dt className="text-sm font-medium">{field.label}</dt>
-                      <dd className="whitespace-pre-wrap break-words">
-                        {String(item.custom?.[field.id] ?? '—')}
-                      </dd>
-                    </div>
-                  ))}
-                </dl>
+                {visibleFields.length > 0 && (
+                  <dl className="grid gap-4 sm:grid-cols-2">
+                    {visibleFields.map((field) => (
+                      <div key={field.id}>
+                        <dt className="text-sm font-medium">{field.label}</dt>
+                        <dd className="whitespace-pre-wrap break-words">
+                          {String(item.custom?.[field.id] ?? '—')}
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
+                )}
               </article>
             )}
             {task && (
@@ -1132,7 +1172,7 @@ function WorkForm({
           className="btn-primary"
           disabled={save.busy || draft.busy || (task && !!value.incidentId && !incident)}
         >
-          {save.busy ? 'Saving…' : item ? 'Save Changes' : `Create ${task ? 'Task' : 'Article'}`}
+          {save.busy ? 'Saving…' : item ? 'Save' : `Create ${task ? 'Task' : 'Article'}`}
         </button>
       </RecordActions>
     </ValidatedForm>
@@ -1140,7 +1180,7 @@ function WorkForm({
 }
 
 /** Reading layout keeps article typography and numbered process steps separate from edit controls. */
-function KnowledgeReader({ item }) {
+function KnowledgeReader({ item, fields }) {
   const runbook = item.articleType === 'runbook';
   return (
     <article className="knowledge-reader">
@@ -1191,11 +1231,11 @@ function KnowledgeReader({ item }) {
             </ol>
           </section>
         )}
-        {item.fields?.length > 0 && (
+        {fields.length > 0 && (
           <section className="knowledge-additional">
             <h2>Additional Information</h2>
             <dl>
-              {item.fields.map((field) => (
+              {fields.map((field) => (
                 <div key={field.id}>
                   <dt>{field.label}</dt>
                   <dd>{String(item.custom?.[field.id] ?? '—')}</dd>
