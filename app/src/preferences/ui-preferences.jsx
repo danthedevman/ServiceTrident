@@ -53,7 +53,7 @@ function initialLayout() {
 /** Restore layout before paint and serialize authenticated preference writes to preserve toggle order. */
 export function PreferencesProvider({ children }) {
   const pathname = useLocation().pathname;
-  const publicStatus = pathname.startsWith('/status/public/') || pathname === '/status';
+  const publicStatus = pathname.startsWith('/status/public/');
   const { user } = useContext(AuthContext);
   const [resolvedAccount, setResolvedAccount] = useState(null);
   const [values, setValues] = useState(initialLayout),

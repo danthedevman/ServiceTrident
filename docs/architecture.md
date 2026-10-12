@@ -47,3 +47,5 @@ Every DataTable now uses an explicit server source or an existing remote endpoin
 ## Documentation and visual verification
 
 Deliver behavior changes with README, bundled Help, and affected deployment/maintenance documentation. Keep current defaults, exact labels, permission rules, and limitations consistent across guides. Follow the documentation process in [AGENTS.md](../AGENTS.md) and [Help screenshot capture](help-screenshots.md). Screenshots use isolated synthetic fixtures; never live records, credentials, or post-capture redaction. Rebuild affected local services and bundle updated Help images before completion.
+
+Event detail resolves triggering incidents within the authenticated workspace using an exact same-element match on saved monitor ID and check timestamp. The response projects only incident ID, title, and status and caps results at 100 with an explicit truncation flag. PostgreSQL compiles the shared `$elemMatch` query into parameterized JSON array matching.

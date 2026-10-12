@@ -3,6 +3,7 @@ import { encode } from './codec.js';
 /** Compile the bounded query vocabulary used by repositories. All values use SQL parameters. */
 export class Query {
   values = [];
+  elementSequence = 0;
   param(value, type = 'jsonb') {
     this.values.push(type === 'jsonb' ? JSON.stringify(encode(value)) : value);
     return `$${this.values.length}::${type}`;
@@ -112,6 +113,11 @@ export class Query {
             '(' +
             Object.entries(value)
               .map(([op, arg]) => {
+                if (op === '$elemMatch') {
+                  const raw = this.raw(field, doc),
+                    alias = `matched_element_${++this.elementSequence}`;
+                  return `EXISTS (SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(${raw}) = 'array' THEN ${raw} ELSE '[]'::jsonb END) AS ${alias}(value) WHERE ${this.filter(arg, `${alias}.value`)})`;
+                }
                 if (op === '$options') return 'true';
                 if (op === '$eq') return equal(arg);
                 if (op === '$ne') return `NOT (${equal(arg)})`;

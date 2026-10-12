@@ -297,8 +297,8 @@ function StatusEditor({ settings, services, integrations }) {
           </Select>
         </label>
         <p className="text-sm text-slate-500">
-          Applies to private and public status pages. Personal theme preferences do not change this
-          page.
+          Sets the initial appearance of the public status page. Visitors can toggle Light or Dark.
+          The in-app Service Status page follows each user’s profile theme.
         </p>
       </section>
       <RecordActions>

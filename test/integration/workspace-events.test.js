@@ -61,13 +61,11 @@ test('workspace Events enforce roles, tenant isolation, filters, safe exports, m
     endUser = await invite('user');
   const monitorId = new ObjectId(),
     serviceId = new ObjectId();
-  await db
-    .collection('catalogs')
-    .insertOne({
-      _id: workspaceId,
-      services: [{ id: String(serviceId), name: 'Demo Service' }],
-      collections: [],
-    });
+  await db.collection('catalogs').insertOne({
+    _id: workspaceId,
+    services: [{ id: String(serviceId), name: 'Demo Service' }],
+    collections: [],
+  });
   await db
     .collection('monitors')
     .insertOne({ _id: monitorId, userId: workspaceId, serviceId, name: 'Demo Check' });
@@ -161,6 +159,64 @@ test('workspace Events enforce roles, tenant isolation, filters, safe exports, m
       status: 'archived',
     },
   ]);
+  const triggeringEvent = await db
+    .collection('events')
+    .findOne({ userId: workspaceId, status: 'down', checkedAt: event.checkedAt });
+  await db
+    .collection('incidents')
+    .updateOne(
+      { _id: incidentId },
+      {
+        $set: {
+          title: 'Demo triggered incident',
+          status: 'open',
+          triggeringChecks: [{ monitorId: String(monitorId), checkedAt: event.checkedAt }],
+        },
+      },
+    );
+  const foreignIncident = new ObjectId(),
+    falseMatchIncident = new ObjectId();
+  await db.collection('incidents').insertMany([
+    {
+      _id: foreignIncident,
+      workspaceId: new ObjectId(outside.data.user.id),
+      title: 'Foreign incident',
+      triggeringChecks: [{ monitorId: String(monitorId), checkedAt: event.checkedAt }],
+    },
+    {
+      _id: falseMatchIncident,
+      workspaceId,
+      title: 'Wrong check pair',
+      triggeringChecks: [
+        { monitorId: String(monitorId), checkedAt: new Date(+event.checkedAt - 1000) },
+        { monitorId: String(new ObjectId()), checkedAt: event.checkedAt },
+      ],
+    },
+  ]);
+  const eventPath = `/monitors/${monitorId}/events/${triggeringEvent._id}`;
+  for (const person of [owner, responder, viewer]) {
+    const response = await request(eventPath, person.cookie);
+    assert.equal(response.status, 200);
+    assert.deepEqual(response.data.incidents, [
+      { id: String(incidentId), title: 'Demo triggered incident', status: 'open' },
+    ]);
+    assert.equal(response.data.incidentsTruncated, false);
+  }
+  assert.equal((await request(eventPath, outside.cookie)).status, 404);
+  assert.equal((await request(eventPath, endUser.cookie)).status, 403);
+  const unrelatedEvent = new ObjectId();
+  await db
+    .collection('events')
+    .insertOne({ ...event, _id: unrelatedEvent, checkedAt: new Date(+event.checkedAt - 2000) });
+  assert.deepEqual(
+    (await request(`/monitors/${monitorId}/events/${unrelatedEvent}`, viewer.cookie)).data
+      .incidents,
+    [],
+  );
+  await db.collection('events').deleteOne({ _id: unrelatedEvent });
+  await db
+    .collection('incidents')
+    .deleteMany({ _id: { $in: [foreignIncident, falseMatchIncident] } });
   const related = await request(`/related-counts/services/${serviceId}`, viewer.cookie);
   assert.equal(related.status, 200);
   assert.deepEqual(related.data.counts, { incidents: 1, tasks: 1, knowledge: 0, monitors: 1 });

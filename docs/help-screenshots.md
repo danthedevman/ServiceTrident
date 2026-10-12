@@ -30,3 +30,5 @@ docker compose up -d --build --wait --no-deps app
 Use `api workers scheduler` as well when shared/server behavior changed. Check affected service health and the app/API through the normal local URL. Include implementation, documentation, fixture changes, and refreshed screenshots in the same delivery.
 
 Authenticated monitor configuration is captured in `monitor-authentication.png` using a synthetic OAuth configuration. The saved Client Secret input must remain blank; fixtures and screenshots never contain authentication credentials.
+
+`event-triggered-incidents.png` uses an isolated synthetic event and its linked incident. The browser capture verifies a positive related-list count, absence of zero badges, and the incident link on the event detail.

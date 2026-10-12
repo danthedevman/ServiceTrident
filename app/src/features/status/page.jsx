@@ -34,6 +34,7 @@ export function StatusPage({ publicView = false, appearanceOverride }) {
   const appearance = appearanceOverride || (data?.statusTheme === 'dark' ? 'dark' : 'light');
   const { setPageAppearance } = useTheme();
   useLayoutEffect(() => {
+    if (!publicView) return;
     const previous = document.body.style.backgroundColor;
     setPageAppearance(appearance);
     document.body.style.backgroundColor = appearance === 'dark' ? '#000000' : '#ffffff';
@@ -41,7 +42,7 @@ export function StatusPage({ publicView = false, appearanceOverride }) {
       setPageAppearance(null);
       document.body.style.backgroundColor = previous;
     };
-  }, [appearance, setPageAppearance]);
+  }, [appearance, publicView, setPageAppearance]);
   return (
     <section className="space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-4">
@@ -177,11 +178,12 @@ export function PublicStatusPage() {
               <Logo />
             ))}
         </div>
-        <div className="flex flex-wrap items-center justify-end gap-3">
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-0">
+          <StatusSubscriptions token={token} capabilities={data?.subscriptions} />
           {data && (
             <button
               type="button"
-              className="inline-flex h-9 w-9 shrink-0 items-center justify-center border-0 bg-transparent p-0 text-slate-600 hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-offset-2 dark:text-slate-300 dark:hover:text-white"
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-end border-0 bg-transparent p-0 text-slate-600 hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-offset-2 dark:text-slate-300 dark:hover:text-white"
               aria-label="Toggle status page appearance"
               title={
                 (visitorAppearance || data.statusTheme) === 'dark'
@@ -202,7 +204,6 @@ export function PublicStatusPage() {
               )}
             </button>
           )}
-          <StatusSubscriptions token={token} capabilities={data?.subscriptions} />
         </div>
       </header>
       <main id="main">

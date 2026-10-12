@@ -136,7 +136,28 @@ export function installEventRoutes(app, db) {
     });
     if (!event) throw new InputError('Check event not found or expired.', 404);
     const { _id, checkedAt, status, statusCode, durationMs, error, details, timing } = event;
+    // Both identity and timestamp must match the same saved trigger, never separate array entries.
+    const incidents = await db
+      .collection('incidents')
+      .find(
+        {
+          workspaceId: req.workspaceId,
+          triggeringChecks: { $elemMatch: { monitorId: String(monitorId), checkedAt } },
+        },
+        { projection: { _id: 1, title: 1, status: 1 } },
+      )
+      .sort({ createdAt: -1, _id: -1 })
+      .limit(101)
+      .toArray();
     res.json({
+      incidents: incidents
+        .slice(0, 100)
+        .map((incident) => ({
+          id: String(incident._id),
+          title: incident.title,
+          status: incident.status,
+        })),
+      incidentsTruncated: incidents.length > 100,
       monitor: { id: monitorId.toHexString(), name: monitor.name },
       event: {
         id: _id.toHexString(),

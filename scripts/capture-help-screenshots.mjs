@@ -560,6 +560,18 @@ await context.route('**/api/**', async (route) => {
   } else if (path === '/groups') data = { groups: [] };
   else if (path === '/monitors') data = { monitors };
   else if (path === `/monitors/${monitors[0].id}`) data = { monitor: monitors[0] };
+  else if (path.startsWith(`/monitors/${monitors[0].id}/events/`))
+    data = {
+      monitor: { id: monitors[0].id, name: monitors[0].name },
+      event: {
+        id: path.split('/').at(-1),
+        checkedAt: '2026-10-10T16:05:00Z',
+        status: 'down',
+        statusCode: 503,
+        durationMs: 210,
+      },
+      incidents: [{ id: demoIncident.id, title: demoIncident.title, status: demoIncident.status }],
+    };
   else if (path === `/monitors/${monitors[0].id}/events`)
     data = { events: [], total: 0, totalPages: 1 };
   else if (path === '/tables/audit') {
@@ -1532,6 +1544,19 @@ try {
   );
   assert.equal(conversationSizes[0], conversationSizes[1]);
   assert.equal(await page.getByText('Show', { exact: true }).count(), 0);
+  assert.equal(
+    await page
+      .getByRole('tab', { name: 'Comments and work notes', exact: true })
+      .locator('span[aria-hidden="true"]')
+      .count(),
+    0,
+    'Empty related lists omit the count badge',
+  );
+  await page
+    .getByRole('tab', { name: 'Monitor Events', exact: true })
+    .locator('span[aria-hidden="true"]')
+    .getByText('1', { exact: true })
+    .waitFor();
   await page.getByRole('tab', { name: 'Monitor Events', exact: true }).click();
   await page.getByRole('cell', { name: 'Demo Portal Health', exact: true }).waitFor();
   const monitorEventPanel = page.getByRole('tabpanel', { name: 'Monitor Events', exact: true });
@@ -2148,6 +2173,16 @@ try {
     exact: true,
   });
   assert.equal((await visitorMode.textContent()).trim(), '');
+  assert.ok(
+    await visitorMode.evaluate(
+      (button) =>
+        Math.abs(
+          button.querySelector('svg').getBoundingClientRect().right -
+            button.closest('header').getBoundingClientRect().right,
+        ) < 1,
+    ),
+    'Visitor theme icon is flush with the header right edge',
+  );
   await visitorMode.click();
   await page.waitForFunction(() => document.documentElement.dataset.theme === 'light');
   assert.equal(
@@ -2171,7 +2206,14 @@ try {
   statusAppearance = 'light';
   await page.goto(`${base}/status`);
   await page.getByText('Demo Customer Portal', { exact: true }).waitFor();
-  assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), 'light');
+  assert.equal(
+    await page.evaluate(() => document.documentElement.dataset.theme),
+    privateAppearance.theme,
+  );
+  assert.equal(
+    await page.evaluate(() => document.documentElement.dataset.colorScheme),
+    privateAppearance.palette,
+  );
   await page.goto(`${base}/profile`);
   await page.getByRole('heading', { name: 'Theme', exact: true }).waitFor();
   assert.equal(
@@ -2305,6 +2347,37 @@ try {
   await page.getByRole('link', { name: 'Create Monitor', exact: true }).waitFor();
   await page.screenshot({ path: `${output}/events-list.png` });
   await page.locator(`a[href^="/monitors/${monitors[0].id}/events/"]`).first().click();
+  await page
+    .getByRole('region', { name: 'Triggered Incidents', exact: true })
+    .getByRole('link')
+    .waitFor();
+  await page.screenshot({ path: `${output}/event-triggered-incidents.png` });
+  assert.equal(
+    await page
+      .getByRole('region', { name: 'Triggered Incidents', exact: true })
+      .getByRole('link')
+      .getAttribute('href'),
+    `/incidents/${demoIncident.id}`,
+  );
+  for (const viewport of [
+    { width: 1440, height: 960 },
+    { width: 390, height: 844 },
+  ]) {
+    await page.setViewportSize(viewport);
+    const bottom = page.getByText('This event predates detailed response capture.', {
+      exact: false,
+    });
+    await bottom.evaluate((element) =>
+      element.scrollIntoView({ block: 'end', behavior: 'instant' }),
+    );
+    const bounds = await bottom.boundingBox();
+    assert.ok(
+      bounds.y >= 0 && bounds.y + bounds.height <= viewport.height,
+      'Event detail remains vertically scrollable',
+    );
+  }
+  await page.setViewportSize({ width: 1440, height: 960 });
+
   await page
     .getByRole('navigation', { name: 'Breadcrumb' })
     .getByRole('link', { name: 'Events', exact: true })

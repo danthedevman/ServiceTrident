@@ -1,3 +1,4 @@
+import { ReferenceValue } from '../../components/reference-value.jsx';
 import { DateTime } from '../../preferences/date-time.jsx';
 import { recordNumber } from '../../lib/record-number.js';
 import { Stat } from '../../components/stat.jsx';
@@ -45,6 +46,28 @@ export function HeaderTable({ headerSet = 'request' }) {
   );
 }
 
+function TriggeredIncidents({ incidents = [], truncated = false }) {
+  if (!incidents.length) return null;
+  return (
+    <section className="panel space-y-3 p-6" aria-label="Triggered Incidents">
+      <h2 className="font-semibold">Triggered Incidents</h2>
+      <ul className="space-y-3">
+        {incidents.map((incident) => (
+          <li key={incident.id} className="flex flex-wrap items-center gap-3">
+            <ReferenceValue type="incidents" id={incident.id} label={incident.title} />
+            <Badge status={incident.status} />
+          </li>
+        ))}
+      </ul>
+      {truncated && (
+        <p className="field-hint">
+          Showing the latest 100 incidents. Use the Incidents list to find additional records.
+        </p>
+      )}
+    </section>
+  );
+}
+
 /** A saved event is immutable; loading this page never rechecks the endpoint. */
 export function EventDetail() {
   const { id, eventId } = useParams();
@@ -57,6 +80,7 @@ export function EventDetail() {
         <h1 className="font-mono text-sm">{recordNumber('events', event)}</h1>
         <ErrorNotice>{error}</ErrorNotice>
         <Badge status={event.status} />
+        <TriggeredIncidents incidents={data.incidents} truncated={data.incidentsTruncated} />
         <dl className="panel space-y-4 p-6">
           {[
             ['Protocol', details.protocol],
@@ -94,6 +118,7 @@ export function EventDetail() {
                 {<DateTime value={event.checkedAt} />} · Event {event.id}
               </p>
             </div>
+            <TriggeredIncidents incidents={data.incidents} truncated={data.incidentsTruncated} />
             <div className={layouts.scores}>
               <Stat
                 title="HTTP Status"

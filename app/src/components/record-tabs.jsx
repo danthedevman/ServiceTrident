@@ -68,14 +68,16 @@ export function RecordTabs({
             }}
           >
             {tab.label}
-            {related && Number.isSafeInteger(tab.count ?? counts.data?.counts?.[tab.id]) && (
-              <span
-                aria-hidden="true"
-                className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs tabular-nums dark:bg-slate-800"
-              >
-                {tab.count ?? counts.data.counts[tab.id]}
-              </span>
-            )}
+            {related &&
+              Number.isSafeInteger(tab.count ?? counts.data?.counts?.[tab.id]) &&
+              (tab.count ?? counts.data?.counts?.[tab.id]) > 0 && (
+                <span
+                  aria-hidden="true"
+                  className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs tabular-nums dark:bg-slate-800"
+                >
+                  {tab.count ?? counts.data.counts[tab.id]}
+                </span>
+              )}
           </button>
         ))}
       </div>

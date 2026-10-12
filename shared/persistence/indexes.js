@@ -54,6 +54,7 @@ export async function initializeDatabase(db) {
     db.collection('articles').createIndex({ workspaceId: 1, knowledgeBaseId: 1, updatedAt: -1 }),
     db.collection('incidents').createIndex({ workspaceId: 1, createdAt: -1 }),
     db.collection('incidents').createIndex({ workspaceId: 1, serviceId: 1 }),
+    db.collection('incidents').createIndex({ workspaceId: 1, 'triggeringChecks.checkedAt': 1 }),
     db
       .collection('incidents')
       .createIndex(
