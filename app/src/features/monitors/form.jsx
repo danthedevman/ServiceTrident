@@ -1,3 +1,5 @@
+import { MonitorAuthentication } from './authentication.jsx';
+import { MONITOR_AUTH_FIELDS, monitorAuthErrors } from '../../../../shared/domain/monitor-auth.js';
 import { PageTitle } from '../../components/page-title.jsx';
 import { FormPage } from '../../components/forms/form-page.jsx';
 import { Select } from '../../components/forms/select.jsx';
@@ -52,18 +54,47 @@ function MonitorEditor({ monitor, onReset, defaults }) {
   const [serviceId, setServiceId] = useState(
     monitor?.serviceId ?? searchParams.get('serviceId') ?? '',
   );
+  const [authentication, setAuthentication] = useState({
+    ...(monitor?.authentication || { mode: 'none' }),
+    authMethod: monitor?.authentication?.authMethod || 'client_secret_basic',
+  });
+  const [followRedirects, setFollowRedirects] = useState(
+    (monitor?.followRedirects ?? defaults?.defaultFollowRedirects) === true,
+  );
   const navigate = useNavigate();
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const submit = async (event, reportErrors) => {
     event.preventDefault();
-    setBusy(true);
     setError('');
     const form = new FormData(event.currentTarget);
+    const auth = {
+      mode: authentication.mode,
+      ...Object.fromEntries(
+        (MONITOR_AUTH_FIELDS[authentication.mode] || []).map((key) => [
+          key,
+          authentication[key] || (key === 'authMethod' ? 'client_secret_basic' : ''),
+        ]),
+      ),
+    };
+    const authErrors = monitorAuthErrors(auth, {
+      url: form.get('url'),
+      followRedirects: form.get('followRedirects') === 'true',
+      configured: monitor?.authenticationConfigured,
+      current: monitor?.authentication,
+      previousUrl: monitor?.url,
+    });
+    if (Object.keys(authErrors).length) {
+      setError('Check authentication settings.');
+      reportErrors?.(authErrors);
+      return;
+    }
+    setBusy(true);
     try {
       const { monitor: saved } = await writeApi(monitor ? `/monitors/${monitor.id}` : '/monitors', {
         method: monitor ? 'PATCH' : 'POST',
         body: {
+          authentication: auth,
           serviceId: serviceId || null,
           component: serviceId ? form.get('component') : '',
           name: form.get('name'),
@@ -151,8 +182,8 @@ function MonitorEditor({ monitor, onReset, defaults }) {
             <option value="GET">GET — headers and response body</option>
           </Select>
           <span className="field-hint">
-            HEAD is a lightweight availability check. GET also saves a text body preview (up to 16
-            KiB). Some endpoints do not support HEAD.
+            HEAD is a lightweight availability check. Unauthenticated GET checks also save a text
+            body preview (up to 16 KiB). Some endpoints do not support HEAD.
           </span>
         </label>
         <label className="field-label">
@@ -160,18 +191,29 @@ function MonitorEditor({ monitor, onReset, defaults }) {
           <Toggle
             name="followRedirects"
             value="true"
-            defaultChecked={(monitor?.followRedirects ?? defaults?.defaultFollowRedirects) === true}
+            checked={followRedirects && authentication.mode === 'none'}
+            disabled={authentication.mode !== 'none'}
+            onChange={(event) => setFollowRedirects(event.target.checked)}
             className="mt-2 block"
           />
-          <span className="field-hint">
-            Enable for HTTP-to-HTTPS upgrades, redirects to a www hostname, or moved pages when you
-            want to check the destination too. Up to 3 redirects are allowed; every destination must
-            pass public-network validation.
-          </span>
-          <span className="field-hint">
-            When disabled, a 3xx response counts as up for the original URL only. The destination is
-            recorded but is not checked.
-          </span>
+          {authentication.mode !== 'none' ? (
+            <span className="field-hint">
+              Authenticated checks do not follow redirects and require a 2xx response. Use the final
+              protected HTTPS endpoint.
+            </span>
+          ) : (
+            <>
+              <span className="field-hint">
+                Enable for HTTP-to-HTTPS upgrades, redirects to a www hostname, or moved pages when
+                you want to check the destination too. Up to 3 redirects are allowed; every
+                destination must pass public-network validation.
+              </span>
+              <span className="field-hint">
+                When disabled, a 3xx response counts as up for the original URL only. The
+                destination is recorded but is not checked.
+              </span>
+            </>
+          )}
         </label>
         <label className="field-label">
           Check every *
@@ -195,6 +237,14 @@ function MonitorEditor({ monitor, onReset, defaults }) {
             ? 'Changes keep your existing history. Changing the URL or request type resets the current status until the next check. Checks remain at least one minute apart.'
             : 'Your first check will start shortly after creation. Each check records the HTTP result and response time.'}
         </div>
+        <MonitorAuthentication
+          value={authentication}
+          onChange={setAuthentication}
+          configured={
+            monitor?.authenticationConfigured &&
+            authentication.mode === monitor?.authentication?.mode
+          }
+        />
         <RecordActions>
           <CancelButton onCancel={onReset} to="/monitors" disabled={busy} />
           <button className="btn-primary" disabled={busy}>

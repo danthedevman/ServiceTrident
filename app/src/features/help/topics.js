@@ -19,7 +19,7 @@ export const helpTopics = [
     ],
     paragraphs: [
       'Detect, Respond, Resolve describes the workflow: monitor services to detect issues, coordinate incident response, and resolve incidents with recorded outcomes.',
-      'The logo, workspace search, and navigation toggle are centered in the navigation header. Select Search Workspace to find records, or Collapse navigation to switch to the compact rail, which keeps the same links and order and scrolls when needed. In the compact rail, hover or focus the logo to reveal Expand Navigation.',
+      'The logo, workspace search, and navigation toggle are centered in the navigation header. Select Search Workspace to find records, or Collapse navigation to switch to the compact rail, which keeps leading links in order and shows trailing links in More, with scrolling when needed. In the compact rail, hover or focus the logo to reveal Expand Navigation.',
       'Start by creating a service for something your team owns, such as a customer portal or payments API. Add owners and a primary contact, then create a monitor from the service’s action menu.',
       'Create user profiles, assign appropriate roles, and configure a communication integration before relying on notifications. Add an on-call schedule so responders know who owns coverage.',
       'Use the global Create button for new records, including Knowledge Articles. Admins also have a Create User option. Open a saved record and select Edit to change it. Save applies changes; Cancel leaves edit mode without saving your draft. Related information appears in tabs below the record.',
@@ -61,15 +61,22 @@ export const helpTopics = [
           'Choose Events in Dashboard View and optionally select a service to review retained monitor checks.',
       },
       {
+        src: '/help/monitor-authentication.png',
+        alt: 'Monitor Authentication section with OAuth client credentials settings and a blank saved-secret field',
+        caption:
+          'Choose an Authentication Method and configure a machine account for the protected HTTPS endpoint.',
+      },
+      {
         src: '/help/monitoring.png',
         alt: 'Monitors list with HTTP endpoints, health states, associated services, and check intervals',
       },
     ],
     paragraphs: [
       'Create a monitor from a service’s secondary action menu or its Monitors related list. A service and a public HTTP or HTTPS endpoint are required. Check intervals range from 1 minute to 1,440 minutes.',
-      'HEAD checks response headers without requesting a full response body. GET also stores a bounded text preview. Choose GET if the endpoint does not support HEAD or you need response details for troubleshooting.',
+      'HEAD checks response headers without requesting a full response body. Unauthenticated GET also stores a bounded text preview. Choose GET if the endpoint does not support HEAD or you need response details for troubleshooting.',
+      'Admins can configure Authentication on a monitor using Basic Auth, Bearer Token, or OAuth Client Credentials. Use a least-privilege machine account and a protected API endpoint that accepts those credentials. Authenticated checks require public HTTPS on standard ports, reject redirects, and require a 2xx response; response bodies and headers are not saved. OAuth supports client_secret_basic and client_secret_post, optional Scope and Audience, and briefly reuses unexpired tokens. Browser SSO, MFA, and private_key_jwt are not supported. An Okta login page alone cannot establish application health. Saved secrets are encrypted and never returned; leave a secret blank to retain it when the target origin and account are unchanged, or choose None and Save to remove authentication. Provide new credentials when changing the target origin, Basic username, OAuth token endpoint, or Client ID. Replace expired static bearer tokens manually.',
       'Redirect following is off by default. Enable it when checking an HTTP-to-HTTPS upgrade, canonical hostname, or moved endpoint. Each redirect destination must pass network validation; enabling redirects does not allow private network checks.',
-      'Events in the side navigation lists retained checks across the workspace. Search, date ranges (UTC), sorting, CSV export, and Service, Monitor, and Outcome filters run on the server. Open a row to view its saved response; the Events breadcrumb returns to the full list. Admins, responders, and viewers have access; end users do not. Choose Events in Dashboard View for check totals, success rate, average recorded duration, and outcome/HTTP charts. Service filtering applies to its metrics and report links. Both views cover the last 30 days; deleted monitors remove their events. Historical check success does not imply current service health.',
+      'Events in the side navigation lists retained checks across the workspace. Admins can select Create Monitor; a selected service filter is carried into the new monitor form. Search, date ranges (UTC), sorting, CSV export, and Service, Monitor, and Outcome filters run on the server. Open a row to view its saved response; the Events breadcrumb returns to the full list. Admins, responders, and viewers have access; end users do not. Choose Events in Dashboard View for check totals, success rate, average recorded duration, and outcome/HTTP charts. Service filtering applies to its metrics and report links. Both views cover the last 30 days; deleted monitors remove their events. Historical check success does not imply current service health.',
       'Open a monitor to review check events, filter the table, and open an event for response and timing details. A configured interval is a scheduling target: worker backlog, slow endpoints, and infrastructure interruptions can delay execution.',
       'Only HTTP/HTTPS checks are supported. Database connection checks and arbitrary TCP/network scanning are not supported.',
     ],

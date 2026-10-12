@@ -5,6 +5,7 @@ import {
   infiniteResourceOptions,
   queryClient,
   resourceKey,
+  resourceOptions,
   setSessionUser,
   writeApi,
 } from '../app/src/data/query-client.js';
@@ -236,3 +237,5 @@ test('removing a custom status icon clears public branding without replacing sta
   assert.deepEqual(queryClient.getQueryData(key), settings);
   assert.equal(queryClient.getQueryState(key).isInvalidated, true);
 });
+
+test('related count summaries cache for one minute without focus polling', () => { const options = resourceOptions('/related-counts/services/111111111111111111111111', 'synthetic@example.test'); assert.equal(options.staleTime, 60000); assert.equal(options.refetchOnWindowFocus, false); });

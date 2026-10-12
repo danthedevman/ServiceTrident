@@ -1,7 +1,20 @@
 import { auditFields } from '@servicetrident/shared/domain/audit';
 
 /** @param {object} monitor @returns {object} Client-safe monitor representation. */
-export function serializeMonitor(monitor) {
+export function serializeMonitor(monitor, { includeAuthenticationConfig = false } = {}) {
+  const authentication = {
+    mode: ['basic', 'bearer', 'oauth'].includes(monitor.authConfig?.mode)
+      ? monitor.authConfig.mode
+      : 'none',
+  };
+  if (includeAuthenticationConfig)
+    for (const key of authentication.mode === 'basic'
+      ? ['username']
+      : authentication.mode === 'oauth'
+        ? ['tokenUrl', 'clientId', 'scope', 'audience', 'authMethod']
+        : [])
+      if (typeof monitor.authConfig?.[key] === 'string')
+        authentication[key] = monitor.authConfig[key];
   const { _id, name, url, intervalMinutes, paused, createdAt, nextCheckAt, lastCheck } = monitor;
   const stale =
     lastCheck &&
@@ -20,6 +33,8 @@ export function serializeMonitor(monitor) {
     intervalMinutes,
     method: monitor.method ?? 'GET',
     followRedirects: monitor.followRedirects === true,
+    authentication,
+    authenticationConfigured: !!monitor.authSecret,
     paused,
     createdAt,
     nextCheckAt,

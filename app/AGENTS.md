@@ -138,4 +138,4 @@
 
 # Consistent navigation hierarchy
 
-- Expanded, collapsed, and mobile side navigation must render the same authorized links in the same order from one shared definition. Collapse changes presentation only; do not move links into a secondary menu or remove them. Keep the rail scrollable when links exceed the viewport and verify link order in both states after navigation changes.
+- Expanded, collapsed, and mobile side navigation must use one shared authorized link order. Collapsed mode shows the leading links directly and the trailing links in More; preserve the combined order and never omit authorized links. Keep the rail scrollable when needed and verify the main links plus More match expanded order after navigation changes.

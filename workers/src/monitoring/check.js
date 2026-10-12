@@ -1,3 +1,5 @@
+import { monitorAuthorization } from './auth.js';
+import { monitorAuthErrors } from '@servicetrident/shared/domain/monitor-auth';
 import http from 'node:http';
 import https from 'node:https';
 import { lookup } from 'node:dns/promises';
@@ -64,7 +66,7 @@ export async function requestHeaders(
   url,
   signal,
   onResponse = () => {},
-  { method = 'GET', userAgent = userAgentForCheck() } = {},
+  { method = 'GET', userAgent = userAgentForCheck(), authorization = null } = {},
 ) {
   validateMethod(method);
   const started = performance.now();
@@ -77,30 +79,38 @@ export async function requestHeaders(
       {
         method,
         agent: false,
+        rejectUnauthorized: true,
         signal,
         autoSelectFamily: false,
         maxHeaderSize: 16384,
         lookup: (hostname, options, callback) => callback(null, target.address, target.family),
-        headers: headersFor(userAgent),
+        headers: {
+          ...headersFor(userAgent),
+          ...(authorization ? { Authorization: authorization } : {}),
+        },
       },
       (response) => {
         const snapshot = {
           url: url.href,
           statusCode: response.statusCode,
-          statusMessage: response.statusMessage,
+          statusMessage: authorization
+            ? http.STATUS_CODES[response.statusCode] || 'HTTP response'
+            : response.statusMessage,
           httpVersion: response.httpVersion,
-          location: response.headers.location,
-          headers: redactHeaders(response.headers),
+          location: authorization ? undefined : response.headers.location,
+          headers: authorization ? {} : redactHeaders(response.headers),
           remoteAddress: target.address,
           headersMs: Math.round(performance.now() - started),
         };
         onResponse(snapshot);
-        if (method === 'HEAD') {
+        if (method === 'HEAD' || authorization) {
           snapshot.body = {
             text: '',
             bytesCaptured: 0,
             truncated: false,
-            omitted: 'HEAD request: no response body requested.',
+            omitted: authorization
+              ? 'Authenticated monitor: response body and headers are not captured.'
+              : 'HEAD request: no response body requested.',
             error: null,
           };
           resolve(snapshot);
@@ -127,6 +137,8 @@ export async function checkWebsite(
     followRedirects = false,
     method = 'GET',
     userAgent = userAgentForCheck(),
+    authentication = null,
+    tokenRequest,
   } = {},
 ) {
   validateMethod(method);
@@ -143,6 +155,19 @@ export async function checkWebsite(
     responses: [],
   };
   try {
+    const auth = typeof authentication === 'function' ? authentication() : authentication;
+    const authenticated = !!auth && auth.mode !== 'none';
+    if (
+      authenticated &&
+      Object.keys(monitorAuthErrors(auth, { url: target, followRedirects })).length
+    )
+      throw new InputError(
+        'Invalid authenticated monitor configuration. Use HTTPS without redirects and valid credentials.',
+      );
+    const authorization = authenticated
+      ? await abortable(monitorAuthorization(auth, { request: tokenRequest }), controller.signal)
+      : null;
+    if (authorization) details.requestHeaders.Authorization = '[redacted]';
     let url = parseTarget(target);
     for (let redirects = 0; ; redirects++) {
       details.finalUrl = url.href;
@@ -154,13 +179,27 @@ export async function checkWebsite(
             statusCode = snapshot.statusCode;
             details.responses.push(snapshot);
           },
-          { method, userAgent },
+          { method, userAgent, ...(authorization ? { authorization } : {}) },
         ),
         controller.signal,
       );
       if (!details.responses.includes(response))
         details.responses.push({ url: url.href, ...response });
       statusCode = response.statusCode;
+      if (authenticated) {
+        for (const snapshot of details.responses) {
+          snapshot.headers = {};
+          snapshot.statusMessage = http.STATUS_CODES[snapshot.statusCode] || 'HTTP response';
+          delete snapshot.location;
+          snapshot.body = {
+            text: '',
+            bytesCaptured: 0,
+            truncated: false,
+            omitted: 'Authenticated monitor: response body and headers are not captured.',
+            error: null,
+          };
+        }
+      }
       if (response.body?.error) throw new InputError(response.body.error);
       if (
         followRedirects === true &&
@@ -171,11 +210,16 @@ export async function checkWebsite(
         url = parseTarget(new URL(response.location, url).href);
         continue;
       }
+      const successful = statusCode >= 200 && statusCode < (authenticated ? 300 : 400);
       return {
-        status: statusCode >= 200 && statusCode < 400 ? 'up' : 'down',
+        status: successful ? 'up' : 'down',
         statusCode,
         durationMs: Math.round(performance.now() - start),
-        error: statusCode >= 400 ? `HTTP ${statusCode}` : null,
+        error: successful
+          ? null
+          : authenticated && statusCode >= 300 && statusCode < 400
+            ? `HTTP ${statusCode}: authenticated checks do not accept login or other redirects.`
+            : `HTTP ${statusCode}`,
         details,
       };
     }

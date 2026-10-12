@@ -66,6 +66,7 @@ const services = [
   {
     id: '111111111111111111111111',
     name: 'Demo Customer Portal',
+    dependencyIds: [],
     status: 'up',
     health: 'Operational',
     description: 'Example customer self-service',
@@ -92,6 +93,17 @@ const monitors = [
   {
     id: '333333333333333333333333',
     name: 'Demo Portal Availability',
+    serviceId: services[0].id,
+    history: [],
+    authenticationConfigured: true,
+    authentication: {
+      mode: 'oauth',
+      tokenUrl: 'https://identity.example.test/oauth2/token',
+      clientId: 'monitor-client',
+      scope: 'health.read',
+      audience: '',
+      authMethod: 'client_secret_basic',
+    },
     status: 'up',
     service: services[0].name,
     url: 'https://portal.example.test/health',
@@ -205,9 +217,37 @@ await context.route('**/api/**', async (route) => {
   const path = url.pathname.slice(4);
   recordRequests.push(path);
   let data = {};
-  if (path.startsWith('/related-counts/')) data = { counts: { incidents: 1, tasks: 2, knowledge: 1, monitors: 2, events: 30, discussion: 0, attachments: 0, activity: 1, 'monitor-events': 1, integrations: 1, deliveries: 2 } };
-  else if (path === '/event-metrics') data = { outcomes: [{ status: 'up', count: 24, durationTotal: 4800, durationCount: 24 }, { status: 'down', count: 6, durationTotal: 1800, durationCount: 6 }], http: [{ statusCode: 200, count: 24 }, { statusCode: 503, count: 6 }], days: 30, generatedAt: '2026-10-10T17:05:06Z' };
-  else if (path === '/incident-fields') data = { fields: [...BUILTIN_FIELDS, ...visibilityFields], revision: 0 };
+  if (path.startsWith('/related-counts/'))
+    data = {
+      counts: {
+        incidents: 1,
+        tasks: 2,
+        knowledge: 1,
+        monitors: 2,
+        events: 30,
+        discussion: 0,
+        attachments: 0,
+        activity: 1,
+        'monitor-events': 1,
+        integrations: 1,
+        deliveries: 2,
+      },
+    };
+  else if (path === '/event-metrics')
+    data = {
+      outcomes: [
+        { status: 'up', count: 24, durationTotal: 4800, durationCount: 24 },
+        { status: 'down', count: 6, durationTotal: 1800, durationCount: 6 },
+      ],
+      http: [
+        { statusCode: 200, count: 24 },
+        { statusCode: 503, count: 6 },
+      ],
+      days: 30,
+      generatedAt: '2026-10-10T17:05:06Z',
+    };
+  else if (path === '/incident-fields')
+    data = { fields: [...BUILTIN_FIELDS, ...visibilityFields], revision: 0 };
   else if (path === '/incidents')
     data = { incidents: [demoIncident], total: 1, page: 1, pageSize: 50 };
   else if (path === `/incidents/${demoIncident.id}`) {
@@ -346,7 +386,10 @@ await context.route('**/api/**', async (route) => {
     const filtered = items.filter((article) => {
       const status = url.searchParams.get('status');
       const search = (url.searchParams.get('search') || '').toLowerCase();
-      return (status ? article.status === status : article.status !== 'archived') && `${article.title} ${article.content || ''}`.toLowerCase().includes(search);
+      return (
+        (status ? article.status === status : article.status !== 'archived') &&
+        `${article.title} ${article.content || ''}`.toLowerCase().includes(search)
+      );
     });
     data = { items: filtered, total: filtered.length, page: 1, pageSize: 10 };
   } else if (path === '/knowledge-fields')
@@ -395,7 +438,8 @@ await context.route('**/api/**', async (route) => {
     builderFields = validateFields(body.fields, builderFields, workBuiltinFields('tasks'), 'tasks');
     builderRevision++;
     data = { ok: true };
-  } else if (path === '/task-fields') data = { fields: [...builderFields, ...visibilityFields], revision: builderRevision };
+  } else if (path === '/task-fields')
+    data = { fields: [...builderFields, ...visibilityFields], revision: builderRevision };
   else if (path === '/services') data = { services };
   else if (path === '/collections') data = { collections: [] };
   else if (path === '/members')
@@ -407,11 +451,30 @@ await context.route('**/api/**', async (route) => {
       callbackUrl: `${base}/api/auth/sso/callback`,
       signInUrl: `${base}/login?workspace=${'f'.repeat(48)}`,
     };
-  else if (path === '/settings/service-accounts' || path.startsWith('/settings/service-accounts/')) {
-    const item = { id: 'fefefefefefefefefefefefe', name: 'Demo External Automation', description: 'Creates operational records for the selected service.', enabled: true, scopes: ['incidents:create', 'tasks:create'], serviceIds: [services[0].id], revision: 0, apiKeyConfigured: true, oauthConfigured: true, apiKeyExpiresAt: '2027-01-10T12:00:00Z', oauthExpiresAt: '2027-01-10T12:00:00Z', clientId: 'stc_fefefefefefefefefefefefe', createdAt: '2026-10-10T17:05:06Z', updatedAt: '2026-10-10T17:05:06Z', createdBy: 'alex@example.test', createdById: user.id };
+  else if (
+    path === '/settings/service-accounts' ||
+    path.startsWith('/settings/service-accounts/')
+  ) {
+    const item = {
+      id: 'fefefefefefefefefefefefe',
+      name: 'Demo External Automation',
+      description: 'Creates operational records for the selected service.',
+      enabled: true,
+      scopes: ['incidents:create', 'tasks:create'],
+      serviceIds: [services[0].id],
+      revision: 0,
+      apiKeyConfigured: true,
+      oauthConfigured: true,
+      apiKeyExpiresAt: '2027-01-10T12:00:00Z',
+      oauthExpiresAt: '2027-01-10T12:00:00Z',
+      clientId: 'stc_fefefefefefefefefefefefe',
+      createdAt: '2026-10-10T17:05:06Z',
+      updatedAt: '2026-10-10T17:05:06Z',
+      createdBy: 'alex@example.test',
+      createdById: user.id,
+    };
     data = path === '/settings/service-accounts' ? { items: [item] } : { item };
-  }
-  else if (path === '/settings/demo-data') data = { batch: null };
+  } else if (path === '/settings/demo-data') data = { batch: null };
   else if (path === '/settings/marketing') data = { available: false };
   else if (path.startsWith('/public/identity-providers/'))
     data = {
@@ -469,7 +532,13 @@ await context.route('**/api/**', async (route) => {
       tasks: [],
       generatedAt: '2026-10-10T17:05:06Z',
     };
-  else if (path.startsWith('/public/status/')) data = { services, monitors, generatedAt: '2026-10-10T17:05:06Z', statusTheme: statusAppearance };
+  else if (path.startsWith('/public/status/'))
+    data = {
+      services,
+      monitors,
+      generatedAt: '2026-10-10T17:05:06Z',
+      statusTheme: statusAppearance,
+    };
   else if (path === '/status')
     data = {
       services,
@@ -478,7 +547,8 @@ await context.route('**/api/**', async (route) => {
       statusTheme: statusAppearance,
     };
   else if (path === '/status-settings') {
-    if (request.method() === 'PATCH') statusAppearance = request.postDataJSON().statusTheme || 'light';
+    if (request.method() === 'PATCH')
+      statusAppearance = request.postDataJSON().statusTheme || 'light';
     data = {
       visibility: statusVisibility,
       publicPath: '/public/status/demo-share',
@@ -489,14 +559,35 @@ await context.route('**/api/**', async (route) => {
     };
   } else if (path === '/groups') data = { groups: [] };
   else if (path === '/monitors') data = { monitors };
+  else if (path === `/monitors/${monitors[0].id}`) data = { monitor: monitors[0] };
+  else if (path === `/monitors/${monitors[0].id}/events`)
+    data = { events: [], total: 0, totalPages: 1 };
   else if (path === '/tables/audit') {
     const size = Number(url.searchParams.get('pageSize') || 10),
       start = (Number(url.searchParams.get('page') || 1) - 1) * size;
     data = { rows: demoAuditRows.slice(start, start + size), total: demoAuditRows.length };
   } else if (path.startsWith('/tables/')) {
     if (path === '/tables/events') {
-      const rows = Array.from({ length: 30 }, (_, index) => ({ id: index.toString(16).padStart(24, 'c'), monitorId: monitors[0].id, monitorName: 'Demo Portal Health', serviceName: services[0].name, checkedAt: '2026-10-10T16:05:00Z', status: index % 5 ? 'up' : 'down', statusCode: index % 5 ? 200 : 503, durationMs: 210, error: index % 5 ? '' : 'HTTP 503' })).filter((row) => (!url.searchParams.get('status') || row.status === url.searchParams.get('status')) && (!url.searchParams.get('search') || JSON.stringify(row).toLowerCase().includes(url.searchParams.get('search').toLowerCase())));
-      const size = Number(url.searchParams.get('pageSize') || 10), start = (Number(url.searchParams.get('page') || 1) - 1) * size;
+      const rows = Array.from({ length: 30 }, (_, index) => ({
+        id: index.toString(16).padStart(24, 'c'),
+        monitorId: monitors[0].id,
+        monitorName: 'Demo Portal Health',
+        serviceName: services[0].name,
+        checkedAt: '2026-10-10T16:05:00Z',
+        status: index % 5 ? 'up' : 'down',
+        statusCode: index % 5 ? 200 : 503,
+        durationMs: 210,
+        error: index % 5 ? '' : 'HTTP 503',
+      })).filter(
+        (row) =>
+          (!url.searchParams.get('status') || row.status === url.searchParams.get('status')) &&
+          (!url.searchParams.get('search') ||
+            JSON.stringify(row)
+              .toLowerCase()
+              .includes(url.searchParams.get('search').toLowerCase())),
+      );
+      const size = Number(url.searchParams.get('pageSize') || 10),
+        start = (Number(url.searchParams.get('page') || 1) - 1) * size;
       return route.fulfill({ json: { rows: rows.slice(start, start + size), total: rows.length } });
     }
     if (path === '/tables/incident-monitor-events') {
@@ -568,11 +659,20 @@ try {
   await page.goto(`${base}/profile`);
   await page.getByRole('radio', { name: 'Default', exact: true }).waitFor();
   assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), 'dark');
-  assert.equal(await page.evaluate(() => getComputedStyle(document.body).backgroundColor), 'rgb(0, 0, 0)');
-  await page.getByRole('heading', { name: 'Theme', exact: true }).evaluate((element) => element.scrollIntoView({ block: 'start', behavior: 'instant' }));
+  assert.equal(
+    await page.evaluate(() => getComputedStyle(document.body).backgroundColor),
+    'rgb(0, 0, 0)',
+  );
+  await page
+    .getByRole('heading', { name: 'Theme', exact: true })
+    .evaluate((element) => element.scrollIntoView({ block: 'start', behavior: 'instant' }));
   await page.screenshot({ path: `${output}/theme-black.png` });
   await page.getByRole('radio', { name: 'Light', exact: true }).check();
-  await page.waitForFunction(() => document.documentElement.dataset.theme === 'light' && getComputedStyle(document.body).backgroundColor === 'rgb(255, 255, 255)');
+  await page.waitForFunction(
+    () =>
+      document.documentElement.dataset.theme === 'light' &&
+      getComputedStyle(document.body).backgroundColor === 'rgb(255, 255, 255)',
+  );
   await page.screenshot({ path: `${output}/theme-white.png` });
   await page.goto(`${base}/services`);
   await page.getByRole('link', { name: services[0].name, exact: true }).waitFor();
@@ -588,13 +688,36 @@ try {
     });
   });
   assert.ok(Math.max(...headerCenters) - Math.min(...headerCenters) < 1);
-  const expandedOrder = await page.locator('.desktop-sidebar nav[aria-label="Main navigation"] a').evaluateAll((links) => links.map((link) => link.getAttribute('href')));
+  const expandedOrder = await page
+    .locator('.desktop-sidebar nav[aria-label="Main navigation"] a')
+    .evaluateAll((links) => links.map((link) => link.getAttribute('href')));
   await page.getByRole('button', { name: 'Collapse navigation', exact: true }).click();
   await page.waitForFunction(() => {
     const rail = document.querySelector('.desktop-sidebar');
     return Math.abs(rail.getBoundingClientRect().width - 80) < 1;
   });
-  assert.deepEqual(await page.locator('.desktop-sidebar nav[aria-label="Main navigation"] a').evaluateAll((links) => links.map((link) => link.getAttribute('href'))), expandedOrder);
+  assert.deepEqual(
+    await page
+      .locator('.desktop-sidebar nav[aria-label="Main navigation"] a')
+      .evaluateAll((links) => links.map((link) => link.getAttribute('href'))),
+    expandedOrder,
+  );
+  await page.locator('.desktop-sidebar').getByRole('button', { name: 'More', exact: true }).click();
+  await page
+    .locator('.desktop-sidebar nav .action-menu')
+    .getByRole('link', { name: 'Services', exact: true })
+    .waitFor();
+  assert.deepEqual(
+    await page
+      .locator('.desktop-sidebar nav[aria-label="Main navigation"] a')
+      .evaluateAll((links) =>
+        links
+          .filter((link) => link.getBoundingClientRect().height > 0)
+          .map((link) => link.getAttribute('href')),
+      ),
+    expandedOrder,
+  );
+  await page.locator('.desktop-sidebar nav .action-menu').press('Escape');
   const compactCenters = await page.locator('.desktop-sidebar').evaluate((rail) => {
     const targets = [
       rail.querySelector('[data-brand-mark]'),
@@ -678,7 +801,33 @@ try {
   );
   await page.getByRole('link', { name: monitors[0].name, exact: true }).waitFor();
   await page.screenshot({ path: `${output}/monitoring.png` });
+  await page.goto(`${base}/monitors/${monitors[0].id}`);
+  await page.getByRole('button', { name: 'Edit Record', exact: true }).click();
+  await page.getByRole('heading', { name: 'Authentication', exact: true }).waitFor();
+  assert.equal(await page.locator('input[name="authentication.clientSecret"]').inputValue(), '');
+  await page.getByRole('heading', { name: 'Authentication', exact: true }).scrollIntoViewIfNeeded();
+  await page
+    .locator('input[name="authentication.clientSecret"]')
+    .evaluate((element) => element.scrollIntoView({ block: 'center', behavior: 'instant' }));
+  await page.screenshot({ path: `${output}/monitor-authentication.png` });
+  for (const viewport of [
+    { width: 1440, height: 960 },
+    { width: 390, height: 844 },
+  ]) {
+    await page.setViewportSize(viewport);
+    const control = page.locator('[name="authentication.authMethod"]');
+    await control.evaluate((element) =>
+      element.scrollIntoView({ block: 'center', behavior: 'instant' }),
+    );
+    const bounds = await control.boundingBox();
+    assert.ok(
+      bounds.y >= 0 && bounds.y + bounds.height <= viewport.height,
+      'Authentication fields remain reachable',
+    );
+  }
+  await page.setViewportSize({ width: 1440, height: 960 });
   await page.goto(`${base}/services/new`);
+  await page.reload();
   assert.equal(
     await page.locator('input[name="name"]').evaluate((el) => el === document.activeElement),
     true,
@@ -826,7 +975,13 @@ try {
   await page.setViewportSize({ width: 1440, height: 960 });
   await page.evaluate(() => sessionStorage.removeItem('servicetrident-record-tabs'));
   await page.goto(`${base}/tasks/${tasks[0].id}`);
-  assert.equal(await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', { name: 'Settings', exact: true }).count(), 0);
+  assert.equal(
+    await page
+      .getByRole('navigation', { name: 'Main navigation' })
+      .getByRole('link', { name: 'Settings', exact: true })
+      .count(),
+    0,
+  );
   await page.locator('.sidebar-profile summary:visible').click();
   await page.getByRole('link', { name: 'Profile', exact: true }).waitFor();
   await page.getByRole('link', { name: 'Settings', exact: true }).waitFor();
@@ -857,9 +1012,16 @@ try {
   await page.getByRole('button', { name: 'Edit Record', exact: true }).click();
   const assignSelf = page.getByRole('button', { name: 'Assign to Me', exact: true });
   assert.equal(await assignSelf.isDisabled(), true, 'Selected group excludes the signed-in user');
-  await page.getByRole('combobox', { name: 'Assignment group', exact: true }).locator('..').getByRole('button', { name: /^Clear / }).click();
+  await page
+    .getByRole('combobox', { name: 'Assignment group', exact: true })
+    .locator('..')
+    .getByRole('button', { name: /^Clear / })
+    .click();
   await assignSelf.click();
-  assert.equal(await page.getByRole('combobox', { name: 'Assigned to', exact: true }).inputValue(), user.displayName);
+  assert.equal(
+    await page.getByRole('combobox', { name: 'Assigned to', exact: true }).inputValue(),
+    user.displayName,
+  );
   assert.equal(await assignSelf.isDisabled(), true, 'Already assigned to the signed-in user');
   await page.screenshot({ path: `${output}/assign-to-me.png` });
   const draftTitle = page.getByLabel('Title *', { exact: true });
@@ -879,7 +1041,10 @@ try {
   assert.equal(await recordTabs.getByRole('tab').count(), 2);
   const tabPosition = await recordTabs.boundingBox();
   const headerPosition = await page.locator('.record-sticky-header').boundingBox();
-  assert.ok(tabPosition.y + tabPosition.height <= headerPosition.y, 'Record tabs sit above the header');
+  assert.ok(
+    tabPosition.y + tabPosition.height <= headerPosition.y,
+    'Record tabs sit above the header',
+  );
   await recordTabs.getByRole('tab').first().click();
   await page.waitForURL(`${base}/tasks/${tasks[0].id}`);
   assert.equal(
@@ -907,11 +1072,23 @@ try {
   );
   await page.waitForFunction(() => {
     const bar = document.querySelector('.record-navigation-bar')?.getBoundingClientRect();
-    const rail = [...document.querySelectorAll('.record-sidebar')].find((element) => element.getBoundingClientRect().height > 0)?.getBoundingClientRect();
+    const rail = [...document.querySelectorAll('.record-sidebar')]
+      .find((element) => element.getBoundingClientRect().height > 0)
+      ?.getBoundingClientRect();
     return bar && rail && Math.abs(bar.right - 1440) < 2 && rail.top >= bar.bottom - 1;
   });
-  assert.equal(await page.locator('.record-sticky-header').evaluate((element) => getComputedStyle(element).borderTopWidth), '1px');
-  assert.equal(await page.locator('.record-sidebar:visible').evaluate((element) => getComputedStyle(element).borderTopWidth), '1px');
+  assert.equal(
+    await page
+      .locator('.record-sticky-header')
+      .evaluate((element) => getComputedStyle(element).borderTopWidth),
+    '1px',
+  );
+  assert.equal(
+    await page
+      .locator('.record-sidebar:visible')
+      .evaluate((element) => getComputedStyle(element).borderTopWidth),
+    '1px',
+  );
   await page.screenshot({ path: `${output}/record-tabs.png` });
   await page.evaluate(() => {
     const root = document.documentElement;
@@ -1005,7 +1182,11 @@ try {
     .getByRole('button', { name: 'Cancel', exact: true })
     .click();
 
-  await page.getByRole('tablist', { name: 'Record tabs', exact: true }).getByRole('tab').last().click();
+  await page
+    .getByRole('tablist', { name: 'Record tabs', exact: true })
+    .getByRole('tab')
+    .last()
+    .click();
   await page
     .getByRole('navigation', { name: 'Open record tabs' })
     .getByRole('button', { name: 'Close All Tabs', exact: true })
@@ -1018,11 +1199,24 @@ try {
     await page.getByRole('tablist', { name: 'Record tabs', exact: true }).getByRole('tab').count(),
     2,
   );
-  await page.getByRole('tablist', { name: 'Record tabs', exact: true }).getByRole('tab').first().click();
+  await page
+    .getByRole('tablist', { name: 'Record tabs', exact: true })
+    .getByRole('tab')
+    .first()
+    .click();
   await page.waitForURL(`${base}/tasks/${tasks[0].id}`);
-  await page.getByRole('navigation', { name: 'Open record tabs' }).getByRole('button', { name: 'Close All Tabs', exact: true }).click();
-  assert.equal(await page.getByRole('dialog', { name: 'Close All Record Tabs?', exact: true }).count(), 0);
-  assert.equal(await page.getByLabel('Title *', { exact: true }).inputValue(), 'Demo unsaved tab draft');
+  await page
+    .getByRole('navigation', { name: 'Open record tabs' })
+    .getByRole('button', { name: 'Close All Tabs', exact: true })
+    .click();
+  assert.equal(
+    await page.getByRole('dialog', { name: 'Close All Record Tabs?', exact: true }).count(),
+    0,
+  );
+  assert.equal(
+    await page.getByLabel('Title *', { exact: true }).inputValue(),
+    'Demo unsaved tab draft',
+  );
   assert.equal(await page.getByRole('navigation', { name: 'Open record tabs' }).count(), 0);
   await page.goto(`${base}/help?topic=incidents`);
   await page.getByRole('img', { name: /^Tasks Kanban/ }).scrollIntoViewIfNeeded();
@@ -1119,16 +1313,34 @@ try {
   await page.getByRole('link', { name: /^Demo Operations Runbooks/ }).waitFor();
   await page.getByLabel('Search Knowledge Bases', { exact: true }).fill('');
   await page.getByRole('link', { name: /^Demo Operations Runbooks/ }).waitFor();
-  for (let index = 0; index < 25; index++) demoBases.push({ id: (index + 1).toString(16).padStart(24, 'e'), title: `Synthetic scrolling base ${index}`, description: 'Verify growing card lists remain reachable.' });
+  for (let index = 0; index < 25; index++)
+    demoBases.push({
+      id: (index + 1).toString(16).padStart(24, 'e'),
+      title: `Synthetic scrolling base ${index}`,
+      description: 'Verify growing card lists remain reachable.',
+    });
   await page.reload();
   await page.getByRole('link', { name: /^Synthetic scrolling base 24/ }).waitFor();
-  for (const viewport of [{ width: 1440, height: 960 }, { width: 390, height: 844 }]) {
+  for (const viewport of [
+    { width: 1440, height: 960 },
+    { width: 390, height: 844 },
+  ]) {
     await page.setViewportSize(viewport);
     const scroller = page.locator('.list-outlet');
-    await scroller.evaluate((element) => { element.scrollTop = element.scrollHeight; });
-    assert.ok(await scroller.evaluate((element) => element.scrollTop > 0), 'Growing knowledge bases scroll vertically');
-    const lastBase = await page.getByRole('link', { name: /^Synthetic scrolling base 24/ }).boundingBox();
-    assert.ok(lastBase.y >= 0 && lastBase.y + lastBase.height <= viewport.height, 'Last knowledge base is reachable');
+    await scroller.evaluate((element) => {
+      element.scrollTop = element.scrollHeight;
+    });
+    assert.ok(
+      await scroller.evaluate((element) => element.scrollTop > 0),
+      'Growing knowledge bases scroll vertically',
+    );
+    const lastBase = await page
+      .getByRole('link', { name: /^Synthetic scrolling base 24/ })
+      .boundingBox();
+    assert.ok(
+      lastBase.y >= 0 && lastBase.y + lastBase.height <= viewport.height,
+      'Last knowledge base is reachable',
+    );
   }
   demoBases.splice(demoBases.length - 25, 25);
   await page.setViewportSize({ width: 1440, height: 960 });
@@ -1162,7 +1374,10 @@ try {
     .fill('Synthetic recovery procedures for documentation.');
   await page.getByRole('button', { name: 'Create Knowledge Base', exact: true }).click();
   await page.getByRole('heading', { name: 'Demo Recovery Guides', exact: true }).waitFor();
-  await page.getByRole('region', { name: 'Articles', exact: true }).getByRole('link', { name: 'Create', exact: true }).click();
+  await page
+    .getByRole('region', { name: 'Articles', exact: true })
+    .getByRole('link', { name: 'Create', exact: true })
+    .click();
   await page.getByRole('combobox', { name: /^Knowledge Base/ }).waitFor();
   await page.getByLabel('Title *', { exact: true }).fill('Demo portal recovery guide');
   const createAction = page
@@ -1229,19 +1444,32 @@ try {
   assert.equal(demoArticles[0].status, 'draft');
   await page.getByRole('button', { name: 'Record actions', exact: true }).click();
   await page.getByRole('button', { name: 'Archive Article', exact: true }).click();
-  await page.getByRole('dialog', { name: 'Archive Article?', exact: true }).getByRole('button', { name: 'Archive Article', exact: true }).click();
-  await page.waitForResponse((response) => response.url().endsWith(`/api/knowledge/${demoArticles[0].id}`) && response.request().method() === 'GET');
+  await page
+    .getByRole('dialog', { name: 'Archive Article?', exact: true })
+    .getByRole('button', { name: 'Archive Article', exact: true })
+    .click();
+  await page.waitForResponse(
+    (response) =>
+      response.url().endsWith(`/api/knowledge/${demoArticles[0].id}`) &&
+      response.request().method() === 'GET',
+  );
   assert.equal(demoArticles[0].status, 'archived');
   await page.goto(`${base}/knowledge/articles`);
   await page.locator('aside').getByRole('button', { name: 'Create', exact: true }).click();
   await page.waitForURL('**/knowledge/new');
   await page.getByRole('button', { name: 'Create Article', exact: true }).waitFor();
-  assert.equal(await page.getByRole('heading', { name: 'Create Knowledge Base', exact: true }).count(), 0);
+  assert.equal(
+    await page.getByRole('heading', { name: 'Create Knowledge Base', exact: true }).count(),
+    0,
+  );
   await page.goto(`${base}/knowledge/bases/dddddddddddddddddddddddd`);
   assert.equal(await page.getByRole('table').count(), 0);
   await page.getByRole('region', { name: 'Articles', exact: true }).waitFor();
   await page.getByLabel('Search Articles', { exact: true }).fill('not-found');
-  const searched = page.waitForResponse((response) => { const url = new URL(response.url()); return url.pathname === '/api/knowledge' && url.searchParams.get('search') === 'Demo'; });
+  const searched = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return url.pathname === '/api/knowledge' && url.searchParams.get('search') === 'Demo';
+  });
   await page.getByLabel('Search Articles', { exact: true }).fill('Demo');
   await searched;
   await page.getByRole('combobox', { name: 'Status', exact: true }).click();
@@ -1316,7 +1544,13 @@ try {
   await page
     .getByRole('cell', { name: 'Demo Portal Health', exact: true })
     .scrollIntoViewIfNeeded();
-  assert.equal(await page.getByRole('tab', { name: 'Monitor Events', exact: true }).locator('span').textContent(), '1');
+  assert.equal(
+    await page
+      .getByRole('tab', { name: 'Monitor Events', exact: true })
+      .locator('span')
+      .textContent(),
+    '1',
+  );
   await page.screenshot({ path: `${output}/incident-monitor-events.png` });
   await page.getByRole('button', { name: 'Reopen', exact: true }).click();
   const reopen = page.getByRole('dialog', { name: 'Reopen Incident', exact: true });
@@ -1396,10 +1630,21 @@ try {
   await accountForm.getByRole('button', { name: 'Name is required.', exact: true }).waitFor();
   await accountForm.getByLabel('Name', { exact: true }).fill('Demo Automation');
   await accountForm.getByRole('checkbox', { name: 'Create incidents', exact: true }).check();
-  await accountForm.getByRole('switch', { name: 'Allow all workspace services and unassigned records', exact: true }).check();
+  await accountForm
+    .getByRole('switch', {
+      name: 'Allow all workspace services and unassigned records',
+      exact: true,
+    })
+    .check();
   await accountForm.getByRole('switch', { name: 'OAuth Client Credentials', exact: true }).check();
-  assert.equal(await accountForm.getByRole('switch', { name: 'Enabled', exact: true }).isChecked(), true);
-  assert.equal(await accountForm.getByLabel('Credential Lifetime (days)', { exact: true }).inputValue(), '90');
+  assert.equal(
+    await accountForm.getByRole('switch', { name: 'Enabled', exact: true }).isChecked(),
+    true,
+  );
+  assert.equal(
+    await accountForm.getByLabel('Credential Lifetime (days)', { exact: true }).inputValue(),
+    '90',
+  );
   await page.screenshot({ path: `${output}/service-account-settings.png` });
   await accountForm.getByRole('button', { name: 'Cancel', exact: true }).click();
   await page.getByRole('link', { name: /^Demo External Automation/ }).click();
@@ -1439,11 +1684,19 @@ try {
   await page.getByRole('region', { name: 'Audit Entry Details', exact: true }).waitFor();
   assert.ok(page.url().endsWith(`/records/audit/${demoAuditRows[10].id}`));
   assert.equal(await page.getByRole('navigation', { name: 'Open record tabs' }).count(), 1);
-  assert.equal(await page.evaluate(() => JSON.parse(sessionStorage.getItem('servicetrident-record-tabs')).tabs.length), 11);
+  assert.equal(
+    await page.evaluate(
+      () => JSON.parse(sessionStorage.getItem('servicetrident-record-tabs')).tabs.length,
+    ),
+    11,
+  );
   await page.getByRole('link', { name: 'Back to List', exact: true }).click();
   await page.locator(`a[href="/records/audit/${demoAuditRows[0].id}"]`).click();
   await page.getByRole('region', { name: 'Audit Entry Details', exact: true }).waitFor();
-  assert.equal(await page.getByRole('tablist', { name: 'Record tabs', exact: true }).getByRole('tab').count(), 11);
+  assert.equal(
+    await page.getByRole('tablist', { name: 'Record tabs', exact: true }).getByRole('tab').count(),
+    11,
+  );
   await page.screenshot({ path: `${output}/audit-record.png` });
   await page
     .getByRole('navigation', { name: 'Open record tabs' })
@@ -1512,7 +1765,10 @@ try {
   await page.screenshot({ path: `${output}/profile-themes.png` });
   const greetingInput = page.getByRole('textbox', { name: 'Greeting', exact: true });
   await greetingInput.fill('Ready for today, {firstName}?');
-  await page.locator('section[aria-labelledby="greeting-settings-title"]').getByRole('button', { name: 'Save', exact: true }).click();
+  await page
+    .locator('section[aria-labelledby="greeting-settings-title"]')
+    .getByRole('button', { name: 'Save', exact: true })
+    .click();
   await page
     .getByRole('heading', { name: 'Dashboard Greeting', exact: true })
     .scrollIntoViewIfNeeded();
@@ -1677,10 +1933,16 @@ try {
   const coverageModal = page.getByRole('dialog', { name: 'Coverage', exact: true });
   await coverageModal.waitFor();
   assert.ok(page.url().endsWith('/on-call'), 'Viewing coverage stays on the calendar');
-  await coverageModal.getByRole('term').filter({ hasText: /^Start$/ }).waitFor();
+  await coverageModal
+    .getByRole('term')
+    .filter({ hasText: /^Start$/ })
+    .waitFor();
   await page.screenshot({ path: `${output}/on-call-coverage-modal.png` });
   await coverageModal.getByRole('button', { name: 'Edit Coverage', exact: true }).click();
-  await page.getByRole('dialog', { name: /^Edit coverage/ }).getByRole('button', { name: 'Cancel', exact: true }).click();
+  await page
+    .getByRole('dialog', { name: /^Edit coverage/ })
+    .getByRole('button', { name: 'Cancel', exact: true })
+    .click();
   assert.ok(page.url().endsWith('/on-call'));
 
   await headerReference.click();
@@ -1705,7 +1967,12 @@ try {
   await page.getByRole('option', { name: 'Demo Customer Portal', exact: true }).click();
   await page.goto(`${base}/dashboard`);
   await page.getByRole('heading', { name: 'Your Work', exact: true }).waitFor();
-  const dashboardGap = () => page.evaluate(() => document.querySelector('[aria-labelledby="overview-work-title"]').getBoundingClientRect().top - document.querySelector('.dashboard-header').getBoundingClientRect().bottom);
+  const dashboardGap = () =>
+    page.evaluate(
+      () =>
+        document.querySelector('[aria-labelledby="overview-work-title"]').getBoundingClientRect()
+          .top - document.querySelector('.dashboard-header').getBoundingClientRect().bottom,
+    );
   await page.reload();
   await page.getByRole('heading', { name: 'Your Work', exact: true }).waitFor();
   const freshGap = await dashboardGap();
@@ -1713,7 +1980,11 @@ try {
   await page.getByRole('button', { name: 'Edit Record', exact: true }).waitFor();
   await page.getByRole('link', { name: 'Dashboard', exact: true }).click();
   await page.getByRole('heading', { name: 'Your Work', exact: true }).waitFor();
-  assert.equal(await dashboardGap(), freshGap, 'Cached record panes do not alter dashboard spacing');
+  assert.equal(
+    await dashboardGap(),
+    freshGap,
+    'Cached record panes do not alter dashboard spacing',
+  );
 
   for (const report of ['my-incidents', 'team-incidents', 'my-tasks', 'team-tasks']) {
     assert.ok((await page.locator(`a[href="/dashboard/reports?report=${report}"]`).count()) > 0);
@@ -1772,7 +2043,12 @@ try {
           document.querySelector('[aria-label="Overview charts"]').getBoundingClientRect().top,
       ),
   );
-  assert.equal(await page.locator('.dashboard-header').evaluate((element) => getComputedStyle(element).borderBottomWidth), '1px');
+  assert.equal(
+    await page
+      .locator('.dashboard-header')
+      .evaluate((element) => getComputedStyle(element).borderBottomWidth),
+    '1px',
+  );
   await page.screenshot({ path: `${output}/dashboard-overview.png` });
   await page.goto(`${base}/dashboard/reports?report=urgent`);
   await page
@@ -1810,7 +2086,10 @@ try {
   const statusMode = page.getByRole('combobox', { name: 'Status Page Appearance', exact: true });
   await statusMode.click();
   await page.getByRole('option', { name: 'Dark', exact: true }).click();
-  assert.equal(await page.getByRole('textbox', { name: 'Page Background Color Hex', exact: true }).count(), 0);
+  assert.equal(
+    await page.getByRole('textbox', { name: 'Page Background Color Hex', exact: true }).count(),
+    0,
+  );
   await page.screenshot({ path: `${output}/status-settings.png` });
 
   await page.goto(`${base}/profile`);
@@ -1851,28 +2130,43 @@ try {
     });
   });
   await page.screenshot({ path: `${output}/readme-dashboard-dark.png` });
-  statusAppearance = 'light';
+  const privateAppearance = await page.evaluate(() => ({
+    theme: document.documentElement.dataset.theme,
+    palette: document.documentElement.dataset.colorScheme,
+    stored: localStorage.getItem('servicetrident-theme'),
+  }));
+  statusAppearance = 'dark';
   await page.goto(`${base}/status`);
   await page.getByText('Demo Customer Portal', { exact: true }).waitFor();
   await page.screenshot({ path: `${output}/readme-status-dark.png` });
-  const privateAppearance = await page.evaluate(() => ({ theme: document.documentElement.dataset.theme, palette: document.documentElement.dataset.colorScheme, stored: localStorage.getItem('servicetrident-theme') }));
   statusAppearance = 'dark';
   await page.goto(`${base}/status/public/${'9'.repeat(48)}`);
   await page.getByText('Demo Customer Portal', { exact: true }).waitFor();
   assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), 'dark');
-  const visitorMode = page.getByRole('button', { name: 'Toggle status page appearance', exact: true });
+  const visitorMode = page.getByRole('button', {
+    name: 'Toggle status page appearance',
+    exact: true,
+  });
   assert.equal((await visitorMode.textContent()).trim(), '');
   await visitorMode.click();
   await page.waitForFunction(() => document.documentElement.dataset.theme === 'light');
-  assert.equal(await page.evaluate(() => localStorage.getItem('servicetrident-theme')), privateAppearance.stored);
+  assert.equal(
+    await page.evaluate(() => localStorage.getItem('servicetrident-theme')),
+    privateAppearance.stored,
+  );
   await visitorMode.click();
   await page.waitForFunction(() => document.documentElement.dataset.theme === 'dark');
   assert.equal(await page.evaluate(() => document.documentElement.dataset.colorScheme), 'white');
-  await page.waitForFunction(() => getComputedStyle(document.body).backgroundColor === 'rgb(0, 0, 0)');
+  await page.waitForFunction(
+    () => getComputedStyle(document.body).backgroundColor === 'rgb(0, 0, 0)',
+  );
   await page.reload();
   await page.getByText('Demo Customer Portal', { exact: true }).waitFor();
   assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), 'dark');
-  assert.equal(await page.evaluate(() => localStorage.getItem('servicetrident-theme')), privateAppearance.stored);
+  assert.equal(
+    await page.evaluate(() => localStorage.getItem('servicetrident-theme')),
+    privateAppearance.stored,
+  );
   await page.screenshot({ path: `${output}/public-status-appearance.png` });
   statusAppearance = 'light';
   await page.goto(`${base}/status`);
@@ -1880,8 +2174,14 @@ try {
   assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), 'light');
   await page.goto(`${base}/profile`);
   await page.getByRole('heading', { name: 'Theme', exact: true }).waitFor();
-  assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), privateAppearance.theme);
-  assert.equal(await page.evaluate(() => document.documentElement.dataset.colorScheme), privateAppearance.palette);
+  assert.equal(
+    await page.evaluate(() => document.documentElement.dataset.theme),
+    privateAppearance.theme,
+  );
+  assert.equal(
+    await page.evaluate(() => document.documentElement.dataset.colorScheme),
+    privateAppearance.palette,
+  );
 
   await page.goto(`${base}/tasks`);
   await page.getByRole('region', { name: 'Demo Review task cards', exact: true }).waitFor();
@@ -1897,31 +2197,46 @@ try {
   await page.goto(`${base}/tasks/${tasks[0].id}`);
   await page.getByRole('button', { name: 'Edit Record', exact: true }).waitFor();
   const seedFullTabs = async (taskFirst = false) => {
-    await page.evaluate(({ taskId, taskFirst }) => {
-      const saved = JSON.parse(sessionStorage.getItem('servicetrident-record-tabs'));
-      const filler = Array.from({ length: 19 }, (_, index) => ({ to: `/tasks/${String(index + 100).padStart(24, '0')}`, label: `Synthetic inactive task ${index}` }));
-      const task = { to: `/tasks/${taskId}`, label: 'Synthetic current task' };
-      saved.tabs = taskFirst ? [task, ...filler] : [...filler, task];
-      sessionStorage.setItem('servicetrident-record-tabs', JSON.stringify(saved));
-    }, { taskId: tasks[0].id, taskFirst });
+    await page.evaluate(
+      ({ taskId, taskFirst }) => {
+        const saved = JSON.parse(sessionStorage.getItem('servicetrident-record-tabs'));
+        const filler = Array.from({ length: 19 }, (_, index) => ({
+          to: `/tasks/${String(index + 100).padStart(24, '0')}`,
+          label: `Synthetic inactive task ${index}`,
+        }));
+        const task = { to: `/tasks/${taskId}`, label: 'Synthetic current task' };
+        saved.tabs = taskFirst ? [task, ...filler] : [...filler, task];
+        sessionStorage.setItem('servicetrident-record-tabs', JSON.stringify(saved));
+      },
+      { taskId: tasks[0].id, taskFirst },
+    );
     await page.reload();
     await page.getByRole('button', { name: 'Edit Record', exact: true }).waitFor();
   };
   await seedFullTabs();
   await page.locator(`a[href="/services/${services[0].id}"]`).first().click();
   await page.waitForURL(`${base}/services/${services[0].id}`);
-  const replaced = await page.evaluate(() => JSON.parse(sessionStorage.getItem('servicetrident-record-tabs')).tabs);
+  const replaced = await page.evaluate(
+    () => JSON.parse(sessionStorage.getItem('servicetrident-record-tabs')).tabs,
+  );
   assert.equal(replaced.length, 20);
   assert.equal(replaced[0].label, 'Synthetic inactive task 1');
   assert.equal(replaced.at(-1).to, `/services/${services[0].id}`);
-  const activeTabVisible = () => page.waitForFunction(() => {
-    const strip = document.querySelector('.record-navigation-scroll');
-    const tab = strip?.querySelector('[data-active="true"]');
-    if (!tab) return false;
-    const bounds = strip.getBoundingClientRect(), selected = tab.getBoundingClientRect();
-    const record = document.querySelector('.record-scroll-area:not([hidden])');
-    return selected.left >= bounds.left - 1 && selected.right <= bounds.right + 1 && window.scrollY === 0 && record?.scrollTop === 0;
-  });
+  const activeTabVisible = () =>
+    page.waitForFunction(() => {
+      const strip = document.querySelector('.record-navigation-scroll');
+      const tab = strip?.querySelector('[data-active="true"]');
+      if (!tab) return false;
+      const bounds = strip.getBoundingClientRect(),
+        selected = tab.getBoundingClientRect();
+      const record = document.querySelector('.record-scroll-area:not([hidden])');
+      return (
+        selected.left >= bounds.left - 1 &&
+        selected.right <= bounds.right + 1 &&
+        window.scrollY === 0 &&
+        record?.scrollTop === 0
+      );
+    });
   await activeTabVisible();
   await page.reload();
   await page.getByRole('button', { name: 'Edit Record', exact: true }).waitFor();
@@ -1933,17 +2248,41 @@ try {
   await page.getByLabel('Title *', { exact: true }).fill('Synthetic protected draft');
   await page.getByLabel('Title *', { exact: true }).blur();
   await page.locator(`a[href="/services/${services[0].id}"]`).first().click();
-  const replacementDialog = page.getByRole('dialog', { name: 'Replace Oldest Record Tab?', exact: true });
+  const replacementDialog = page.getByRole('dialog', {
+    name: 'Replace Oldest Record Tab?',
+    exact: true,
+  });
   await replacementDialog.getByRole('button', { name: 'Cancel', exact: true }).click();
-  assert.equal(await page.getByLabel('Title *', { exact: true }).inputValue(), 'Synthetic protected draft');
+  assert.equal(
+    await page.getByLabel('Title *', { exact: true }).inputValue(),
+    'Synthetic protected draft',
+  );
   await page.locator(`a[href="/services/${services[0].id}"]`).first().click();
-  await replacementDialog.getByRole('button', { name: 'Replace Tab and Open Record', exact: true }).click();
+  await replacementDialog
+    .getByRole('button', { name: 'Replace Tab and Open Record', exact: true })
+    .click();
   await page.waitForURL(`${base}/services/${services[0].id}`);
-  assert.equal(await page.evaluate(() => JSON.parse(sessionStorage.getItem('servicetrident-record-tabs')).tabs.length), 20);
+  assert.equal(
+    await page.evaluate(
+      () => JSON.parse(sessionStorage.getItem('servicetrident-record-tabs')).tabs.length,
+    ),
+    20,
+  );
 
-  const archivedField = { id: 'synthetic_archived', label: 'Synthetic archived field', type: 'text', required: false, archived: true, options: [] };
+  const archivedField = {
+    id: 'synthetic_archived',
+    label: 'Synthetic archived field',
+    type: 'text',
+    required: false,
+    archived: true,
+    options: [],
+  };
   visibilityFields.push(archivedField);
-  for (const [path, record] of [[`/tasks/${tasks[0].id}`, tasks[0]], [`/knowledge/${demoArticles[0].id}`, demoArticles[0]], [`/incidents/${demoIncident.id}`, demoIncident]]) {
+  for (const [path, record] of [
+    [`/tasks/${tasks[0].id}`, tasks[0]],
+    [`/knowledge/${demoArticles[0].id}`, demoArticles[0]],
+    [`/incidents/${demoIncident.id}`, demoIncident],
+  ]) {
     record.fields = [...(record.fields || []), { ...archivedField, archived: false }];
     record.custom = { ...record.custom, synthetic_archived: 'Synthetic retained value' };
     await page.goto(`${base}${path}`);
@@ -1963,9 +2302,13 @@ try {
   await page.getByRole('combobox', { name: 'Outcome', exact: true }).click();
   await page.getByRole('option', { name: 'Down', exact: true }).click();
   await page.getByRole('button', { name: 'Done', exact: true }).click();
+  await page.getByRole('link', { name: 'Create Monitor', exact: true }).waitFor();
   await page.screenshot({ path: `${output}/events-list.png` });
   await page.locator(`a[href^="/monitors/${monitors[0].id}/events/"]`).first().click();
-  await page.getByRole('navigation', { name: 'Breadcrumb' }).getByRole('link', { name: 'Events', exact: true }).click();
+  await page
+    .getByRole('navigation', { name: 'Breadcrumb' })
+    .getByRole('link', { name: 'Events', exact: true })
+    .click();
   await page.waitForURL(`${base}/events`);
   await page.goto(`${base}/dashboard`);
   await page.getByRole('combobox', { name: 'Dashboard View', exact: true }).click();
@@ -1973,10 +2316,17 @@ try {
   await page.getByRole('heading', { name: 'Check Outcomes', exact: true }).waitFor();
   assert.equal(await page.getByRole('heading', { name: 'Events', exact: true }).count(), 0);
   await page.screenshot({ path: `${output}/dashboard-events.png` });
-  for (const viewport of [{ width: 1440, height: 960 }, { width: 390, height: 844 }]) {
+  for (const viewport of [
+    { width: 1440, height: 960 },
+    { width: 390, height: 844 },
+  ]) {
     await page.setViewportSize(viewport);
-    await page.getByRole('heading', { name: 'HTTP Responses', exact: true }).evaluate((element) => element.scrollIntoView({ block: 'end', behavior: 'instant' }));
-    const bounds = await page.getByRole('heading', { name: 'HTTP Responses', exact: true }).boundingBox();
+    await page
+      .getByRole('heading', { name: 'HTTP Responses', exact: true })
+      .evaluate((element) => element.scrollIntoView({ block: 'end', behavior: 'instant' }));
+    const bounds = await page
+      .getByRole('heading', { name: 'HTTP Responses', exact: true })
+      .boundingBox();
     assert.ok(bounds.y >= 0 && bounds.y < viewport.height, 'Events dashboard remains scrollable');
   }
   assert.deepEqual(faults, []);

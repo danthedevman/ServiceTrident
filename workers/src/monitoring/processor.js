@@ -1,3 +1,5 @@
+import { unseal } from '@servicetrident/shared/integrations/secrets';
+import { InputError } from '@servicetrident/shared/validation/input-error';
 import { ObjectId } from 'mongodb';
 import { checkWebsite } from './check.js';
 import { userAgentForCheck } from './user-agents.js';
@@ -78,6 +80,17 @@ export async function processMonitor(db, monitorId, check = checkWebsite, { queu
     method,
     followRedirects,
     userAgent: userAgentForCheck(monitor.checkSequence),
+    authentication: monitor.authSecret
+      ? () => {
+          try {
+            return unseal(monitor.authSecret);
+          } catch {
+            throw new InputError(
+              'Stored monitor credentials could not be decrypted. Restore the encryption key or replace the credentials.',
+            );
+          }
+        }
+      : null,
   });
   const timing = checkTiming(monitor.lastScheduledAt, monitor.lastStartedAt, queuedAt);
   const event = {
@@ -111,6 +124,7 @@ export async function processMonitor(db, monitorId, check = checkWebsite, { queu
         $and: [
           { $eq: [{ $ifNull: ['$method', 'GET'] }, method] },
           { $eq: [{ $ifNull: ['$followRedirects', false] }, followRedirects] },
+          { $eq: [{ $ifNull: ['$authSecret', null] }, monitor.authSecret ?? null] },
         ],
       },
     },

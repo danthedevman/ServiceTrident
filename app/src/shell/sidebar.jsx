@@ -297,7 +297,7 @@ export function Sidebar({ user, logout, busy, collapsed, setCollapsed, renderBra
         aria-label="Main navigation"
         className={`min-h-0 flex-1 space-y-2 p-3 overflow-y-auto overflow-x-hidden`}
       >
-        {visibleLinks.map(([to, label, Icon]) => (
+        {(compact ? visibleLinks.slice(0, 5) : visibleLinks).map(([to, label, Icon]) => (
           <Tooltip key={to} label={compact ? label : null}>
             <NavLink
               to={to}
@@ -315,6 +315,26 @@ export function Sidebar({ user, logout, busy, collapsed, setCollapsed, renderBra
             </NavLink>
           </Tooltip>
         ))}
+        {compact && visibleLinks.length > 5 && (
+          <div className="flex justify-center">
+            <Tooltip label="More">
+              <span>
+                <ActionMenu label="More" borderless>
+                  {visibleLinks.slice(5).map(([to, label]) => (
+                    <NavLink
+                      key={to}
+                      to={to}
+                      className={`nav-link ${to === '/services' && pathname.startsWith('/monitors/') ? 'active' : ''}`}
+                      onClick={close}
+                    >
+                      {label}
+                    </NavLink>
+                  ))}
+                </ActionMenu>
+              </span>
+            </Tooltip>
+          </div>
+        )}
       </nav>
       <div
         className={`sidebar-profile shrink-0 border-t border-slate-200 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] dark:border-slate-700 ${mobile ? '!hidden' : ''}`}

@@ -1,3 +1,4 @@
+import { prepareMonitorAuthentication } from '../domain/monitor-auth.js';
 import { workspaceSettings } from '@servicetrident/shared/domain/workspace-settings';
 import { auditStamp } from '@servicetrident/shared/domain/audit';
 
@@ -15,7 +16,11 @@ export function installMonitorRoutes(app, db) {
       .find({ userId: req.workspaceId })
       .sort({ createdAt: -1 })
       .toArray();
-    res.json({ monitors: monitors.map(serializeMonitor) });
+    res.json({
+      monitors: monitors.map((monitor) =>
+        serializeMonitor(monitor, { includeAuthenticationConfig: req.role === 'admin' }),
+      ),
+    });
   });
   app.post('/api/monitors', async (req, res) => {
     const owner = await db
@@ -31,16 +36,20 @@ export function installMonitorRoutes(app, db) {
     const input = {
       ...validateMonitor(body, { requireService: true }),
       ...(await monitorPlacement(db, req.body, req.workspaceId)),
+      ...prepareMonitorAuthentication(
+        req.body.authentication,
+        null,
+        body.url,
+        body.followRedirects,
+      ),
     };
-    const quota = await db
-      .collection('users')
-      .updateOne(
-        {
-          _id: req.workspaceId,
-          $expr: { $lt: ['$monitorCount', { $ifNull: ['$workspaceSettings.monitorLimit', 50] }] },
-        },
-        { $inc: { monitorCount: 1 } },
-      );
+    const quota = await db.collection('users').updateOne(
+      {
+        _id: req.workspaceId,
+        $expr: { $lt: ['$monitorCount', { $ifNull: ['$workspaceSettings.monitorLimit', 50] }] },
+      },
+      { $inc: { monitorCount: 1 } },
+    );
     if (!quota.modifiedCount)
       throw new InputError(
         'The workspace monitor limit has been reached. An admin can adjust it in Settings.',
@@ -64,12 +73,21 @@ export function installMonitorRoutes(app, db) {
         .updateOne({ _id: req.workspaceId }, { $inc: { monitorCount: -1 } });
       throw error;
     }
-    res.status(201).json({ monitor: serializeMonitor({ ...monitor, _id: inserted.insertedId }) });
+    res
+      .status(201)
+      .json({
+        monitor: serializeMonitor(
+          { ...monitor, _id: inserted.insertedId },
+          { includeAuthenticationConfig: true },
+        ),
+      });
   });
   app.get('/api/monitors/:id', async (req, res) => {
     const monitor = await requireMonitor(db, req.params.id, req.workspaceId);
     if (!monitor) throw new InputError('Monitor not found.', 404);
-    res.json({ monitor: serializeMonitor(monitor) });
+    res.json({
+      monitor: serializeMonitor(monitor, { includeAuthenticationConfig: req.role === 'admin' }),
+    });
   });
   app.patch('/api/monitors/:id', async (req, res) => {
     const body = req.body;
@@ -83,6 +101,7 @@ export function installMonitorRoutes(app, db) {
       'paused',
       'serviceId',
       'component',
+      'authentication',
     ];
     if (
       !body ||
@@ -121,6 +140,12 @@ export function installMonitorRoutes(app, db) {
     const input = {
       ...validateMonitor({ ...current, ...body }),
       ...(await monitorPlacement(db, body, req.workspaceId, current)),
+      ...prepareMonitorAuthentication(
+        body.authentication,
+        current,
+        body.url ?? current.url,
+        body.followRedirects ?? current.followRedirects,
+      ),
     };
     const updates = Object.fromEntries(
       Object.entries({ ...input, ...auditStamp(current, req.user) }).map(([key, value]) => [
@@ -132,7 +157,8 @@ export function installMonitorRoutes(app, db) {
     const requestChanged =
       input.url !== current.url ||
       input.method !== (current.method ?? 'GET') ||
-      input.followRedirects !== (current.followRedirects === true);
+      input.followRedirects !== (current.followRedirects === true) ||
+      (input.authSecret ?? null) !== (current.authSecret ?? null);
     if (requestChanged) updates.lastCheck = null;
     if (requestChanged || input.intervalMinutes !== current.intervalMinutes) {
       // Use the latest claim timestamp, even if a worker started after the read above.
@@ -166,7 +192,9 @@ export function installMonitorRoutes(app, db) {
       { returnDocument: 'after' },
     );
     if (!monitor) throw new InputError('This monitor changed. Reload it and try again.', 409);
-    res.json({ monitor: serializeMonitor(monitor) });
+    res.json({
+      monitor: serializeMonitor(monitor, { includeAuthenticationConfig: req.role === 'admin' }),
+    });
   });
   app.delete('/api/monitors/:id', async (req, res) => {
     const _id = objectId(req.params.id);
