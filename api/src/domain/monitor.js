@@ -29,6 +29,7 @@ export function serializeMonitor(monitor, { includeAuthenticationConfig = false 
     component: monitor.component ?? '',
     id: _id.toHexString(),
     name,
+    number: monitor.number,
     url,
     intervalMinutes,
     method: monitor.method ?? 'GET',
@@ -38,6 +39,8 @@ export function serializeMonitor(monitor, { includeAuthenticationConfig = false 
     paused,
     createdAt,
     nextCheckAt,
+    manualCheckPending: monitor.manualCheckPending === true,
+    lastManualCheckRequestedAt: monitor.lastManualCheckRequestedAt ?? null,
     lastCheck,
     status,
   };

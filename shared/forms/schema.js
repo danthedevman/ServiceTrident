@@ -45,17 +45,21 @@ export function validateFields(
           (key) =>
             key !== 'label' &&
             key !== 'helpText' &&
-            !(kind === 'incidents' && id === 'resolutionNotes' && key === 'required') &&
+            !['required', 'archived'].includes(key) &&
             !(selectable && key === 'choices') &&
             JSON.stringify(field[key]) !== JSON.stringify(saved[key]),
         )
       )
-        invalid('fields', 'System Field settings cannot be changed.');
+        invalid('fields', 'System Field IDs and storage types cannot be changed.');
       const result = { ...saved, label: text(field.label, 'label', 80) };
-      // Resolution requirements are workspace policy; other system constraints stay fixed.
-      if (kind === 'incidents' && id === 'resolutionNotes') {
+      // Presentation and required policy are configurable; stable identities/types retain workflow contracts.
+      {
         if (typeof field.required !== 'boolean') invalid('fields', 'Required must be a boolean.');
         result.required = field.required;
+        if (field.archived !== undefined && typeof field.archived !== 'boolean')
+          invalid('fields', 'Archived must be a boolean.');
+        if (field.archived === true) invalid('fields', 'System Fields cannot be archived.');
+        if (field.archived !== undefined || saved.archived !== undefined) result.archived = false;
       }
       if (field.helpText !== undefined)
         result.helpText = text(field.helpText, 'helpText', 1000, false);

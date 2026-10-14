@@ -1,3 +1,4 @@
+import { AI_DEMO_EXAMPLES } from '../shared/domain/ai-chat.js';
 import { dateTime } from '../app/src/lib/date-time.js';
 import { validateWork } from '../shared/domain/work.js';
 import { uiPreferences } from '../shared/domain/ui-preferences.js';
@@ -109,7 +110,14 @@ const monitors = [
     url: 'https://portal.example.test/health',
     intervalMinutes: 5,
     method: 'HEAD',
-    lastCheck: { durationMs: 142, checkedAt: '2026-10-09T12:00:00Z' },
+    createdAt: '2026-10-01T12:00:00Z',
+    createdBy: 'System',
+    lastCheck: {
+      status: 'up',
+      statusCode: 200,
+      durationMs: 142,
+      checkedAt: '2026-10-09T12:00:00Z',
+    },
   },
   {
     id: '444444444444444444444444',
@@ -148,6 +156,8 @@ let tasks = [
 let failMove = false;
 let aiProvider = null;
 let aiRevision = 0;
+let aiChatEnabled = true,
+  aiDemoEnabled = false;
 let statusAppearance = 'light';
 let statusVisibility = 'private';
 const mutations = [];
@@ -210,6 +220,21 @@ let laneOrder = [],
   laneRevision = 0;
 let authWait = null;
 let authStarted;
+user.number = 'USR0000001';
+services.forEach((row, index) => {
+  row.number = `SVC${String(index + 1).padStart(7, '0')}`;
+});
+monitors.forEach((row, index) => {
+  row.number = `MON${String(index + 1).padStart(7, '0')}`;
+});
+tasks.forEach((row, index) => {
+  row.number = `TASK${String(index + 1).padStart(7, '0')}`;
+});
+demoIncident.number = 'INC0000001';
+demoBases.forEach((row, index) => {
+  row.number = `KBASE${String(index + 1).padStart(7, '0')}`;
+});
+demoServiceNow.number = 'INT0000001';
 const recordRequests = [];
 await context.route('**/api/**', async (route) => {
   const request = route.request();
@@ -224,7 +249,7 @@ await context.route('**/api/**', async (route) => {
         tasks: 2,
         knowledge: 1,
         monitors: 2,
-        events: 30,
+        events: path.startsWith('/related-counts/monitors/') ? 2 : 30,
         discussion: 0,
         attachments: 0,
         activity: 1,
@@ -264,7 +289,86 @@ await context.route('**/api/**', async (route) => {
       aiProvider = { type: body.type, model: body.model, configured: true };
       aiRevision++;
     }
-    data = { provider: aiProvider, revision: aiRevision };
+    data = {
+      provider: aiProvider,
+      revision: aiRevision,
+      chatEnabled: aiChatEnabled && !!aiProvider?.configured,
+      demoAvailable: true,
+      demoEnabled: aiDemoEnabled,
+      canAct: ['admin', 'responder'].includes(user.role),
+    };
+  } else if (path === '/ai/features') {
+    const body = request.postDataJSON();
+    aiChatEnabled = body.chatEnabled;
+    aiDemoEnabled = body.demoEnabled;
+    aiRevision++;
+    data = { ok: true };
+  } else if (path === '/ai/chat') {
+    const body = request.postDataJSON();
+    if (body.demo) {
+      const example = AI_DEMO_EXAMPLES.find((row) => row.id === body.exampleId);
+      data = {
+        ...example,
+        demo: true,
+        ...(example.action
+          ? {
+              demoAction: {
+                label: 'Resolve Checkout API unavailable',
+                changes: {
+                  status: 'resolved',
+                  resolutionNotes: 'Recovery verified by successful checks',
+                },
+              },
+            }
+          : {}),
+      };
+      data.records = example.records.map((record, index) => {
+        const item =
+          record.type === 'Incident'
+            ? demoIncident
+            : record.type === 'Task'
+              ? tasks[index % tasks.length]
+              : record.type === 'Runbook'
+                ? demoArticles[0]
+                : null;
+        return {
+          ...record,
+          title: item?.title ?? `${monitors[0].name} · Check Event`,
+          href:
+            record.type === 'Incident'
+              ? `/incidents/${demoIncident.id}`
+              : record.type === 'Task'
+                ? `/tasks/${item.id}`
+                : record.type === 'Runbook'
+                  ? `/knowledge/${item.id}`
+                  : `/monitors/${monitors[0].id}/events/cdcdcdcdcdcdcdcdcdcdcdcd`,
+        };
+      });
+      data.text = `${example.text}\n\nDemo record examples (the scenario above is fictional):\n${data.records.map((record, i) => `[${i + 1}] ${record.title}`).join('\n')}`;
+      delete data.action;
+    } else {
+      const record = tasks.find((row) => row.id === body.context?.id) ?? tasks[0];
+      data = {
+        text: 'This task can be marked done after confirmation [1].',
+        records: [{ ...record, kind: 'tasks', href: `/tasks/${record.id}` }],
+        filters: { kind: 'tasks', search: '', status: null, assignedToMe: false, limit: 8 },
+        action: {
+          kind: 'tasks',
+          id: record.id,
+          operation: 'update',
+          title: record.title,
+          revision: record.revision,
+          changes: { status: 'done' },
+          token: 'synthetic-action-proposal',
+        },
+      };
+    }
+  } else if (path === '/ai/actions') {
+    tasks[0].status = 'done';
+    tasks[0].statusOption = 'done';
+    tasks[0].statusLabel = 'Done';
+    tasks[0].revision++;
+    data = { item: tasks[0] };
   } else if (path === '/ai/generate') {
     const body = request.postDataJSON();
     data =
@@ -408,6 +512,14 @@ await context.route('**/api/**', async (route) => {
       revision: 0,
     };
   else if (path === '/coverage') data = { items: [], total: 0, page: 1, pageSize: 10 };
+  else if (path === '/references/incidents')
+    data = {
+      options: [{ id: demoIncident.id, label: `INC0000001 · ${demoIncident.title}` }],
+      selected: url.searchParams.get('selected')
+        ? [{ id: demoIncident.id, label: `INC0000001 · ${demoIncident.title}` }]
+        : [],
+      hasMore: false,
+    };
   else if (path === '/references/services')
     data = {
       options: services.map((item) => ({ id: item.id, label: item.name })),
@@ -559,21 +671,45 @@ await context.route('**/api/**', async (route) => {
     };
   } else if (path === '/groups') data = { groups: [] };
   else if (path === '/monitors') data = { monitors };
-  else if (path === `/monitors/${monitors[0].id}`) data = { monitor: monitors[0] };
+  else if (path === `/monitors/${monitors[0].id}/check` && request.method() === 'POST') {
+    monitors[0].manualCheckPending = true;
+    return route.fulfill({ status: 202, json: { monitor: monitors[0] } });
+  } else if (path === `/monitors/${monitors[0].id}`) data = { monitor: monitors[0] };
   else if (path.startsWith(`/monitors/${monitors[0].id}/events/`))
     data = {
-      monitor: { id: monitors[0].id, name: monitors[0].name },
+      monitor: { id: monitors[0].id, name: monitors[0].name, serviceId: monitors[0].serviceId },
       event: {
         id: path.split('/').at(-1),
+        number: 'EVT0000001',
         checkedAt: '2026-10-10T16:05:00Z',
         status: 'down',
         statusCode: 503,
         durationMs: 210,
       },
-      incidents: [{ id: demoIncident.id, title: demoIncident.title, status: demoIncident.status }],
+      incidents: [
+        {
+          id: demoIncident.id,
+          title: demoIncident.title,
+          number: 'INC0000001',
+          status: demoIncident.status,
+        },
+      ],
     };
   else if (path === `/monitors/${monitors[0].id}/events`)
-    data = { events: [], total: 0, totalPages: 1 };
+    data = {
+      events: [0, 1].map((index) => ({
+        id: String(index + 1).padStart(24, 'a'),
+        checkedAt: index ? '2026-10-09T11:55:00Z' : '2026-10-09T12:00:00Z',
+        status: 'up',
+        statusCode: 200,
+        durationMs: 142,
+        error: null,
+      })),
+      total: 2,
+      totalPages: 1,
+      pageSize: 10,
+      page: 1,
+    };
   else if (path === '/tables/audit') {
     const size = Number(url.searchParams.get('pageSize') || 10),
       start = (Number(url.searchParams.get('page') || 1) - 1) * size;
@@ -583,8 +719,22 @@ await context.route('**/api/**', async (route) => {
       const rows = Array.from({ length: 30 }, (_, index) => ({
         id: index.toString(16).padStart(24, 'c'),
         monitorId: monitors[0].id,
+        serviceId: services[0].id,
+        number: `EVT${String(index + 1).padStart(7, '0')}`,
         monitorName: 'Demo Portal Health',
         serviceName: services[0].name,
+        incidents:
+          index % 5
+            ? []
+            : [
+                {
+                  id: demoIncident.id,
+                  title: demoIncident.title,
+                  number: 'INC0000001',
+                  status: demoIncident.status,
+                },
+              ],
+        incidentTitles: index % 5 ? '' : 'INC0000001',
         checkedAt: '2026-10-10T16:05:00Z',
         status: index % 5 ? 'up' : 'down',
         statusCode: index % 5 ? 200 : 503,
@@ -814,6 +964,15 @@ try {
   await page.getByRole('link', { name: monitors[0].name, exact: true }).waitFor();
   await page.screenshot({ path: `${output}/monitoring.png` });
   await page.goto(`${base}/monitors/${monitors[0].id}`);
+  await page.getByRole('button', { name: 'Check Now', exact: true }).waitFor();
+  await page.screenshot({ path: `${output}/monitor-check-now.png` });
+  await page.getByRole('button', { name: 'Check Now', exact: true }).click();
+  await page.getByText('Check requested.', { exact: false }).waitFor();
+  assert.equal(
+    await page.getByRole('button', { name: 'Check Now', exact: true }).isDisabled(),
+    true,
+  );
+  monitors[0].manualCheckPending = false;
   await page.getByRole('button', { name: 'Edit Record', exact: true }).click();
   await page.getByRole('heading', { name: 'Authentication', exact: true }).waitFor();
   assert.equal(await page.locator('input[name="authentication.clientSecret"]').inputValue(), '');
@@ -1097,7 +1256,7 @@ try {
   );
   assert.equal(
     await page
-      .locator('.record-sidebar:visible')
+      .locator('.record-sidebar-header:visible')
       .evaluate((element) => getComputedStyle(element).borderTopWidth),
     '1px',
   );
@@ -1264,6 +1423,21 @@ try {
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await page.getByText('Form saved.', { exact: true }).waitFor();
   assert.equal(builderFields.find((field) => field.id === 'status').label, 'Demo Workflow');
+  await page.getByRole('button', { name: 'Edit', exact: true }).click();
+  assert.equal(
+    await page.getByLabel('Label', { exact: true }).inputValue(),
+    'Demo Workflow',
+    'Edit retains the latest saved system label',
+  );
+  assert.equal(
+    await page.getByRole('switch', { name: 'Archived', exact: true }).count(),
+    0,
+    'System fields cannot be archived',
+  );
+  await page.getByRole('switch', { name: 'Required', exact: true }).uncheck();
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await page.getByText('Form saved.', { exact: true }).waitFor();
+  assert.equal(builderFields.find((field) => field.id === 'status').required, false);
   assert.equal(
     builderFields.find((field) => field.id === 'status').helpText,
     'Choose the current stage of this demo task.',
@@ -1314,6 +1488,77 @@ try {
   });
   await page.getByRole('link', { name: 'Demo continuous task 29', exact: true }).waitFor();
   assert.equal(await page.getByRole('button', { name: /^(Next|Previous).*tasks$/ }).count(), 0);
+  await page.locator('.task-board-page').evaluate((element) => {
+    element.scrollTop = 0;
+  });
+  await continuous
+    .locator('.task-card')
+    .first()
+    .evaluate((element) => {
+      window.boardDragTransfer = new DataTransfer();
+      element.dispatchEvent(
+        new DragEvent('dragstart', { bubbles: true, dataTransfer: window.boardDragTransfer }),
+      );
+    });
+  await page.waitForTimeout(60);
+  const edgeDrag = async (direction) =>
+    page.locator('.task-board').evaluate((element, direction) => {
+      const root = element.closest('.task-board-page'),
+        bounds = root.getBoundingClientRect();
+      const left = Math.max(0, bounds.left),
+        right = Math.min(innerWidth, bounds.right),
+        top = Math.max(0, bounds.top),
+        bottom = Math.min(innerHeight, bounds.bottom);
+      element.dispatchEvent(
+        new DragEvent('dragover', {
+          bubbles: true,
+          dataTransfer: window.boardDragTransfer,
+          clientX:
+            direction === 'left'
+              ? left + 2
+              : direction === 'right'
+                ? right - 2
+                : (left + right) / 2,
+          clientY:
+            direction === 'up' ? top + 2 : direction === 'down' ? bottom - 2 : (top + bottom) / 2,
+        }),
+      );
+    }, direction);
+  await edgeDrag('right');
+  await page.waitForFunction(() => document.querySelector('.task-board').scrollLeft > 50);
+  const rightScroll = await page.locator('.task-board').evaluate((element) => element.scrollLeft);
+  await edgeDrag('left');
+  await page.waitForFunction(
+    (previous) => document.querySelector('.task-board').scrollLeft < previous - 30,
+    rightScroll,
+  );
+  await edgeDrag('down');
+  await page.waitForFunction(() => document.querySelector('.task-board-page').scrollTop > 50);
+  const downScroll = await page
+    .locator('.task-board-page')
+    .evaluate((element) => element.scrollTop);
+  await edgeDrag('up');
+  await page.waitForFunction(
+    (previous) => document.querySelector('.task-board-page').scrollTop < previous - 30,
+    downScroll,
+  );
+  await page.evaluate(() =>
+    document.dispatchEvent(
+      new DragEvent('dragend', { bubbles: true, dataTransfer: window.boardDragTransfer }),
+    ),
+  );
+  const stoppedScroll = await page
+    .locator('.task-board-page')
+    .evaluate((element) => element.scrollTop);
+  await page.waitForTimeout(150);
+  assert.equal(
+    await page.locator('.task-board-page').evaluate((element) => element.scrollTop),
+    stoppedScroll,
+    'Drag cancellation stops auto-scrolling',
+  );
+  await page.evaluate(() => {
+    delete window.boardDragTransfer;
+  });
   tasks.splice(tasks.length - 30, 30);
   console.log('Checking knowledge bases');
   await page.goto(`${base}/knowledge`);
@@ -1702,7 +1947,11 @@ try {
   for (let index = 0; index < 10; index++) {
     await page.locator(`a[href="/records/audit/${demoAuditRows[index].id}"]`).click();
     await page.getByRole('region', { name: 'Audit Entry Details', exact: true }).waitFor();
-    await page.getByRole('link', { name: 'Back to List', exact: true }).click();
+    assert.equal(await page.getByRole('link', { name: 'Back to List', exact: true }).count(), 0);
+    await page
+      .getByRole('navigation', { name: 'Breadcrumb' })
+      .getByRole('link', { name: 'Audit Log', exact: true })
+      .click();
   }
   await page.getByRole('button', { name: 'Next', exact: true }).click();
   await page.locator(`a[href="/records/audit/${demoAuditRows[10].id}"]`).click();
@@ -1715,7 +1964,11 @@ try {
     ),
     11,
   );
-  await page.getByRole('link', { name: 'Back to List', exact: true }).click();
+  assert.equal(await page.getByRole('link', { name: 'Back to List', exact: true }).count(), 0);
+  await page
+    .getByRole('navigation', { name: 'Breadcrumb' })
+    .getByRole('link', { name: 'Audit Log', exact: true })
+    .click();
   await page.locator(`a[href="/records/audit/${demoAuditRows[0].id}"]`).click();
   await page.getByRole('region', { name: 'Audit Entry Details', exact: true }).waitFor();
   assert.equal(
@@ -1836,6 +2089,21 @@ try {
     idInHeader: !!document.querySelector('.record-sticky-header [aria-label="Record number"]'),
   }));
   assert.ok(Math.abs(alignment.header - alignment.rail) < 1);
+  const assertRecordBordersAligned = async () => {
+    const difference = await page.evaluate(() => {
+      const header = document.querySelector('.record-sticky-header').getBoundingClientRect();
+      const rail = [...document.querySelectorAll('.record-sidebar-header')]
+        .find((element) => element.getBoundingClientRect().width > 0)
+        .getBoundingClientRect();
+      return Math.abs(header.bottom - rail.bottom);
+    });
+    assert.ok(
+      difference < 0.5,
+      `Record header and information toggle bottom borders align: ${difference}px`,
+    );
+  };
+  await assertRecordBordersAligned();
+
   assert.equal(alignment.idInHeader, false);
   assert.equal(await page.locator('#main .page-title').count(), 0);
   const resizer = page.getByRole('separator', { name: 'Resize record information' });
@@ -1852,6 +2120,7 @@ try {
   await page.waitForFunction(
     () => document.querySelector('.record-sidebar').getBoundingClientRect().width === 64,
   );
+  await assertRecordBordersAligned();
   await page.keyboard.press('ArrowLeft');
   await page.waitForFunction(
     () => document.querySelector('.record-sidebar').getBoundingClientRect().width === 240,
@@ -1995,8 +2264,10 @@ try {
   const dashboardGap = () =>
     page.evaluate(
       () =>
-        document.querySelector('[aria-labelledby="overview-work-title"]').getBoundingClientRect()
-          .top - document.querySelector('.dashboard-header').getBoundingClientRect().bottom,
+        document
+          .querySelector('[aria-labelledby="overview-attention-title"]')
+          .getBoundingClientRect().top -
+        document.querySelector('.dashboard-header').getBoundingClientRect().bottom,
     );
   await page.reload();
   await page.getByRole('heading', { name: 'Your Work', exact: true }).waitFor();
@@ -2025,7 +2296,7 @@ try {
     const picker = document.querySelector('[aria-label="Dashboard View"]').getBoundingClientRect();
     const refresh = document.querySelector('button[title="Refresh dashboard"]');
     const cards = document
-      .querySelector('.dashboard-scroll-area [aria-labelledby="overview-work-title"]')
+      .querySelector('.dashboard-scroll-area [aria-labelledby="overview-attention-title"]')
       .getBoundingClientRect();
     const button = refresh.getBoundingClientRect();
     const greeting = document.querySelector('.dashboard-header p').getBoundingClientRect();
@@ -2065,7 +2336,7 @@ try {
       .evaluate(
         (el) =>
           el.getBoundingClientRect().top <
-          document.querySelector('[aria-label="Overview charts"]').getBoundingClientRect().top,
+          document.querySelector('#overview-work-title').getBoundingClientRect().top,
       ),
   );
   assert.equal(
@@ -2343,14 +2614,33 @@ try {
   await page.getByRole('button', { name: 'Filters', exact: true }).click();
   await page.getByRole('combobox', { name: 'Outcome', exact: true }).click();
   await page.getByRole('option', { name: 'Down', exact: true }).click();
+  await page.getByRole('combobox', { name: 'Incident', exact: true }).click();
+  await page
+    .getByRole('option', { name: `INC0000001 · ${demoIncident.title}`, exact: true })
+    .click();
   await page.getByRole('button', { name: 'Done', exact: true }).click();
+  assert.ok(recordRequests.some((path) => path === '/tables/events'));
   await page.getByRole('link', { name: 'Create Monitor', exact: true }).waitFor();
+  await page.getByRole('columnheader', { name: 'Incident', exact: true }).waitFor();
+  await page.locator(`td a[href="/incidents/${demoIncident.id}"]`).first().waitFor();
   await page.screenshot({ path: `${output}/events-list.png` });
   await page.locator(`a[href^="/monitors/${monitors[0].id}/events/"]`).first().click();
   await page
     .getByRole('region', { name: 'Triggered Incidents', exact: true })
     .getByRole('link')
     .waitFor();
+  await page.locator('.record-navigation-context').getByText('Event', { exact: true }).waitFor();
+  const eventPanel = page.locator('.record-sidebar');
+  if (await page.getByRole('button', { name: 'Expand record information', exact: true }).count())
+    await page.getByRole('button', { name: 'Expand record information', exact: true }).click();
+  await eventPanel.getByRole('heading', { name: 'Event Details', exact: true }).waitFor();
+  await eventPanel.locator(`a[href="/monitors/${monitors[0].id}"]`).waitFor();
+  await eventPanel.locator(`a[href="/services/${services[0].id}"]`).waitFor();
+  await page
+    .getByRole('separator', { name: 'Resize record information', exact: true })
+    .press('End');
+  await page.getByRole('button', { name: 'Collapse record information', exact: true }).click();
+  await page.getByRole('button', { name: 'Expand record information', exact: true }).click();
   await page.screenshot({ path: `${output}/event-triggered-incidents.png` });
   assert.equal(
     await page
@@ -2402,6 +2692,101 @@ try {
       .boundingBox();
     assert.ok(bounds.y >= 0 && bounds.y < viewport.height, 'Events dashboard remains scrollable');
   }
+  user.role = 'admin';
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await page.goto(`${base}/integrations/ai`);
+  await page.getByRole('switch', { name: 'Enable Demo AI', exact: true }).check();
+  await page.getByRole('switch', { name: 'Enable AI Chat', exact: true }).check();
+  await page.getByRole('button', { name: 'Open AI Chat', exact: true }).click();
+  assert.equal(
+    await page.locator('.ai-chat-launch svg path').getAttribute('d'),
+    'M6 18 18 6M6 6l12 12',
+    'Floating chat control shows the close icon',
+  );
+  await page.getByRole('combobox', { name: 'Mode', exact: true }).click();
+  await page.getByRole('option', { name: 'Demo AI', exact: true }).click();
+  for (const example of AI_DEMO_EXAMPLES) {
+    await page.getByRole('button', { name: example.label, exact: true }).click();
+    await page.getByText('Thinking', { exact: true }).waitFor();
+    await page.getByText('Retrieving Example Data', { exact: true }).waitFor();
+    await page
+      .locator('#ai-chat-panel')
+      .getByText(example.text, { exact: false })
+      .first()
+      .waitFor();
+  }
+  await page.getByRole('button', { name: 'Simulate Action', exact: true }).click();
+  await page
+    .getByRole('dialog', { name: 'Confirm AI Action', exact: true })
+    .getByRole('button', { name: 'Simulate Action', exact: true })
+    .click();
+  await page
+    .getByText('Simulated: incident resolved. No record was changed.', { exact: true })
+    .waitFor();
+  await page
+    .locator('#ai-chat-panel')
+    .getByRole('link', { name: `View ${demoIncident.title}`, exact: true })
+    .last()
+    .click();
+  await page.waitForURL(`${base}/incidents/${demoIncident.id}`);
+  await page.screenshot({ path: `${output}/ai-chat-demo.png` });
+  for (const viewport of [
+    { width: 390, height: 844 },
+    { width: 1440, height: 960 },
+  ]) {
+    await page.setViewportSize(viewport);
+    const panel = await page.locator('#ai-chat-panel').boundingBox();
+    assert.ok(
+      panel.x >= 0 &&
+        panel.x + panel.width <= viewport.width &&
+        panel.y >= 0 &&
+        panel.y + panel.height < viewport.height,
+    );
+    await page.locator('.ai-chat-transcript').evaluate((element) => {
+      element.scrollTop = element.scrollHeight;
+    });
+    assert.ok(
+      await page.locator('.ai-chat-transcript').evaluate((element) => element.scrollTop > 0),
+      'Long conversations scroll on desktop and mobile',
+    );
+  }
+  await page.getByRole('combobox', { name: 'Mode', exact: true }).click();
+  await page.getByRole('option', { name: 'Workspace AI', exact: true }).click();
+  await page.getByRole('button', { name: 'Close AI Chat', exact: true }).last().click();
+  tasks[0].status = 'todo';
+  tasks[0].statusOption = 'todo';
+  tasks[0].statusLabel = 'To Do';
+  tasks[0].revision++;
+  await page.goto(`${base}/tasks/${tasks[0].id}`);
+  await page.getByRole('button', { name: 'Open AI Chat', exact: true }).click();
+  await page
+    .locator('.record-sidebar-content')
+    .getByText('To Do', { exact: true })
+    .first()
+    .waitFor();
+  await page.getByLabel('Message', { exact: true }).fill('Mark this task done');
+  await page.getByRole('button', { name: 'Send', exact: true }).click();
+  await page.getByRole('button', { name: 'Review and Apply', exact: true }).waitFor();
+  await page
+    .locator('#ai-chat-panel')
+    .getByRole('link', { name: `View ${tasks[0].title}`, exact: true })
+    .click();
+  await page.waitForURL(`${base}/tasks/${tasks[0].id}`);
+  await page.screenshot({ path: `${output}/ai-chat-action.png` });
+  await page.getByRole('button', { name: 'Review and Apply', exact: true }).click();
+  await page
+    .getByRole('dialog', { name: 'Confirm AI Action', exact: true })
+    .getByRole('button', { name: 'Apply Changes', exact: true })
+    .click();
+  await page
+    .getByText('Changes saved. Open records and lists have refreshed.', { exact: true })
+    .waitFor();
+  await page
+    .locator('.record-sidebar-content')
+    .getByText('Done', { exact: true })
+    .first()
+    .waitFor();
+  await page.getByRole('button', { name: 'Close AI Chat', exact: true }).last().click();
   assert.deepEqual(faults, []);
   console.log(
     'Captured synthetic screenshots, including five dark-mode README images; verified task ordering and loading, knowledge base destination exclusion and runbooks, accessible labels, global lanes, AI gating and drafts, logo themes, textarea growth, incident monitor events, date formats, and navigation and record header alignment.',

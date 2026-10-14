@@ -251,7 +251,9 @@ export function IncidentBuilderPage({ kind = 'incidents' }) {
 /** Keep unsaved settings stable during background query refreshes. */
 function Builder({ initial, path, kind, onCancel }) {
   const [editing, setEditing] = useState(false);
+  const [snapshot, setSnapshot] = useState(initial);
   const [search, setSearch] = useState('');
+  const [fieldView, setFieldView] = useState('active');
   const [fields, setFields] = useState(initial.fields),
     [revision, setRevision] = useState(initial.revision),
     [savedIds, setSavedIds] = useState(initial.fields.map((field) => field.id)),
@@ -269,6 +271,7 @@ function Builder({ initial, path, kind, onCancel }) {
   const query = search.trim().toLowerCase();
   const matches = fields
     .map((row, index) => ({ row, index }))
+    .filter(({ row }) => (fieldView === 'archived' ? row.archived : !row.archived))
     .filter(({ row }) =>
       `${row.label} ${row.type === 'builtin' ? 'System Field' : `Custom ${displayValue(row.type)}`} ${row.archived ? 'Archived' : ''}`
         .toLowerCase()
@@ -278,7 +281,9 @@ function Builder({ initial, path, kind, onCancel }) {
     if (!editing || save.busy) return;
     if (
       field?.type === 'builtin' &&
-      Object.keys(changes).some((key) => !['label', 'helpText', 'choices'].includes(key))
+      Object.keys(changes).some(
+        (key) => !['label', 'helpText', 'choices', 'required'].includes(key),
+      )
     )
       return;
     setSaved(false);
@@ -295,9 +300,9 @@ function Builder({ initial, path, kind, onCancel }) {
               type="button"
               className="btn-secondary gap-2"
               onClick={() => {
-                setFields(initial.fields);
-                setRevision(initial.revision);
-                setSavedIds(initial.fields.map((field) => field.id));
+                setFields(snapshot.fields);
+                setRevision(snapshot.revision);
+                setSavedIds(snapshot.fields.map((field) => field.id));
                 setSaved(false);
                 setEditing(true);
               }}
@@ -345,6 +350,7 @@ function Builder({ initial, path, kind, onCancel }) {
                 disabled={save.busy}
                 onClick={() =>
                   save.run(path, 'PUT', { fields, revision }, () => {
+                    setSnapshot({ fields, revision: revision + 1 });
                     setRevision(revision + 1);
                     setSavedIds(fields.map((row) => row.id));
                     setSaved(true);
@@ -386,17 +392,25 @@ function Builder({ initial, path, kind, onCancel }) {
                 </Field>
                 <label className="flex items-center gap-2">
                   <Toggle
-                    disabled={field.type === 'builtin' && !(kind === 'incidents' && field.id === 'resolutionNotes')}
                     checked={field.required}
                     onChange={(event) => update({ required: event.target.checked })}
                   />
                   Required
                 </label>
+                {field.type !== 'builtin' && (
+                  <label className="flex items-center gap-2">
+                    <Toggle
+                      checked={field.archived}
+                      onChange={(event) => update({ archived: event.target.checked })}
+                    />
+                    Archived
+                  </label>
+                )}
                 {field.type === 'builtin' ? (
                   <p className="text-sm text-slate-500">
-                    System Fields can be reordered and relabeled. Select fields accept additional
-                    options; existing values and workflow meanings stay fixed. Resolution notes on incidents
-                    also allow changing Required.
+                    System Fields support labels, help text, Required, and ordering. System Fields
+                    cannot be archived. Select fields accept additional options; stable IDs, types,
+                    and workflow meanings remain protected.
                   </p>
                 ) : (
                   <>
@@ -459,6 +473,20 @@ function Builder({ initial, path, kind, onCancel }) {
           <p className="text-sm text-slate-500">
             Select a field to view its settings. In edit mode, use its arrows to change the order.
           </p>
+          <label className="field-label block max-w-xs">
+            View
+            <Select
+              aria-label="Form Builder View"
+              value={fieldView}
+              onChange={(event) => {
+                setFieldView(event.target.value);
+                setSelected(null);
+              }}
+            >
+              <option value="active">Active Form</option>
+              <option value="archived">Archived Fields</option>
+            </Select>
+          </label>
           <Field label="Search Fields" name="fieldSearch">
             <input
               type="search"

@@ -32,3 +32,13 @@ Use `api workers scheduler` as well when shared/server behavior changed. Check a
 Authenticated monitor configuration is captured in `monitor-authentication.png` using a synthetic OAuth configuration. The saved Client Secret input must remain blank; fixtures and screenshots never contain authentication credentials.
 
 `event-triggered-incidents.png` uses an isolated synthetic event and its linked incident. The browser capture verifies a positive related-list count, absence of zero badges, and the incident link on the event detail.
+
+The task-board capture also verifies continuous edge scrolling in all four directions with synthetic drag events, and verifies cancellation stops scrolling without modifying a task.
+
+`monitor-check-now.png` shows the Check Now control with synthetic check history. Capture verifies the accepted-request confirmation and disables a duplicate pending request. The Events screenshot includes the Incident column and synthetic incident record links; no external checks or notifications are sent during capture.
+
+Sequential identifiers are synthetic fixtures (INC0000001, MON0000001, and other type prefixes). Capture verifies the Incident reference filter, distinct Event tab label, and the working Audit Log breadcrumb without a Back to List action.
+
+AI chat captures use fixed synthetic settings and responses. `ai-chat-demo.png` shows the six examples and a simulated resolution; `ai-chat-action.png` shows a synthetic task update proposal. Browser assertions verify the demo Thinking/Retrieving Example Data stages, the floating X icon, simulation, confirmation, immediate viewed-record refresh, and transcript scrolling on desktop/mobile. No provider is called, no live data is read, and no real action tokens or credentials are captured. Form Builder checks relabeling, changing Required, preservation on reopening Edit, and absence of a System Field Archive control.
+
+Demo chat link fixtures point only to synthetic demo records. Capture verifies that inline citations and result links open app record tabs in both modes. Event records use RecordWorkspace; verify the right panel can expand/collapse and resize, linked monitor/service references work, and long response content remains reachable on desktop/mobile.

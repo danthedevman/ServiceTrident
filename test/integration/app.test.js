@@ -546,7 +546,7 @@ test('API, MongoDB persistence, and BullMQ scheduling', { timeout: 30000 }, asyn
       await inFlight;
       assert.equal(edited.status, 200);
       assert.equal(options.method, 'HEAD');
-      assert.equal(options.userAgent, USER_AGENTS[0]);
+      assert.ok(USER_AGENTS.includes(options.userAgent));
       assert.equal((await request(path, { cookie })).data.monitor.lastCheck, null);
       const oldEvent = (await request(`${path}/events`, { cookie })).data.events[0];
       assert.equal(
@@ -559,7 +559,7 @@ test('API, MongoDB persistence, and BullMQ scheduling', { timeout: 30000 }, asyn
         .updateOne({ _id: new ObjectId(id) }, { $set: { nextCheckAt: new Date(0) } });
       await processMonitor(db, id, async (url, input) => {
         assert.equal(input.method, 'GET');
-        assert.equal(input.userAgent, USER_AGENTS[1]);
+        assert.ok(USER_AGENTS.includes(input.userAgent));
         return { status: 'up', statusCode: 200, durationMs: 1, error: null };
       });
       assert.equal(

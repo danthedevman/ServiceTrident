@@ -1,3 +1,4 @@
+import { numberedDatabase } from '../domain/record-numbering.js';
 import { connectMongo } from './mongodb/connection.js';
 import { initializeDatabase } from './indexes.js';
 
@@ -36,6 +37,7 @@ export async function connectDatabase() {
         await close();
       };
     }
+    connection.db = numberedDatabase(connection.db);
     return connection;
   } catch (error) {
     await connection.client.close();

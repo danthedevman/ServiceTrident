@@ -162,18 +162,16 @@ test('workspace Events enforce roles, tenant isolation, filters, safe exports, m
   const triggeringEvent = await db
     .collection('events')
     .findOne({ userId: workspaceId, status: 'down', checkedAt: event.checkedAt });
-  await db
-    .collection('incidents')
-    .updateOne(
-      { _id: incidentId },
-      {
-        $set: {
-          title: 'Demo triggered incident',
-          status: 'open',
-          triggeringChecks: [{ monitorId: String(monitorId), checkedAt: event.checkedAt }],
-        },
+  await db.collection('incidents').updateOne(
+    { _id: incidentId },
+    {
+      $set: {
+        title: 'Demo triggered incident',
+        status: 'open',
+        triggeringChecks: [{ monitorId: String(monitorId), checkedAt: event.checkedAt }],
       },
-    );
+    },
+  );
   const foreignIncident = new ObjectId(),
     falseMatchIncident = new ObjectId();
   await db.collection('incidents').insertMany([
@@ -193,12 +191,30 @@ test('workspace Events enforce roles, tenant isolation, filters, safe exports, m
       ],
     },
   ]);
+  assert.equal(
+    (await request(`/tables/events?incidentId=${incidentId}`, viewer.cookie)).data.total,
+    2,
+  );
+  assert.equal(
+    (await request(`/tables/events?incidentId=${falseMatchIncident}`, viewer.cookie)).data.total,
+    0,
+  );
+  assert.equal(
+    (await request(`/tables/events?incidentId=${foreignIncident}`, viewer.cookie)).status,
+    404,
+  );
+  assert.equal((await request('/tables/events?incidentId=invalid', viewer.cookie)).status, 400);
   const eventPath = `/monitors/${monitorId}/events/${triggeringEvent._id}`;
   for (const person of [owner, responder, viewer]) {
     const response = await request(eventPath, person.cookie);
     assert.equal(response.status, 200);
     assert.deepEqual(response.data.incidents, [
-      { id: String(incidentId), title: 'Demo triggered incident', status: 'open' },
+      {
+        id: String(incidentId),
+        title: 'Demo triggered incident',
+        number: 'INC0000001',
+        status: 'open',
+      },
     ]);
     assert.equal(response.data.incidentsTruncated, false);
   }
@@ -217,6 +233,26 @@ test('workspace Events enforce roles, tenant isolation, filters, safe exports, m
   await db
     .collection('incidents')
     .deleteMany({ _id: { $in: [foreignIncident, falseMatchIncident] } });
+  const associatedRows = await request('/tables/events', viewer.cookie);
+  assert.equal(associatedRows.status, 200);
+  assert.deepEqual(
+    associatedRows.data.rows.find((row) => row.id === String(triggeringEvent._id)).incidents,
+    [
+      {
+        id: String(incidentId),
+        title: 'Demo triggered incident',
+        number: 'INC0000001',
+        status: 'open',
+      },
+    ],
+  );
+  const associatedExport = await request('/tables/events?export=csv', viewer.cookie);
+  assert.match(associatedExport.data, /incidentTitles/);
+  assert.match(associatedExport.data, /INC0000001/);
+  assert.ok(
+    !associatedExport.data.includes('Foreign incident') &&
+      !associatedExport.data.includes('Wrong check pair'),
+  );
   const related = await request(`/related-counts/services/${serviceId}`, viewer.cookie);
   assert.equal(related.status, 200);
   assert.deepEqual(related.data.counts, { incidents: 1, tasks: 1, knowledge: 0, monitors: 1 });

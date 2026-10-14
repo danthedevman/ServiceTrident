@@ -58,15 +58,18 @@ export function installEventRoutes(app, db) {
     ]);
     const items = events.slice(0, query.pageSize);
     res.json({
-      events: items.map(({ _id, checkedAt, status, statusCode, durationMs, error, timing }) => ({
-        timing: timing ?? null,
-        id: _id.toHexString(),
-        checkedAt,
-        status,
-        statusCode,
-        durationMs,
-        error,
-      })),
+      events: items.map(
+        ({ _id, checkedAt, status, statusCode, durationMs, error, timing, number }) => ({
+          timing: timing ?? null,
+          id: _id.toHexString(),
+          number,
+          checkedAt,
+          status,
+          statusCode,
+          durationMs,
+          error,
+        }),
+      ),
       nextCursor:
         legacyPaging && events.length > query.pageSize ? items.at(-1)._id.toHexString() : null,
       page: legacyCursor ? 1 : query.page,
@@ -135,7 +138,8 @@ export function installEventRoutes(app, db) {
       checkedAt: { $gte: new Date(Date.now() - 30 * 86400000) },
     });
     if (!event) throw new InputError('Check event not found or expired.', 404);
-    const { _id, checkedAt, status, statusCode, durationMs, error, details, timing } = event;
+    const { _id, checkedAt, status, statusCode, durationMs, error, details, timing, number } =
+      event;
     // Both identity and timestamp must match the same saved trigger, never separate array entries.
     const incidents = await db
       .collection('incidents')
@@ -144,23 +148,27 @@ export function installEventRoutes(app, db) {
           workspaceId: req.workspaceId,
           triggeringChecks: { $elemMatch: { monitorId: String(monitorId), checkedAt } },
         },
-        { projection: { _id: 1, title: 1, status: 1 } },
+        { projection: { _id: 1, title: 1, status: 1, number: 1 } },
       )
       .sort({ createdAt: -1, _id: -1 })
       .limit(101)
       .toArray();
     res.json({
-      incidents: incidents
-        .slice(0, 100)
-        .map((incident) => ({
-          id: String(incident._id),
-          title: incident.title,
-          status: incident.status,
-        })),
+      incidents: incidents.slice(0, 100).map((incident) => ({
+        id: String(incident._id),
+        title: incident.title,
+        number: incident.number,
+        status: incident.status,
+      })),
       incidentsTruncated: incidents.length > 100,
-      monitor: { id: monitorId.toHexString(), name: monitor.name },
+      monitor: {
+        id: monitorId.toHexString(),
+        name: monitor.name,
+        serviceId: monitor.serviceId ? String(monitor.serviceId) : null,
+      },
       event: {
         id: _id.toHexString(),
+        number,
         checkedAt,
         status,
         statusCode,

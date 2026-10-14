@@ -85,7 +85,7 @@ test('new monitors require services while legacy edits remain valid', () => {
 
 // Only resolution notes may change a system required flag; enforcement follows saved policy.
 import { BUILTIN_FIELDS, validateFields, mandatoryErrors } from '../shared/forms/schema.js';
-test('resolution notes are optional by default and configurable without relaxing other system fields', () => {
+test('system-field required policy and resolution notes are configurable', () => {
   assert.equal(BUILTIN_FIELDS.find((f) => f.id === 'resolutionNotes').required, false);
   const required = validateFields(
     BUILTIN_FIELDS.map((f) => (f.id === 'resolutionNotes' ? { ...f, required: true } : f)),
@@ -102,11 +102,12 @@ test('resolution notes are optional by default and configurable without relaxing
     required,
   );
   assert.deepEqual(mandatoryErrors(optional, values), {});
-  assert.throws(() =>
+  assert.equal(
     validateFields(
       optional.map((f) => (f.id === 'title' ? { ...f, required: false } : f)),
       optional,
-    ),
+    ).find((f) => f.id === 'title').required,
+    false,
   );
   assert.throws(() =>
     validateFields(

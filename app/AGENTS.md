@@ -44,7 +44,7 @@
 - Record views use RecordWorkspace: read-only record details on the left with a visible pencil Edit button for authorized roles to open editable fields and a fixed full-height right rail with a left border on desktop. Stack the rail on narrow screens. Viewers and other roles without edit permission stay read-only. Preserve drafts during refresh; Save and Cancel return existing records to read-only mode without navigating away. Cancel discards unsaved edits. Successful creation opens the saved record; quick-add dialogs close without navigation. Creation pages open directly as forms. Hide unavailable actions without reserving empty space.
 - Keep list views flush with the viewport. The sidenav profile area and full-page table pagination share a fixed --app-footer-height across every route; never measure table content to resize the profile rail. The Create control stays outside the scrollable nav; the collapsed logo reveals the expand control on hover or focus.
 - Global search focuses its input after the native dialog opens.
-- Form builders show fields and order controls on the left, selected field settings on the right. Use “System Field” for out-of-box fields in user-facing labels and messages. System Fields and custom fields can both be reordered. Allow System Field labels and additional select options; keep required flags, types, visibility, existing option IDs, and workflow meanings fixed. Enforce this in shared API validation. Preserve existing saved configuration; custom fields remain configurable and saved custom types remain immutable.
+- Form builders show fields and order controls on the left, selected field settings on the right. Use “System Field” for out-of-box fields in user-facing labels and messages. System Fields and custom fields can both be reordered. Allow System Field labels and additional select options; allow Required flags to be changed; keep types, System Field archival, existing option IDs, and workflow meanings protected. Enforce this in shared API validation. Preserve existing saved configuration; custom fields remain configurable and saved custom types remain immutable.
 - Embedded rich-text images remain protected record files but are excluded from visible attachment lists. Ordinary image attachments remain visible.
 - Describe supported checks accurately: HTTP/HTTPS endpoints using HEAD and GET. Do not imply arbitrary queries or network scanning.
 
@@ -102,7 +102,7 @@
 - Admins may add bounded plain-text Help Text to every System Field and custom field. Associate hints with the controls using aria-describedby and give controls stable, unique accessible labels independent of hints or selected values.
 - Use breadcrumbs as the single page title across forms and lists. Keep record IDs and statuses in the form body, and align desktop record headers with the right information-panel header. Secondary toolbar controls precede primary actions in DOM and visual order.
 - Reopening an incident requires confirmation, including changes from a resolved record's Edit form. Focus Cancel initially, prevent duplicate requests, and retain errors.
-- AI controls require a configured workspace provider and an enabled user preference. Keys stay encrypted on the server. Send only authorized, bounded record text; render generated output as text and link to known source records. AI drafts remain unsaved and require confirmation before replacing form content.
+- Live AI controls require a configured workspace provider and an enabled user preference; Demo AI additionally requires an active demo dataset and workspace opt-in. Keys stay encrypted on the server. Send only authorized, bounded record text; render generated output as text and link to known source records. AI drafts remain unsaved and require confirmation before replacing form content.
 
 - Do not display loading messages in the UI, including temporary permission or access warnings. Use skeleton placeholders, quiet pending states, and `aria-busy` where appropriate; preserve existing content during refresh. Show access-denied messages only after authentication and authorization have resolved. Keep meaningful errors and action confirmations visible.
 
@@ -123,7 +123,7 @@
 
 - Display timestamp fields, including log tables, audit activity, monitor checks, and record metadata, with the shared DateTime component using the viewer’s timezone and date/time preferences. Keep machine-readable API values and date-only calendar/filter boundaries distinct.
 
-- Incident resolution requires explicit confirmation, including status changes in Edit. Resolution notes are optional in the default schema; admins may change their Required flag in Form Builder as the sole exception to fixed System Field required flags. Preserve saved workspace policy and enforce it in the API.
+- Incident resolution requires explicit confirmation, including status changes in Edit. Resolution notes are optional in the default schema; admins may configure Required, labels, help text, and order for all System Fields; System Fields cannot be archived in Form Builder. Stable field IDs, types, and canonical workflow values remain protected. Preserve saved workspace policy and enforce it in the API.
 - Record tab text stays on one line with truncation and full labels on hover. The record navigation scrollbar is hidden at user request, while native horizontal scrolling and keyboard tab navigation remain available.
 
 # Audit and external integration boundaries
@@ -139,3 +139,7 @@
 # Consistent navigation hierarchy
 
 - Expanded, collapsed, and mobile side navigation must use one shared authorized link order. Collapsed mode shows the leading links directly and the trailing links in More; preserve the combined order and never omit authorized links. Keep the rail scrollable when needed and verify the main links plus More match expanded order after navigation changes.
+
+- AI chat uses bounded authorized context and safe source links. Record actions require a concrete confirmation, current role/workspace checks, native validators, revision checks and durable replay protection. Never execute model-provided URLs, SQL, commands, credentials or arbitrary fields. Demo chat uses fixed fictional output and simulated actions only; reads only active-demo navigation metadata, never calls providers, and never changes records. Keep conversations and action tokens in memory only.
+
+- Exception requested for Demo AI: show brief Thinking and Retrieving Example Data simulation stages before fixed responses, explicitly labeled as simulated. Never add artificial delay to live AI or ordinary data reads. The floating AI control shows an X while the panel is open.

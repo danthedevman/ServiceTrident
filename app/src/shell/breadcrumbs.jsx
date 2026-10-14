@@ -94,6 +94,7 @@ export function Breadcrumbs({ resolveNames = true }) {
     crumbs = [{ label: sections[kind], to: `/${kind}` }];
   if (kind === 'records') {
     crumbs[0] = {
+      to: id === 'audit' ? '/settings/audit' : undefined,
       label:
         {
           audit: 'Audit Log',

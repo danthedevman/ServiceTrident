@@ -21,6 +21,7 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { Sidebar } from './sidebar.jsx';
 import { Breadcrumbs } from './breadcrumbs.jsx';
 
+import { FloatingAIChat } from '../features/ai/chat.jsx';
 import { Logo } from '../components/brand.jsx';
 
 import { ErrorNotice } from '../components/feedback.jsx';
@@ -33,6 +34,7 @@ export function Layout() {
   const recordPage =
     location.pathname === '/profile' ||
     location.pathname.startsWith('/records/') ||
+    /^\/monitors\/[a-f0-9]{24}\/events\/[a-f0-9]{24}\/?$/.test(location.pathname) ||
     /^\/(incidents|tasks|knowledge)\/fields\/?$/.test(location.pathname) ||
     /^\/knowledge\/bases\/[a-f0-9]{24}\/?$/.test(location.pathname) ||
     /^\/(incidents|tasks|knowledge|services|collections|monitors|groups|integrations|workspace|on-call)\/(?!new(?:\/|$)|fields(?:\/|$)|articles(?:\/|$)|ai(?:\/|$))[^/]+\/?$/.test(
@@ -136,6 +138,7 @@ export function Layout() {
             </BreadcrumbTitleContext.Provider>
           </RecordRailContext.Provider>
         </main>
+        {!sessionLoading && user && <FloatingAIChat key={`${user.id}:${user.role}`} />}
       </div>
     </RecordNavigationProvider>
   );

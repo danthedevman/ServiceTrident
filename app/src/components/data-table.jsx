@@ -62,7 +62,7 @@ function DataTableView({
   secondaryActions,
   toolbar,
   title,
-  columns,
+  columns: providedColumns,
   rows = [],
   remote,
   filters,
@@ -71,6 +71,38 @@ function DataTableView({
   tableClassName = 'w-full min-w-[520px] text-left text-sm',
   rowKey = (row) => row.id ?? JSON.stringify(row),
 }) {
+  const numbered =
+    !!rowHref ||
+    [
+      'incidents',
+      'tasks',
+      'knowledge',
+      'services',
+      'collections',
+      'monitors',
+      'members',
+      'groups',
+      'integrations',
+      'coverage',
+      'events',
+      'incident-monitor-events',
+      'incident-knowledge',
+      'priority-incidents',
+      'priority-tasks',
+      'impacted-services',
+    ].includes(source?.split('?')[0]);
+  const columns =
+    numbered && !providedColumns.some((column) => column.key === 'number')
+      ? [
+          {
+            key: 'number',
+            label: 'Record Number',
+            value: (row) => row.number || '—',
+            sortable: false,
+          },
+          ...providedColumns,
+        ]
+      : providedColumns;
   const formatDate = useDateTime();
   const related = useContext(RelatedListContext);
   const breadcrumbTitle = useContext(BreadcrumbTitleContext);

@@ -22,6 +22,65 @@ export function installMonitorRoutes(app, db) {
       ),
     });
   });
+  app.post('/api/monitors/:id/check', async (req, res) => {
+    const monitor = await requireMonitor(db, req.params.id, req.workspaceId);
+    if (
+      req.body != null &&
+      (typeof req.body !== 'object' || Array.isArray(req.body) || Object.keys(req.body).length)
+    )
+      throw new InputError('This action does not accept monitor settings.', 400);
+    if (monitor.demoBatchId || (monitor.type && monitor.type !== 'http'))
+      throw new InputError('This monitor cannot run a manual check.', 400);
+    const requested = await db.collection('monitors').findOneAndUpdate(
+      {
+        _id: monitor._id,
+        userId: req.workspaceId,
+        demoBatchId: { $exists: false },
+        type: { $in: [null, 'http'] },
+        manualCheckPending: { $ne: true },
+        $expr: {
+          $lte: [
+            { $ifNull: ['$lastManualCheckRequestedAt', new Date(0)] },
+            { $dateAdd: { startDate: '$$NOW', unit: 'minute', amount: -1 } },
+          ],
+        },
+      },
+      [
+        {
+          $set: {
+            manualCheckPending: true,
+            lastManualCheckRequestedAt: '$$NOW',
+            // Preserve the one-minute safety interval even when a scheduled check is already running.
+            nextCheckAt: {
+              $max: [
+                '$$NOW',
+                {
+                  $dateAdd: {
+                    startDate: { $ifNull: ['$lastStartedAt', new Date(0)] },
+                    unit: 'minute',
+                    amount: 1,
+                  },
+                },
+              ],
+            },
+            updatedAt: '$$NOW',
+            updatedBy: { $literal: req.user.email || req.user.displayName || 'System' },
+            updatedById: { $literal: String(req.user._id) },
+            revision: { $add: [{ $ifNull: ['$revision', -1] }, 1] },
+          },
+        },
+      ],
+      { returnDocument: 'after' },
+    );
+    if (!requested)
+      throw new InputError(
+        'A check is already queued or was requested within the last minute. Try again shortly.',
+        429,
+      );
+    res
+      .status(202)
+      .json({ monitor: serializeMonitor(requested, { includeAuthenticationConfig: true }) });
+  });
   app.post('/api/monitors', async (req, res) => {
     const owner = await db
       .collection('users')
@@ -73,14 +132,12 @@ export function installMonitorRoutes(app, db) {
         .updateOne({ _id: req.workspaceId }, { $inc: { monitorCount: -1 } });
       throw error;
     }
-    res
-      .status(201)
-      .json({
-        monitor: serializeMonitor(
-          { ...monitor, _id: inserted.insertedId },
-          { includeAuthenticationConfig: true },
-        ),
-      });
+    res.status(201).json({
+      monitor: serializeMonitor(
+        { ...monitor, _id: inserted.insertedId },
+        { includeAuthenticationConfig: true },
+      ),
+    });
   });
   app.get('/api/monitors/:id', async (req, res) => {
     const monitor = await requireMonitor(db, req.params.id, req.workspaceId);

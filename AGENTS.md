@@ -42,7 +42,7 @@
 
 - Attribute automated record and activity updates to “System,” never the application brand. Preserve actual user attribution and normalize legacy branded system labels for display without rewriting history.
 
-- Incident resolution requires explicit confirmation, including status changes in Edit. Resolution notes are optional in the default schema; admins may change their Required flag in Form Builder as the sole exception to fixed System Field required flags. Preserve saved workspace policy and enforce it in the API.
+- Incident resolution requires explicit confirmation, including status changes in Edit. Resolution notes are optional in the default schema; admins may configure Required, labels, help text, and order for all System Fields; System Fields cannot be archived in Form Builder. Stable field IDs, types, and canonical workflow values remain protected. Preserve saved workspace policy and enforce it in the API.
 - Record tab text stays on one line with truncation and full labels on hover. The record navigation scrollbar is hidden at user request, while native horizontal scrolling and keyboard tab navigation remain available.
 
 # Audit and external integration boundaries

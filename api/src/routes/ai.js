@@ -6,6 +6,7 @@ import { seal, unseal } from '@servicetrident/shared/integrations/secrets';
 import { uiPreferences } from '@servicetrident/shared/domain/ui-preferences';
 import { requireAdmin, requireResponder } from '../auth/auth.js';
 import { settings, save } from '../repositories/settings.js';
+import { installAIChat, aiAvailability } from './ai-chat.js';
 import { generateAI } from '../domain/ai.js';
 
 const features = { summary: 'aiSummaries', draft: 'aiDrafting', answer: 'aiKnowledgeAnswers' };
@@ -20,7 +21,11 @@ const publicProvider = (provider) =>
 export function installAI(app, db, fetchImpl) {
   app.get('/api/ai/settings', async (req, res) => {
     const data = await settings(db, req.workspaceId);
-    res.json({ provider: publicProvider(data.aiProvider), revision: data.revision });
+    res.json({
+      provider: publicProvider(data.aiProvider),
+      revision: data.revision,
+      ...(await aiAvailability(db, req, data)),
+    });
   });
   app.put('/api/ai/settings', requireAdmin, async (req, res) => {
     const data = await settings(db, req.workspaceId);
@@ -48,6 +53,7 @@ export function installAI(app, db, fetchImpl) {
     legacyHeaders: false,
     message: { error: 'AI request limit reached. Try again in a minute.' },
   });
+  installAIChat(app, db, fetchImpl, limit);
   app.post('/api/ai/test', requireAdmin, limit, async (req, res) => {
     const data = await settings(db, req.workspaceId);
     if (!data.aiProvider?.secret) throw new InputError('Add an AI provider first.', 409);
@@ -119,15 +125,13 @@ export function installAI(app, db, fetchImpl) {
     const day = new Date().toISOString().slice(0, 10);
     const used = data.aiUsage?.day === day ? data.aiUsage.requests : 0;
     if (used >= 1000) throw new InputError('Workspace AI daily request limit reached.', 429);
-    const charged = await db
-      .collection('operations')
-      .updateOne(
-        {
-          _id: req.workspaceId,
-          ...(data.aiUsage ? { aiUsage: data.aiUsage } : { aiUsage: { $exists: false } }),
-        },
-        { $set: { aiUsage: { day, requests: used + 1 } } },
-      );
+    const charged = await db.collection('operations').updateOne(
+      {
+        _id: req.workspaceId,
+        ...(data.aiUsage ? { aiUsage: data.aiUsage } : { aiUsage: { $exists: false } }),
+      },
+      { $set: { aiUsage: { day, requests: used + 1 } } },
+    );
     if (!charged.matchedCount)
       throw new InputError('Another AI request started. Retry in a moment.', 409);
     const result = await generateAI(provider, unseal(provider.secret).apiKey, prompt, fetchImpl);

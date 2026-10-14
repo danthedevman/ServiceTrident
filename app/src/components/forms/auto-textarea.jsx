@@ -4,6 +4,7 @@ import React, { useLayoutEffect, useRef } from 'react';
  * @param {{minHeight?: number, maxHeight?: number} & React.TextareaHTMLAttributes<HTMLTextAreaElement>} props
  */
 export function AutoTextarea({
+  ref: externalRef,
   minHeight = 96,
   maxHeight = 320,
   onInput,
@@ -36,7 +37,11 @@ export function AutoTextarea({
   return (
     <textarea
       {...props}
-      ref={ref}
+      ref={(element) => {
+        ref.current = element;
+        if (typeof externalRef === 'function') externalRef(element);
+        else if (externalRef) externalRef.current = element;
+      }}
       rows={3}
       style={{ ...style, minHeight, maxHeight, resize: 'none' }}
       onInput={(event) => {

@@ -171,213 +171,220 @@ export function installIncidentsRoutes(app, db, appOrigin, machine = null) {
     });
   });
   for (const method of ['post', 'patch']) {
-      const saveRecord = async (req, res) => {
-        const current =
-          method === 'patch'
-            ? await db
-                .collection('incidents')
-                .findOne({ _id: id(req.params.id), workspaceId: req.workspaceId })
-            : null;
-        if (method === 'patch' && !current) throw new InputError('Incident not found.', 404);
-        if (
-          current &&
-          (!Number.isInteger(req.body?.revision) || req.body.revision !== current.revision)
+    const saveRecord = async (req, res) => {
+      const current =
+        method === 'patch'
+          ? await db
+              .collection('incidents')
+              .findOne({ _id: id(req.params.id), workspaceId: req.workspaceId })
+          : null;
+      if (method === 'patch' && !current) throw new InputError('Incident not found.', 404);
+      if (
+        current &&
+        (!Number.isInteger(req.body?.revision) || req.body.revision !== current.revision)
+      )
+        throw new InputError('This incident changed. Refresh and try again.', 409);
+      const schema = (await settings(db, req.workspaceId)).fields;
+      const body = resolveChoices({ ...current, ...req.body }, schema, 'incidents', current);
+      const services = (await catalog(db, req.workspaceId)).services;
+      const serviceId = current
+        ? current.serviceId
+        : body.serviceId
+          ? identifier(body.serviceId, 'serviceId')
+          : null;
+      const service = services.find((s) => s.id === serviceId);
+      if (serviceId && !service && !current) invalid('serviceId', 'Choose an available service.');
+      const fields = recordFields(schema, current?.fields);
+      const status = choice(
+        body.status ?? current?.status ?? 'open',
+        ['open', 'acknowledged', 'resolved'],
+        'status',
+      );
+      if (!current && status !== 'open') invalid('status', 'New incidents start open.');
+      const reopening = current?.status === 'resolved' && status !== 'resolved';
+      if (req.role === 'user' && body.assignmentGroupId)
+        invalid('assignmentGroupId', 'A responder will assign your incident.');
+      const group = await assignmentGroup(
+        db,
+        req.workspaceId,
+        body.assignmentGroupId,
+        body.assigneeId,
+      );
+      if (req.role === 'user' && body.assigneeId)
+        invalid('assigneeId', 'A responder will assign your incident.');
+      const openedForId =
+        body.openedForId === undefined
+          ? (current?.openedForId ?? String(req.user._id))
+          : body.openedForId || null;
+      if (req.role === 'user' && openedForId !== String(req.user._id))
+        invalid('openedForId', 'You can only submit incidents for yourself.');
+      if (
+        openedForId &&
+        !(await members(db, req.workspaceId)).some((u) => String(u._id) === openedForId)
+      )
+        invalid('openedForId', 'Choose a member of this workspace.');
+      const assigneeId = body.assigneeId || null;
+      if (
+        assigneeId &&
+        !(await members(db, req.workspaceId)).some(
+          (u) => String(u._id) === assigneeId && !u.disabled,
         )
-          throw new InputError('This incident changed. Refresh and try again.', 409);
-        const schema = (await settings(db, req.workspaceId)).fields;
-        const body = resolveChoices({ ...current, ...req.body }, schema, 'incidents', current);
-        const services = (await catalog(db, req.workspaceId)).services;
-        const serviceId = current
-          ? current.serviceId
-          : body.serviceId
-            ? identifier(body.serviceId, 'serviceId')
-            : null;
-        const service = services.find((s) => s.id === serviceId);
-        if (serviceId && !service && !current) invalid('serviceId', 'Choose an available service.');
-        const fields = recordFields(schema, current?.fields);
-        const status = choice(
-          body.status ?? current?.status ?? 'open',
-          ['open', 'acknowledged', 'resolved'],
-          'status',
-        );
-        if (!current && status !== 'open') invalid('status', 'New incidents start open.');
-        const reopening = current?.status === 'resolved' && status !== 'resolved';
-        if (req.role === 'user' && body.assignmentGroupId)
-          invalid('assignmentGroupId', 'A responder will assign your incident.');
-        const group = await assignmentGroup(
-          db,
-          req.workspaceId,
-          body.assignmentGroupId,
-          body.assigneeId,
-        );
-        if (req.role === 'user' && body.assigneeId)
-          invalid('assigneeId', 'A responder will assign your incident.');
-        const openedForId =
-          body.openedForId === undefined
-            ? (current?.openedForId ?? String(req.user._id))
-            : body.openedForId || null;
-        if (req.role === 'user' && openedForId !== String(req.user._id))
-          invalid('openedForId', 'You can only submit incidents for yourself.');
-        if (
-          openedForId &&
-          !(await members(db, req.workspaceId)).some((u) => String(u._id) === openedForId)
+      )
+        invalid('assigneeId', 'Choose an active teammate.');
+      const knowledgeIds = body.knowledgeIds ?? current?.knowledgeIds ?? [];
+      if (req.role === 'user' && knowledgeIds.length)
+        invalid('knowledgeIds', 'A responder can link knowledge.');
+      if (
+        !Array.isArray(knowledgeIds) ||
+        knowledgeIds.length > 50 ||
+        knowledgeIds.some((value) => typeof value !== 'string' || !ObjectId.isValid(value))
+      )
+        invalid('knowledgeIds', 'Choose up to 50 knowledge records from this workspace.');
+      const articles = await db
+        .collection('articles')
+        .find(
+          { workspaceId: req.workspaceId, _id: { $in: knowledgeIds.map((value) => id(value)) } },
+          { projection: { _id: 1 } },
         )
-          invalid('openedForId', 'Choose a member of this workspace.');
-        const assigneeId = body.assigneeId || null;
-        if (
-          assigneeId &&
-          !(await members(db, req.workspaceId)).some(
-            (u) => String(u._id) === assigneeId && !u.disabled,
-          )
-        )
-          invalid('assigneeId', 'Choose an active teammate.');
-        const knowledgeIds = body.knowledgeIds ?? current?.knowledgeIds ?? [];
-        if (req.role === 'user' && knowledgeIds.length)
-          invalid('knowledgeIds', 'A responder can link knowledge.');
-        if (
-          !Array.isArray(knowledgeIds) ||
-          knowledgeIds.length > 50 ||
-          knowledgeIds.some((value) => typeof value !== 'string' || !ObjectId.isValid(value))
-        )
-          invalid('knowledgeIds', 'Choose up to 50 knowledge records from this workspace.');
-        const articles = await db
-          .collection('articles')
-          .find(
-            { workspaceId: req.workspaceId, _id: { $in: knowledgeIds.map((value) => id(value)) } },
-            { projection: { _id: 1 } },
-          )
-          .toArray();
-        references(
-          knowledgeIds,
-          articles.map((article) => String(article._id)),
-          'knowledgeIds',
-        );
-        const resolutionNotes = text(
-          body.resolutionNotes ?? current?.resolutionNotes ?? '',
-          'resolutionNotes',
-          5000,
-          false,
-        );
-        validateMandatory(schema, {
-          ...body,
-          serviceId,
-          assigneeId,
-          openedForId,
-          status,
-          knowledgeIds,
-          resolutionNotes,
-        });
-        const now = new Date();
-        const update = {
-          ...group,
-          fields,
-          knowledgeIds,
-          resolutionNotes,
-          ...(reopening
-            ? {
-                resolvedAt: null,
-                reopenedAt: now,
-                resolutionCycle: (current.resolutionCycle ?? 0) + 1,
-                notifiedOpen: false,
-                notifiedResolved: false,
-                ...(current.source === 'monitor' ? { activeAutomatic: false } : {}),
-              }
-            : {}),
-          ...(status === 'resolved'
-            ? {
-                resolvedAt: current?.resolvedAt ?? now,
-                ...(current?.source === 'monitor' ? { activeAutomatic: false } : {}),
-              }
-            : {}),
-          statusOption: body.statusOption,
-          statusLabel: body.statusLabel,
-          severityOption: body.severityOption,
-          severityLabel: body.severityLabel,
-          title: text(body.title ?? '', 'title', 160, false),
-          description: text(body.description ?? '', 'description', 5000, false),
-          severity: choice(body.severity, ['low', 'medium', 'high', 'critical'], 'severity'),
-          status,
-          assigneeId,
-          openedForId,
-          custom: validateValues(body.custom ?? {}, fields, current?.custom),
-          updatedAt: now,
-          updatedBy: req.user.email,
-          updatedById: String(req.user._id),
-          updatedByType: req.serviceAccount ? 'service_account' : 'user',
-        };
-        const recordId = current?._id ?? new ObjectId();
-        update.attachmentIds = await claimAttachments(
-          db,
-          req,
-          'incidents',
-          recordId,
-          body.attachmentIds ?? current?.attachmentIds ?? [],
-          current?.attachmentIds ?? [],
-        );
-        const note = text(body.note ?? '', 'note', 2000, false);
-        const entry = {
-          at: now,
-          by: req.user.email,
-          status,
-          ...(reopening
-            ? {
-                previousResolvedAt: current.resolvedAt,
-                previousResolutionNotes: current.resolutionNotes ?? '',
-              }
-            : {}),
-          ...(current && note ? { kind: 'work_note' } : {}),
-          note:
-            note ||
-            (current && current.status !== 'resolved' && status === 'resolved'
-              ? 'Incident resolved'
-              : reopening
-                ? 'Incident reopened'
-                : current
-                  ? 'Incident updated'
-                  : 'Incident created'),
-        };
-        if (current) {
-          if (!Number.isInteger(body.revision) || body.revision !== current.revision)
-            throw new InputError('This incident changed. Refresh and try again.', 409);
-          const result = await db.collection('incidents').updateOne(
-            { _id: current._id, workspaceId: req.workspaceId, revision: current.revision },
-            {
-              $set: update,
-              $inc: { revision: 1 },
-              $push: { timeline: { $each: [entry], $slice: -200 } },
-            },
-          );
-          if (!result.matchedCount)
-            throw new InputError('This incident changed. Refresh and try again.', 409);
-          res.json({
-            incident: incidentView({
-              ...current,
-              ...update,
-              revision: current.revision + 1,
-              timeline: [...current.timeline, entry].slice(-200),
-            }),
-          });
-        } else {
-          const row = {
-            _id: recordId,
-            workspaceId: req.workspaceId,
-            serviceId,
-            serviceName: service?.name ?? 'Unassigned',
-            createdBy: req.user.email,
-            createdById: String(req.user._id),
-            createdByType: req.serviceAccount ? 'service_account' : 'user',
-            fields,
-            ...update,
-            source: req.serviceAccount ? 'integration' : 'manual',
-            createdAt: now,
-            revision: 0,
-            timeline: [entry],
-          };
-          await db.collection('incidents').insertOne(row);
-          res.status(201).json({ incident: incidentView(row) });
-        }
+        .toArray();
+      references(
+        knowledgeIds,
+        articles.map((article) => String(article._id)),
+        'knowledgeIds',
+      );
+      const resolutionNotes = text(
+        body.resolutionNotes ?? current?.resolutionNotes ?? '',
+        'resolutionNotes',
+        5000,
+        false,
+      );
+      validateMandatory(schema, {
+        ...body,
+        serviceId,
+        assigneeId,
+        openedForId,
+        status,
+        knowledgeIds,
+        resolutionNotes,
+      });
+      const now = new Date();
+      const update = {
+        ...group,
+        fields,
+        knowledgeIds,
+        resolutionNotes,
+        ...(reopening
+          ? {
+              resolvedAt: null,
+              reopenedAt: now,
+              resolutionCycle: (current.resolutionCycle ?? 0) + 1,
+              notifiedOpen: false,
+              notifiedResolved: false,
+              ...(current.source === 'monitor' ? { activeAutomatic: false } : {}),
+            }
+          : {}),
+        ...(status === 'resolved'
+          ? {
+              resolvedAt: current?.resolvedAt ?? now,
+              ...(current?.source === 'monitor' ? { activeAutomatic: false } : {}),
+            }
+          : {}),
+        statusOption: body.statusOption,
+        statusLabel: body.statusLabel,
+        severityOption: body.severityOption,
+        severityLabel: body.severityLabel,
+        title: text(body.title ?? '', 'title', 160, false),
+        description: text(body.description ?? '', 'description', 5000, false),
+        severity: choice(body.severity, ['low', 'medium', 'high', 'critical'], 'severity'),
+        status,
+        assigneeId,
+        openedForId,
+        custom: validateValues(body.custom ?? {}, fields, current?.custom),
+        updatedAt: now,
+        updatedBy: req.user.email,
+        updatedById: String(req.user._id),
+        updatedByType: req.serviceAccount ? 'service_account' : 'user',
       };
-      app[method](`/api/incidents${method === 'patch' ? '/:id' : ''}`, method === 'post' ? requireIncidentCreator : requireResponder, saveRecord);
-      if (method === 'post' && machine) machine.post('/incidents', requireIncidentCreator, saveRecord);
+      const recordId = current?._id ?? new ObjectId();
+      update.attachmentIds = await claimAttachments(
+        db,
+        req,
+        'incidents',
+        recordId,
+        body.attachmentIds ?? current?.attachmentIds ?? [],
+        current?.attachmentIds ?? [],
+      );
+      const note = text(body.note ?? '', 'note', 2000, false);
+      const entry = {
+        at: now,
+        by: req.user.email,
+        status,
+        ...(reopening
+          ? {
+              previousResolvedAt: current.resolvedAt,
+              previousResolutionNotes: current.resolutionNotes ?? '',
+            }
+          : {}),
+        ...(current && note ? { kind: 'work_note' } : {}),
+        note:
+          note ||
+          (current && current.status !== 'resolved' && status === 'resolved'
+            ? 'Incident resolved'
+            : reopening
+              ? 'Incident reopened'
+              : current
+                ? 'Incident updated'
+                : 'Incident created'),
+      };
+      if (current) {
+        if (!Number.isInteger(body.revision) || body.revision !== current.revision)
+          throw new InputError('This incident changed. Refresh and try again.', 409);
+        const result = await db.collection('incidents').updateOne(
+          { _id: current._id, workspaceId: req.workspaceId, revision: current.revision },
+          {
+            $set: update,
+            $inc: { revision: 1 },
+            $push: { timeline: { $each: [entry], $slice: -200 } },
+          },
+        );
+        if (!result.matchedCount)
+          throw new InputError('This incident changed. Refresh and try again.', 409);
+        res.json({
+          incident: incidentView({
+            ...current,
+            ...update,
+            revision: current.revision + 1,
+            timeline: [...current.timeline, entry].slice(-200),
+          }),
+        });
+      } else {
+        const row = {
+          _id: recordId,
+          workspaceId: req.workspaceId,
+          serviceId,
+          serviceName: service?.name ?? 'Unassigned',
+          createdBy: req.user.email,
+          createdById: String(req.user._id),
+          createdByType: req.serviceAccount ? 'service_account' : 'user',
+          fields,
+          ...update,
+          source: req.serviceAccount ? 'integration' : 'manual',
+          createdAt: now,
+          revision: 0,
+          timeline: [entry],
+        };
+        await db.collection('incidents').insertOne(row);
+        res.status(201).json({ incident: incidentView(row) });
+      }
+    };
+    app.locals.aiRecordWriters ??= {};
+    app.locals.aiRecordWriters[`incidents:${method}`] = saveRecord;
+    app[method](
+      `/api/incidents${method === 'patch' ? '/:id' : ''}`,
+      method === 'post' ? requireIncidentCreator : requireResponder,
+      saveRecord,
+    );
+    if (method === 'post' && machine)
+      machine.post('/incidents', requireIncidentCreator, saveRecord);
   }
 }

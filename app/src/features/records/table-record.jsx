@@ -72,11 +72,14 @@ export function TableRecordPage() {
   return (
     <RecordWorkspace
       label="Record Information"
+      showToolbar={kind !== 'audit'}
       sidebar={<p className="text-sm">{title} · Read Only</p>}
       actions={
-        <Link className="btn-secondary" to={parent(kind, query)}>
-          Back to List
-        </Link>
+        kind !== 'audit' && (
+          <Link className="btn-secondary" to={parent(kind, query)}>
+            Back to List
+          </Link>
+        )
       }
     >
       <ErrorNotice>{resource.error}</ErrorNotice>

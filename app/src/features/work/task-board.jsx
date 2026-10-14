@@ -1,3 +1,4 @@
+import { useBoardDragScroll } from './use-board-drag-scroll.js';
 import { PageTitle } from '../../components/page-title.jsx';
 import {
   PlusIcon,
@@ -49,6 +50,7 @@ export function TaskBoard({ serviceId, incidentId }) {
   const [draggedLane, setDraggedLane] = useState(null);
   const [focusTarget, setFocusTarget] = useState(null);
   const board = useRef(null);
+  useBoardDragScroll(board, !!dragged || !!draggedLane);
   const locked = useRef(false);
   const scope = new URLSearchParams({ serviceId, incidentId });
   async function reorderLane(from, target, side = 'before') {

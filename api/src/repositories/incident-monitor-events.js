@@ -17,6 +17,7 @@ export function incidentMonitorEvents(db, workspaceId, incident) {
       : { _id: { $in: [] } }),
   };
   const columns = [
+    'number',
     'checkedAt',
     'monitorName',
     'serviceName',

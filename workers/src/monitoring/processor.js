@@ -14,7 +14,7 @@ export async function dispatchDue(db, queue) {
       {
         $match: {
           type: { $in: [null, 'http'] },
-          paused: false,
+          $or: [{ paused: false }, { manualCheckPending: true }],
           demoBatchId: { $exists: false },
           $expr: { $lte: ['$nextCheckAt', '$$NOW'] },
         },
@@ -51,13 +51,14 @@ export async function processMonitor(db, monitorId, check = checkWebsite, { queu
     {
       _id,
       type: { $in: [null, 'http'] },
-      paused: false,
+      $or: [{ paused: false }, { manualCheckPending: true }],
       demoBatchId: { $exists: false },
       $expr: { $lte: ['$nextCheckAt', '$$NOW'] },
     },
     [
       {
         $set: {
+          manualCheckPending: false,
           nextCheckAt: {
             $dateAdd: {
               startDate: '$$NOW',
@@ -79,7 +80,7 @@ export async function processMonitor(db, monitorId, check = checkWebsite, { queu
   const result = await check(monitor.url, {
     method,
     followRedirects,
-    userAgent: userAgentForCheck(monitor.checkSequence),
+    userAgent: userAgentForCheck(),
     authentication: monitor.authSecret
       ? () => {
           try {

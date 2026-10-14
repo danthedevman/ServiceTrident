@@ -323,7 +323,7 @@ function AccountRecord({ id }) {
         ) : (
           <div className="space-y-5">
             <div className="panel space-y-4 p-6">
-              <h1 className="text-xl font-semibold">{item.name}</h1>
+              <PageTitle>{item.name}</PageTitle>
               {item.description && <p>{item.description}</p>}
               <h2 className="font-semibold">Allowed Scopes</h2>
               <ul className="space-y-2">

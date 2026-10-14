@@ -223,14 +223,19 @@ test('resolution enforces configurable notes and mandatory fields; knowledge lin
   );
   for (const path of ['/incident-fields', '/task-fields', '/knowledge-fields']) {
     const schema = (await request(path, owner)).data;
-    const rejected = await request(path, owner, 'PUT', {
+    const updated = await request(path, owner, 'PUT', {
       ...schema,
       fields: schema.fields.map((field, index) =>
         index ? field : { ...field, required: !field.required },
       ),
     });
-    assert.equal(rejected.status, 400);
-    assert.deepEqual((await request(path, owner)).data.fields, schema.fields);
-    assert.equal((await request(path, owner, 'PUT', schema)).status, 200);
+    assert.equal(updated.status, 200);
+    const saved = (await request(path, owner)).data;
+    assert.equal(saved.fields[0].required, !schema.fields[0].required);
+    assert.equal(
+      (await request(path, owner, 'PUT', { fields: schema.fields, revision: saved.revision }))
+        .status,
+      200,
+    );
   }
 });

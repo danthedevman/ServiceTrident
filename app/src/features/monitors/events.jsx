@@ -1,3 +1,4 @@
+import { ReferenceValue } from '../../components/reference-value.jsx';
 import { AdminOnly } from '../../auth/role-gates.jsx';
 import { PlusIcon } from '@heroicons/react/24/outline';
 import { Link, useSearchParams } from 'react-router-dom';
@@ -13,8 +14,9 @@ export function EventsPage() {
   const [params] = useSearchParams();
   const [serviceId, setService] = useState(params.get('serviceId') || '');
   const [monitorId, setMonitor] = useState('');
+  const [incidentId, setIncident] = useState(params.get('incidentId') || '');
   const [status, setStatus] = useState(params.get('status') || '');
-  const query = new URLSearchParams({ serviceId, monitorId, status });
+  const query = new URLSearchParams({ serviceId, monitorId, status, incidentId });
   return (
     <div className="list-page">
       <DataTable
@@ -34,10 +36,11 @@ export function EventsPage() {
         source={`events?${query}`}
         filename="events.csv"
         dateColumn="checkedAt"
-        filtersActive={!!(serviceId || monitorId || status)}
+        filtersActive={!!(serviceId || monitorId || status || incidentId)}
         onResetFilters={() => {
           setService('');
           setMonitor('');
+          setIncident('');
           setStatus('');
         }}
         defaultSort="checkedAt:desc"
@@ -56,6 +59,12 @@ export function EventsPage() {
               referenceType="monitors"
               value={monitorId}
               onChange={setMonitor}
+            />
+            <ReferenceField
+              label="Incident"
+              referenceType="incidents"
+              value={incidentId}
+              onChange={setIncident}
             />
             <label className="field-label">
               Outcome
@@ -78,8 +87,47 @@ export function EventsPage() {
             value: (row) => row.checkedAt,
             render: (row) => <DateTime value={row.checkedAt} />,
           },
-          { key: 'monitorName', label: 'Monitor', value: (row) => row.monitorName },
-          { key: 'serviceName', label: 'Service', value: (row) => row.serviceName },
+          {
+            key: 'monitorName',
+            label: 'Monitor',
+            value: (row) => row.monitorName,
+            render: (row) => (
+              <ReferenceValue type="monitors" id={row.monitorId} label={row.monitorName} />
+            ),
+          },
+          {
+            key: 'serviceName',
+            label: 'Service',
+            value: (row) => row.serviceName,
+            render: (row) => (
+              <ReferenceValue type="services" id={row.serviceId} label={row.serviceName} />
+            ),
+          },
+          {
+            key: 'incidentTitles',
+            label: 'Incident',
+            sortable: false,
+            value: (row) => row.incidentTitles || '—',
+            render: (row) =>
+              row.incidents?.length ? (
+                <div className="space-y-1">
+                  {row.incidents.map((incident) => (
+                    <div key={incident.id}>
+                      <ReferenceValue
+                        type="incidents"
+                        id={incident.id}
+                        label={incident.number || incident.title}
+                      />
+                    </div>
+                  ))}
+                  {row.incidentsTruncated && (
+                    <span className="field-hint">Showing the latest 100 incidents</span>
+                  )}
+                </div>
+              ) : (
+                '—'
+              ),
+          },
           {
             key: 'status',
             label: 'Outcome',

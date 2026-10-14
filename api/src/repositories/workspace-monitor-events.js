@@ -1,13 +1,16 @@
+import { withEventIncidents } from './event-incidents.js';
 import { InputError } from '@servicetrident/shared/validation/input-error';
 import { tableSearch } from '@servicetrident/shared/domain/table-search';
 import { objectId } from '../domain/identifiers.js';
 
 /** Workspace and retention constrain every list, export, and metric query. */
 export function workspaceMonitorEvents(db, workspaceId, monitors, query = {}) {
+  const incidentId = query.incidentId;
   const checks = monitors.map((monitor) => ({
     monitorId: String(monitor._id),
     monitorName: monitor.name,
     serviceName: monitor.service || 'Unassigned',
+    serviceId: monitor.serviceId ? String(monitor.serviceId) : null,
   }));
   const scope = { userId: workspaceId, checkedAt: { $gte: new Date(Date.now() - 30 * 86400000) } };
   if (query.serviceId)
@@ -61,7 +64,7 @@ export function workspaceMonitorEvents(db, workspaceId, monitors, query = {}) {
     };
   };
   return {
-    fields: columns,
+    fields: [...columns, 'incidentTitles'],
     dateColumn: 'checkedAt',
     async metrics() {
       const outcomes = await db
@@ -92,9 +95,31 @@ export function workspaceMonitorEvents(db, workspaceId, monitors, query = {}) {
       };
     },
     async read(query, all = false) {
+      if (incidentId) {
+        const incident = await db
+          .collection('incidents')
+          .findOne({ _id: objectId(incidentId), workspaceId });
+        if (!incident) throw new InputError('Incident not found.', 404);
+        scope.$and = [
+          {
+            $or: (incident.triggeringChecks || []).slice(0, 1000).map((check) => ({
+              monitorId: objectId(check.monitorId),
+              checkedAt: new Date(check.checkedAt),
+            })),
+          },
+        ];
+        if (!incident.triggeringChecks?.length) scope.$and = [{ _id: { $in: [] } }];
+      }
+
       const pipeline = [
         { $match: scope },
-        { $addFields: { monitorName: name('monitorName'), serviceName: name('serviceName') } },
+        {
+          $addFields: {
+            monitorName: name('monitorName'),
+            serviceName: name('serviceName'),
+            serviceId: name('serviceId'),
+          },
+        },
         { $match: tableSearch(query, Object.fromEntries(columns.map((key) => [key, `$${key}`]))) },
       ];
       if (query.from || query.to)
@@ -118,11 +143,16 @@ export function workspaceMonitorEvents(db, workspaceId, monitors, query = {}) {
       if (!all)
         pipeline.push({ $skip: (query.page - 1) * query.pageSize }, { $limit: query.pageSize });
       pipeline.push({
-        $project: { monitorId: 1, ...Object.fromEntries(columns.map((key) => [key, 1])) },
+        $project: {
+          monitorId: 1,
+          serviceId: 1,
+          number: 1,
+          ...Object.fromEntries(columns.map((key) => [key, 1])),
+        },
       });
       return {
         total,
-        cursor: db.collection('events').aggregate(pipeline),
+        cursor: withEventIncidents(db, workspaceId, db.collection('events').aggregate(pipeline)),
         view: ({ _id, monitorId, ...row }) => ({
           id: String(_id),
           monitorId: String(monitorId),

@@ -22,6 +22,22 @@ import {
   ClipboardDocumentCheckIcon,
   ServerStackIcon,
   SignalIcon,
+  BoltIcon,
+  BookOpenIcon,
+  FolderOpenIcon,
+  CalendarDaysIcon,
+  UserCircleIcon,
+  UserGroupIcon,
+  KeyIcon,
+  ShieldCheckIcon,
+  ClockIcon,
+  ChatBubbleLeftRightIcon,
+  PaperAirplaneIcon,
+  CodeBracketIcon,
+  EnvelopeIcon,
+  PaperClipIcon,
+  InboxArrowDownIcon,
+  Square3Stack3DIcon,
   UsersIcon,
   PuzzlePieceIcon,
 } from '@heroicons/react/24/outline';
@@ -38,6 +54,7 @@ const names = {
   services: 'Service',
   collections: 'Collection',
   monitors: 'Monitor',
+  events: 'Event',
   groups: 'Group',
   integrations: 'Integration',
   workspace: 'User',
@@ -62,9 +79,10 @@ export function recordTabKey(location) {
   return null;
 }
 function fallbackLabel(location) {
+  if (location.pathname.includes('/events/')) return 'Event';
   if (location.pathname.startsWith('/settings/service-accounts/')) return 'Service Account';
   const parts = location.pathname.split('/').filter(Boolean);
-  return `${parts.at(-1) === 'new' ? 'New ' : ''}${names[parts[0]] || 'Record'}`;
+  return `${parts.at(-1) === 'new' ? 'New ' : ''}${recordTypeLabel(location.pathname)}`;
 }
 
 const storageKey = 'servicetrident-record-tabs';
@@ -584,20 +602,37 @@ function RecordPane({ focusFirst, route, active, children, ...props }) {
 }
 
 function TabIcon({ to }) {
-  const Icon =
-    {
-      incidents: ExclamationTriangleIcon,
-      tasks: ClipboardDocumentCheckIcon,
-      services: ServerStackIcon,
-      monitors: SignalIcon,
-      groups: UsersIcon,
-      integrations: PuzzlePieceIcon,
-    }[to.split('/')[1]] || DocumentTextIcon;
+  const icons = {
+    Incident: ExclamationTriangleIcon,
+    Event: BoltIcon,
+    Task: ClipboardDocumentCheckIcon,
+    Service: ServerStackIcon,
+    Collection: Square3Stack3DIcon,
+    Monitor: SignalIcon,
+    Group: UserGroupIcon,
+    Integration: PuzzlePieceIcon,
+    User: UserCircleIcon,
+    Coverage: CalendarDaysIcon,
+    Knowledge: BookOpenIcon,
+    'Knowledge Base': FolderOpenIcon,
+    'Service Account': KeyIcon,
+    'Audit Log': ShieldCheckIcon,
+    Activity: ClockIcon,
+    Discussion: ChatBubbleLeftRightIcon,
+    'Delivery Log': PaperAirplaneIcon,
+    'Response Header': CodeBracketIcon,
+    Invitation: EnvelopeIcon,
+    Attachment: PaperClipIcon,
+    'Hosting Inquiry': InboxArrowDownIcon,
+    Member: UsersIcon,
+  };
+  const Icon = icons[recordTypeLabel(to)] || DocumentTextIcon;
   return <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />;
 }
 
 function recordTypeLabel(to) {
   const parts = to.split('/');
+  if (parts[1] === 'monitors' && parts[3] === 'events') return 'Event';
   if (parts[1] === 'records')
     return (
       {

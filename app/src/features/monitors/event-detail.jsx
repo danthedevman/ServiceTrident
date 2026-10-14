@@ -1,6 +1,7 @@
+import { RecordWorkspace, RecordSection } from '../../components/record-workspace.jsx';
 import { ReferenceValue } from '../../components/reference-value.jsx';
+import { useRecordTabLabel } from '../../components/record-navigation.jsx';
 import { DateTime } from '../../preferences/date-time.jsx';
-import { recordNumber } from '../../lib/record-number.js';
 import { Stat } from '../../components/stat.jsx';
 import { DataTable } from '../../components/data-table.jsx';
 
@@ -54,7 +55,11 @@ function TriggeredIncidents({ incidents = [], truncated = false }) {
       <ul className="space-y-3">
         {incidents.map((incident) => (
           <li key={incident.id} className="flex flex-wrap items-center gap-3">
-            <ReferenceValue type="incidents" id={incident.id} label={incident.title} />
+            <ReferenceValue
+              type="incidents"
+              id={incident.id}
+              label={incident.number ? `${incident.number} · ${incident.title}` : incident.title}
+            />
             <Badge status={incident.status} />
           </li>
         ))}
@@ -73,13 +78,64 @@ export function EventDetail() {
   const { id, eventId } = useParams();
   const { data, loading, error } = useResource(`/monitors/${id}/events/${eventId}`, 0);
   const event = data?.event;
+  useRecordTabLabel(
+    event?.number
+      ? `${event.number} · ${data.monitor?.name || 'Monitor'}`
+      : data?.monitor?.name
+        ? `Event · ${data.monitor.name}`
+        : undefined,
+  );
+  const services = useResource(data?.monitor?.serviceId ? '/services' : null);
+  const service = services.data?.services?.find((row) => row.id === data?.monitor?.serviceId);
+  return (
+    <RecordWorkspace
+      showToolbar={false}
+      kind="events"
+      item={event}
+      label="Details"
+      sidebar={
+        event ? (
+          <RecordSection title="Event Details">
+            <dl className="space-y-4 text-sm">
+              {[
+                ['Checked At', <DateTime value={event.checkedAt} />],
+                ['Status', <Badge status={event.status} />],
+                ['Monitor', <ReferenceValue type="monitors" id={id} label={data.monitor?.name} />],
+                [
+                  'Service',
+                  <ReferenceValue
+                    type="services"
+                    id={data.monitor?.serviceId}
+                    label={service?.name ?? 'View Service'}
+                  />,
+                ],
+                ['HTTP Status', event.statusCode ?? 'No HTTP response'],
+                [
+                  'Duration',
+                  Number.isFinite(event.durationMs) ? `${event.durationMs} ms` : 'Not recorded',
+                ],
+              ].map(([label, value]) => (
+                <div key={label}>
+                  <dt className="text-xs text-slate-500">{label}</dt>
+                  <dd className="mt-1">{value}</dd>
+                </div>
+              ))}
+            </dl>
+          </RecordSection>
+        ) : null
+      }
+    >
+      <EventContent data={data} loading={loading} error={error} />
+    </RecordWorkspace>
+  );
+}
+function EventContent({ data, loading, error }) {
+  const event = data?.event;
   const details = event?.details;
   if (details?.protocol)
     return (
       <section className="space-y-6">
-        <h1 className="font-mono text-sm">{recordNumber('events', event)}</h1>
         <ErrorNotice>{error}</ErrorNotice>
-        <Badge status={event.status} />
         <TriggeredIncidents incidents={data.incidents} truncated={data.incidentsTruncated} />
         <dl className="panel space-y-4 p-6">
           {[
@@ -103,21 +159,15 @@ export function EventDetail() {
     );
   return (
     <>
-      <h1 className="font-mono text-sm">{recordNumber('events', event)}</h1>
       <ErrorNotice>{error}</ErrorNotice>
       {loading ? (
         <Loading label="Loading response details…" />
       ) : (
         event && (
           <>
-            <div>
-              <div className="flex flex-wrap items-center gap-3">
-                <Badge status={event.status} />
-              </div>
-              <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-                {<DateTime value={event.checkedAt} />} · Event {event.id}
-              </p>
-            </div>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              <DateTime value={event.checkedAt} />
+            </p>
             <TriggeredIncidents incidents={data.incidents} truncated={data.incidentsTruncated} />
             <div className={layouts.scores}>
               <Stat

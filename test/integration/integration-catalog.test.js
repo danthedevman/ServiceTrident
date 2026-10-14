@@ -8,7 +8,7 @@ import { unseal } from '../../shared/integrations/secrets.js';
 
 test('catalog adapters validate, encrypt and retain credentials through the admin API', async (t) => {
   process.env.DATABASE_SCHEMA =
-    process.env.MONGODB_DB = `catalog_${randomUUID().replaceAll('-', '')}`;
+    process.env.MONGODB_DB = `catalog_test_${randomUUID().replaceAll('-', '')}`;
   process.env.INTEGRATION_ENCRYPTION_KEY = 'ab'.repeat(32);
   const { db, client } = await connectDatabase();
   const server = createApp(db).listen(0, '0.0.0.0');

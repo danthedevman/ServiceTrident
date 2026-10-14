@@ -15,7 +15,7 @@ import { downloadCsv } from '../../lib/csv-download.js';
 import { writeApi } from '../../data/query-client.js';
 import { useResource } from '../../data/use-resource.js';
 
-import { ArrowRightIcon, ArrowUpRightIcon } from '@heroicons/react/24/outline';
+import { ArrowPathIcon, ArrowRightIcon, ArrowUpRightIcon } from '@heroicons/react/24/outline';
 import React, { useContext, useEffect, useState } from 'react';
 
 import { Link, useNavigate, useParams } from 'react-router-dom';
@@ -72,6 +72,7 @@ export function MonitorDetail() {
     if (eventState.data && page > Math.max(1, eventState.data.totalPages))
       setPage(Math.max(1, eventState.data.totalPages));
   }, [eventState.data, page]);
+  const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -144,6 +145,22 @@ export function MonitorDetail() {
     },
   ].map((column, index) => ({ ...column, width: historyColumns[index].width }));
 
+  const checkNow = async () => {
+    setBusy(true);
+    setError('');
+    setNotice('');
+    try {
+      await writeApi(`/monitors/${id}/check`, { method: 'POST', body: {} });
+      setNotice(
+        'Check requested. It runs at the next permitted start; recent checks or worker availability can delay it.',
+      );
+      await monitorState.refresh();
+    } catch (failure) {
+      setError(failure.message);
+    } finally {
+      setBusy(false);
+    }
+  };
   const change = async (remove = false) => {
     setBusy(true);
     setError('');
@@ -162,6 +179,11 @@ export function MonitorDetail() {
   return (
     <>
       <ErrorNotice>{error || monitorState.error || eventState.error}</ErrorNotice>
+      {notice && (
+        <p role="status" className="text-sm text-slate-500 dark:text-slate-400">
+          {notice}
+        </p>
+      )}
       {monitorState.loading ? (
         <PendingPage pathname={`/monitors/${id}`} />
       ) : (
@@ -197,6 +219,15 @@ export function MonitorDetail() {
                 !editing &&
                 !monitor.unsupported && (
                   <AdminOnly>
+                    <button
+                      type="button"
+                      className="btn-primary"
+                      disabled={busy || monitor.manualCheckPending || !!monitor.demoBatchId}
+                      onClick={checkNow}
+                    >
+                      <ArrowPathIcon className="h-4 w-4" aria-hidden="true" />
+                      Check Now
+                    </button>
                     <EditRecordButton onClick={() => setEditingId(id)} />
                   </AdminOnly>
                 )

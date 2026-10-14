@@ -1,3 +1,4 @@
+import { AIChatSettings } from './chat.jsx';
 import { ValidatedForm } from '../../components/forms/validated-form.jsx';
 import { AutoTextarea } from '../../components/forms/auto-textarea.jsx';
 import { RecordActions } from '../../components/record-actions.jsx';
@@ -26,11 +27,14 @@ export function AIProviderPage() {
   if (user?.role !== 'admin') return <Notice error="Workspace admin access is required." />;
   if (!settings.data) return <Notice error={settings.error} />;
   return (
-    <ProviderForm
-      key={`${settings.data.revision}:${settings.data.provider?.type}`}
-      data={settings.data}
-      refresh={settings.refresh}
-    />
+    <>
+      <AIChatSettings data={settings.data} refresh={settings.refresh} />
+      <ProviderForm
+        key={`${settings.data.revision}:${settings.data.provider?.type}`}
+        data={settings.data}
+        refresh={settings.refresh}
+      />
+    </>
   );
 }
 function ProviderForm({ data, refresh }) {
@@ -111,7 +115,8 @@ function ProviderForm({ data, refresh }) {
       </Field>
       <p className="text-sm text-slate-500">
         Limits: 10 requests per user per minute and 1,000 requests per workspace per UTC day.
-        Provider charges and quotas also apply. No AI action automatically changes records.
+        Provider charges and quotas also apply. Chat actions require review and explicit
+        confirmation.
       </p>
       <Notice error={error} />
       {message && <p role="status">{message}</p>}
@@ -121,7 +126,7 @@ function ProviderForm({ data, refresh }) {
             <ConfirmDeleteButton
               disabled={busy}
               className="btn-danger"
-              confirmation="Remove the AI provider? All AI features will become unavailable to workspace users."
+              confirmation="Remove the AI provider? Live AI features will become unavailable. Enabled Demo AI remains available while an active demo dataset exists."
               onConfirm={async () => {
                 await writeApi('/ai/settings', {
                   method: 'DELETE',
@@ -166,8 +171,8 @@ function ProviderForm({ data, refresh }) {
 }
 
 export function AIFeatureSettings() {
-  const { available, preferences } = useAI();
-  if (!available) return null;
+  const { available, settings, preferences } = useAI();
+  if (!available && !settings.data?.demoEnabled) return null;
   return (
     <section className="space-y-4" aria-labelledby="ai-feature-title">
       <h2 id="ai-feature-title" className="text-lg font-semibold">
@@ -178,6 +183,7 @@ export function AIFeatureSettings() {
         Requests send selected content to the configured provider.
       </p>
       {[
+        ['aiChat', 'AI Chat'],
         ['aiSummaries', 'Task and Incident Summaries'],
         ['aiDrafting', 'Article and Runbook Drafting'],
         ['aiKnowledgeAnswers', 'Knowledge Answers'],

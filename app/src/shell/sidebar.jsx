@@ -16,6 +16,7 @@ import {
   CalendarDaysIcon,
   Squares2X2Icon,
   SignalIcon,
+  CpuChipIcon,
   ServerStackIcon,
   FolderIcon,
   ChartBarSquareIcon,
@@ -34,6 +35,7 @@ const links = [
   ['/', 'Dashboard', Squares2X2Icon],
   ['/incidents', 'Incidents', ExclamationTriangleIcon],
   ['/events', 'Events', SignalIcon],
+  ['/monitors', 'Monitors', CpuChipIcon],
   ['/tasks', 'Tasks', ClipboardDocumentListIcon],
   ['/on-call', 'On Call', CalendarDaysIcon],
   ['/services', 'Services', ServerStackIcon],
@@ -306,7 +308,7 @@ export function Sidebar({ user, logout, busy, collapsed, setCollapsed, renderBra
               end={to === '/'}
               onClick={close}
               title={compact ? label : undefined}
-              className={`nav-link ${(to === '/services' && pathname.startsWith('/monitors/')) || (to === '/settings' && /^\/(groups|workspace)(\/|$)/.test(pathname)) ? 'active' : ''} flex items-center gap-3 ${compact ? 'mx-auto h-11 w-11 justify-center !gap-0 !p-0' : ''}`}
+              className={`nav-link ${to === '/settings' && /^\/(groups|workspace)(\/|$)/.test(pathname) ? 'active' : ''} flex items-center gap-3 ${compact ? 'mx-auto h-11 w-11 justify-center !gap-0 !p-0' : ''}`}
             >
               <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
               <span className={compact ? 'sr-only' : ''}>
@@ -321,12 +323,7 @@ export function Sidebar({ user, logout, busy, collapsed, setCollapsed, renderBra
               <span>
                 <ActionMenu label="More" borderless>
                   {visibleLinks.slice(5).map(([to, label]) => (
-                    <NavLink
-                      key={to}
-                      to={to}
-                      className={`nav-link ${to === '/services' && pathname.startsWith('/monitors/') ? 'active' : ''}`}
-                      onClick={close}
-                    >
+                    <NavLink key={to} to={to} className="nav-link" onClick={close}>
                       {label}
                     </NavLink>
                   ))}

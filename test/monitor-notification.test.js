@@ -119,6 +119,12 @@ test('Slack links replace IDs and monitor failures are plain text with bounded o
     payload.blocks.map((block) => block.text.text).join('\n'),
     /Response error: Response body was interrupted/,
   );
+  assert.equal(payload.blocks[0].type, 'header');
+  assert.ok(
+    payload.blocks.some(
+      (block) => block.type === 'header' && block.text.text.startsWith('Monitor:'),
+    ),
+  );
   assert.equal(payload.blocks[1].text.type, 'plain_text');
   assert.equal(
     payload.blocks.at(-1).text.text,
@@ -181,6 +187,15 @@ test('Slack links replace IDs and monitor failures are plain text with bounded o
   assert.match(noResponse.blocks.map((block) => block.text.text).join('\n'), /No HTTP response/);
   const long = slackMessage({ ...incident, description: 'x'.repeat(10000) }, { event: 'impacted' });
   assert.ok(long.blocks[0].text.text.length <= 3000);
+  const recovered = slackMessage(
+    { ...incident, description: 'Original outage', resolutionNotes: 'Recovery verified' },
+    { event: 'recovered' },
+  );
+  assert.match(recovered.blocks[0].text.text, /^Recovered:/);
+  assert.match(
+    recovered.blocks.map((block) => block.text.text).join('\n'),
+    /Original Description: Original outage\nResolution Notes: Recovery verified/,
+  );
   process.env.APP_ORIGIN = 'https://user:password@app.example.test';
   assert.throws(() => slackMessage(incident, {}), /APP_ORIGIN/);
 });

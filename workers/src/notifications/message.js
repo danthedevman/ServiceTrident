@@ -43,7 +43,10 @@ export function message(
     ['Service', incident.serviceName],
     ['Severity', severity],
     ...(includeIncident ? [['Incident', `View Incident (${incidentLink(incident)})`]] : []),
-    ['Description', incident.description],
+    [event === 'recovered' ? 'Original Description' : 'Description', incident.description],
+    ...(event === 'recovered'
+      ? [['Resolution Notes', incident.resolutionNotes || 'Incident resolved']]
+      : []),
   ];
   if (event === 'comment') {
     fields.push(['Comment author', delivery.commentAuthor], ['Comment', delivery.commentBody]);

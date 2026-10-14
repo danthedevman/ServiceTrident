@@ -617,6 +617,54 @@ function Overview({ data, chart, services, reportHref }) {
   const overview = data.overview;
   return (
     <div className="space-y-6">
+      <section className="space-y-4" aria-labelledby="overview-attention-title">
+        <h2 id="overview-attention-title" className="text-lg font-semibold">
+          Needs Attention
+        </h2>
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <Score
+            compact
+            label="Critical / High Incidents"
+            tone={(data.severity.critical ?? 0) + (data.severity.high ?? 0) ? 'rose' : 'emerald'}
+            value={(data.severity.critical ?? 0) + (data.severity.high ?? 0)}
+            note="Prioritize unresolved incidents"
+            href={reportHref('urgent')}
+          />
+          <Score
+            compact
+            label="Unassigned Incidents"
+            tone={data.unassigned ? 'amber' : 'emerald'}
+            value={data.unassigned}
+            note="Find work that needs an owner"
+            href={reportHref('unassigned')}
+          />
+          <Score
+            compact
+            label="Overdue Tasks"
+            tone={data.overdue ? 'amber' : 'emerald'}
+            value={data.overdue}
+            note="Outstanding tasks due before today (UTC)"
+            href={reportHref('overdue')}
+          />
+          <Score
+            compact
+            label="Services Down"
+            tone={
+              services.some((service) => service.status === 'down')
+                ? 'rose'
+                : services.some((service) => service.status === 'degraded')
+                  ? 'amber'
+                  : services.some((service) => !service.status || service.status === 'unknown') ||
+                      !services.length
+                    ? 'slate'
+                    : 'emerald'
+            }
+            value={services.filter((service) => service.status === 'down').length}
+            note={`${services.filter((service) => service.status === 'degraded').length} degraded · ${services.filter((service) => !service.status || service.status === 'unknown').length} unknown`}
+            href={reportHref('serviceHealth', 'down')}
+          />
+        </div>
+      </section>
       <section className="space-y-4" aria-labelledby="overview-work-title">
         <div>
           <h2 id="overview-work-title" className="text-lg font-semibold">
@@ -667,54 +715,6 @@ function Overview({ data, chart, services, reportHref }) {
               )}
             </div>
           ))}
-        </div>
-      </section>
-      <section className="space-y-4" aria-labelledby="overview-attention-title">
-        <h2 id="overview-attention-title" className="text-lg font-semibold">
-          Needs Attention
-        </h2>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <Score
-            compact
-            label="Critical / High Incidents"
-            tone={(data.severity.critical ?? 0) + (data.severity.high ?? 0) ? 'rose' : 'emerald'}
-            value={(data.severity.critical ?? 0) + (data.severity.high ?? 0)}
-            note="Prioritize unresolved incidents"
-            href={reportHref('urgent')}
-          />
-          <Score
-            compact
-            label="Unassigned Incidents"
-            tone={data.unassigned ? 'amber' : 'emerald'}
-            value={data.unassigned}
-            note="Find work that needs an owner"
-            href={reportHref('unassigned')}
-          />
-          <Score
-            compact
-            label="Overdue Tasks"
-            tone={data.overdue ? 'amber' : 'emerald'}
-            value={data.overdue}
-            note="Outstanding tasks due before today (UTC)"
-            href={reportHref('overdue')}
-          />
-          <Score
-            compact
-            label="Services Down"
-            tone={
-              services.some((service) => service.status === 'down')
-                ? 'rose'
-                : services.some((service) => service.status === 'degraded')
-                  ? 'amber'
-                  : services.some((service) => !service.status || service.status === 'unknown') ||
-                      !services.length
-                    ? 'slate'
-                    : 'emerald'
-            }
-            value={services.filter((service) => service.status === 'down').length}
-            note={`${services.filter((service) => service.status === 'degraded').length} degraded · ${services.filter((service) => !service.status || service.status === 'unknown').length} unknown`}
-            href={reportHref('serviceHealth', 'down')}
-          />
         </div>
       </section>
       <div className="grid gap-6 lg:grid-cols-2" aria-label="Overview charts">

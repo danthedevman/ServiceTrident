@@ -64,11 +64,18 @@ test('HEAD and its selected user agent survive redirects without falling back to
   ]);
 });
 
-test('user agent rotation is deterministic and wraps after the last profile', () => {
+test('user agent selection has 50 additional unique profiles and selects from the whole pool', () => {
   assert.equal(new Set(USER_AGENTS).size, USER_AGENTS.length);
+  assert.equal(USER_AGENTS.length, 73);
   for (let i = 0; i < USER_AGENTS.length; i++)
-    assert.equal(userAgentForCheck(i + 1), USER_AGENTS[i]);
-  assert.equal(userAgentForCheck(USER_AGENTS.length + 1), USER_AGENTS[0]);
+    assert.equal(
+      userAgentForCheck((size) => {
+        assert.equal(size, USER_AGENTS.length);
+        return i;
+      }),
+      USER_AGENTS[i],
+    );
+  assert.ok(USER_AGENTS.includes(userAgentForCheck()));
 });
 
 test('history queries validate sorting, dates, filters and pagination', () => {

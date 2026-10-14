@@ -9,14 +9,9 @@ import { integrationUrl } from '../shared/integrations/provider-url.js';
 import { sendNotification } from '../workers/src/notifications/send.js';
 
 const id = () => new ObjectId().toHexString();
-test('System Field labels are configurable while types and required settings stay locked', () => {
+test('System Field presentation and required policy are configurable while types remain stable', () => {
   assert.throws(() => validateFields(BUILTIN_FIELDS.slice(1)), /cannot be removed/);
-  for (const change of [
-    { required: false },
-    { archived: true },
-    { type: 'text' },
-    { choices: [] },
-  ]) {
+  for (const change of [{ type: 'text' }, { choices: [] }]) {
     assert.throws(
       () =>
         validateFields(

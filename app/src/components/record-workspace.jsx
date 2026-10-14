@@ -162,7 +162,7 @@ export function RecordMetadata({ item, extra = [] }) {
   const fields = [
     ...(item.demoBatchId ? [['Dataset', 'Demo data — removed by Delete demo data']] : []),
     ...extra,
-    ['Record ID', item.id],
+    [item.number ? 'Record Number' : 'Record ID', item.number || item.id],
     ['Created', date(item.createdAt) || 'Not recorded'],
     [
       'Created by',

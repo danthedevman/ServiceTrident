@@ -44,17 +44,38 @@ export function slackMessage(incident, delivery) {
   const lines = [summary, ...diagnostics]
     .flatMap((text) => text.split('\n'))
     .filter(Boolean)
-    .slice(0, 49);
+    .slice(0, 47);
   return {
     text: `${escape([summary, ...diagnostics].join('\n\n'))}\nIncident: ${url}`,
     mrkdwn: false,
     unfurl_links: false,
     unfurl_media: false,
     blocks: [
-      ...lines.map((text) => ({
-        type: 'section',
-        text: { type: 'plain_text', text, emoji: false },
-      })),
+      {
+        type: 'header',
+        text: {
+          type: 'plain_text',
+          text: `${{ impacted: 'Impacted', recovered: 'Recovered', comment: 'New Comment' }[delivery.event] ?? 'Incident Update'}: ${String(
+            incident.title || incident.serviceName || 'Incident',
+          )
+            .replace(/\s+/g, ' ')
+            .slice(0, 120)}`.slice(0, 150),
+          emoji: false,
+        },
+      },
+      ...lines
+        .flatMap((text) => [
+          ...(text.startsWith('Monitor:')
+            ? [
+                {
+                  type: 'header',
+                  text: { type: 'plain_text', text: text.slice(0, 150), emoji: false },
+                },
+              ]
+            : []),
+          { type: 'section', text: { type: 'plain_text', text, emoji: false } },
+        ])
+        .slice(0, 48),
       {
         type: 'section',
         text: { type: 'mrkdwn', text: `Incident: <${escape(url)}|View Incident>`, verbatim: true },

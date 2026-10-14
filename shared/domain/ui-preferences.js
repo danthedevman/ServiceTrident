@@ -16,6 +16,7 @@ export const DEFAULT_UI_PREFERENCES = Object.freeze({
   textScale: 'standard',
   timeFormat: 'locale',
   dateFormat: 'locale',
+  aiChat: true,
   aiSummaries: true,
   aiDrafting: true,
   aiKnowledgeAnswers: true,
@@ -66,7 +67,8 @@ function validPreference(key, value) {
   if (key === 'colorScheme') return colorSchemeIds.includes(value);
   if (key === 'textScale') return ['standard', 'large', 'larger'].includes(value);
   if (key === 'tableLayouts') return validTableLayouts(value);
-  if (key === 'dashboardTab') return ['overview', 'incidents', 'tasks', 'services', 'events'].includes(value);
+  if (key === 'dashboardTab')
+    return ['overview', 'incidents', 'tasks', 'services', 'events'].includes(value);
   return typeof value === 'boolean';
 }
 

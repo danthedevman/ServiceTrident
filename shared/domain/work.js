@@ -13,7 +13,9 @@ export function validateWork(body, kind, schema = null) {
       body.title ?? '',
       'title',
       160,
-      schema ? schema.some((field) => field.id === 'title' && field.required) : true,
+      schema
+        ? schema.some((field) => field.id === 'title' && field.required && !field.archived)
+        : true,
     ),
     status: choice(
       body.status ?? (task ? 'todo' : 'draft'),

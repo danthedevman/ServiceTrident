@@ -238,161 +238,162 @@ export function installWorkRoutes(app, db, machine = null) {
       res.json({ item: view(item) });
     });
     for (const method of ['post', 'patch']) {
-        const saveRecord = async (req, res) => {
-          const current =
-            method === 'patch'
-              ? await collection.findOne({ _id: id(req.params.id), workspaceId: req.workspaceId })
-              : null;
-          if (method === 'patch' && !current)
-            throw new InputError(task ? 'Task not found.' : 'Article not found.', 404);
-          const body = req.body;
-          const allowed = task
-            ? [
-                'title',
-                'status',
-                'serviceId',
-                'incidentId',
-                'description',
-                'priority',
-                'assignmentGroupId',
-                'assigneeId',
-                'dueDate',
-                'revision',
-                'custom',
-                'statusOption',
-                'priorityOption',
-                'attachmentIds',
-                'boardPosition',
-              ]
-            : [
-                'title',
-                'status',
-                'serviceId',
-                'content',
-                'summary',
-                'revision',
-                'custom',
-                'statusOption',
-                'contentDocument',
-                'knowledgeBaseId',
-                'articleType',
-                'articleTypeOption',
-                'steps',
-                'attachmentIds',
-              ];
-          if (
-            !body ||
-            typeof body !== 'object' ||
-            Array.isArray(body) ||
-            Object.keys(body).some((key) => !allowed.includes(key))
-          )
-            throw new InputError('Send only editable fields as a JSON object.');
-          if (current && (!Number.isInteger(body.revision) || body.revision !== current.revision))
-            throw new InputError('This record changed. Reload it before saving again.', 409);
-          const schema = (await settings(db, req.workspaceId))[fieldKey] ?? workBuiltinFields(kind);
-          const chosen = resolveChoices(body, schema, kind, current);
-          if (body.boardPosition && (!task || !current))
-            throw new InputError('Only saved tasks can be reordered.');
-          const rich =
-            !task &&
-            (body.contentDocument ??
-              (body.content === undefined ? current?.contentDocument : null));
-          const article = rich
-            ? validateRichContent(rich, {
-                required:
-                  chosen.articleType !== 'runbook' &&
-                  schema.some((field) => field.id === 'content' && field.required),
-              })
-            : !task && chosen.articleType === 'runbook'
-              ? validateRichContent(textDocument(body.content ?? ''), { required: false })
-              : null;
-          const input = validateWork(
-            { ...current, ...chosen, ...(article ? { content: article.text } : {}) },
-            kind,
-            schema,
+      const saveRecord = async (req, res) => {
+        const current =
+          method === 'patch'
+            ? await collection.findOne({ _id: id(req.params.id), workspaceId: req.workspaceId })
+            : null;
+        if (method === 'patch' && !current)
+          throw new InputError(task ? 'Task not found.' : 'Article not found.', 404);
+        const body = req.body;
+        const allowed = task
+          ? [
+              'title',
+              'status',
+              'serviceId',
+              'incidentId',
+              'description',
+              'priority',
+              'assignmentGroupId',
+              'assigneeId',
+              'dueDate',
+              'revision',
+              'custom',
+              'statusOption',
+              'priorityOption',
+              'attachmentIds',
+              'boardPosition',
+            ]
+          : [
+              'title',
+              'status',
+              'serviceId',
+              'content',
+              'summary',
+              'revision',
+              'custom',
+              'statusOption',
+              'contentDocument',
+              'knowledgeBaseId',
+              'articleType',
+              'articleTypeOption',
+              'steps',
+              'attachmentIds',
+            ];
+        if (
+          !body ||
+          typeof body !== 'object' ||
+          Array.isArray(body) ||
+          Object.keys(body).some((key) => !allowed.includes(key))
+        )
+          throw new InputError('Send only editable fields as a JSON object.');
+        if (current && (!Number.isInteger(body.revision) || body.revision !== current.revision))
+          throw new InputError('This record changed. Reload it before saving again.', 409);
+        const schema = (await settings(db, req.workspaceId))[fieldKey] ?? workBuiltinFields(kind);
+        const chosen = resolveChoices(body, schema, kind, current);
+        if (body.boardPosition && (!task || !current))
+          throw new InputError('Only saved tasks can be reordered.');
+        const rich =
+          !task &&
+          (body.contentDocument ?? (body.content === undefined ? current?.contentDocument : null));
+        const article = rich
+          ? validateRichContent(rich, {
+              required:
+                chosen.articleType !== 'runbook' &&
+                schema.some((field) => field.id === 'content' && field.required && !field.archived),
+            })
+          : !task && chosen.articleType === 'runbook'
+            ? validateRichContent(textDocument(body.content ?? ''), { required: false })
+            : null;
+        const input = validateWork(
+          { ...current, ...chosen, ...(article ? { content: article.text } : {}) },
+          kind,
+          schema,
+        );
+        if (task && body.boardPosition !== undefined)
+          input.boardRank = await positionTask(
+            collection,
+            req.workspaceId,
+            current,
+            chosen.status,
+            chosen.statusOption,
+            body.boardPosition,
           );
-          if (task && body.boardPosition !== undefined)
-            input.boardRank = await positionTask(
-              collection,
-              req.workspaceId,
-              current,
-              chosen.status,
-              chosen.statusOption,
-              body.boardPosition,
-            );
-          validateMandatory(schema, input);
-          if (!task) {
-            input.contentDocument = article?.document ?? null;
-            input.knowledgeBaseTitle = null;
-            if (input.knowledgeBaseId) {
-              const base = await db
-                .collection('knowledgeBases')
-                .findOne({ _id: id(input.knowledgeBaseId), workspaceId: req.workspaceId });
-              if (base?.deleting)
-                throw new InputError(
-                  'This knowledge base is being deleted. Choose another base.',
-                  409,
-                );
-              if (!base) invalid('knowledgeBaseId', 'Choose a knowledge base from this workspace.');
-              input.knowledgeBaseTitle = base.title;
-            }
+        validateMandatory(schema, input);
+        if (!task) {
+          input.contentDocument = article?.document ?? null;
+          input.knowledgeBaseTitle = null;
+          if (input.knowledgeBaseId) {
+            const base = await db
+              .collection('knowledgeBases')
+              .findOne({ _id: id(input.knowledgeBaseId), workspaceId: req.workspaceId });
+            if (base?.deleting)
+              throw new InputError(
+                'This knowledge base is being deleted. Choose another base.',
+                409,
+              );
+            if (!base) invalid('knowledgeBaseId', 'Choose a knowledge base from this workspace.');
+            input.knowledgeBaseTitle = base.title;
           }
-          const recordId = current?._id ?? new ObjectId();
-          input.attachmentIds = await claimAttachments(
-            db,
-            req,
-            kind,
-            recordId,
-            body.attachmentIds ?? current?.attachmentIds ?? [],
-            current?.attachmentIds ?? [],
-            article?.imageIds ?? [],
-          );
-          const fields = recordFields(schema, current?.fields);
-          input.fields = fields;
-          input.custom = validateValues(
-            body.custom ?? current?.custom ?? {},
-            fields,
-            current?.custom,
-          );
-          for (const key of task ? ['status', 'priority'] : ['status', 'articleType']) {
-            input[`${key}Option`] = chosen[`${key}Option`];
-            input[`${key}Label`] = chosen[`${key}Label`];
-          }
-          const related = await associations(db, req.workspaceId, input, current, task);
-          const updated = {
-            ...input,
-            ...related,
-            updatedAt: new Date(),
-            updatedBy: req.user.email,
-            updatedById: String(req.user._id),
-            updatedByType: req.serviceAccount ? 'service_account' : 'user',
-          };
-          if (current) {
-            const result = await collection.findOneAndUpdate(
-              { _id: current._id, workspaceId: req.workspaceId, revision: current.revision },
-              { $set: updated, $inc: { revision: 1 } },
-              { returnDocument: 'after' },
-            );
-            if (!result)
-              throw new InputError('This record changed. Reload it before saving again.', 409);
-            res.json({ item: view(result) });
-          } else {
-            const row = {
-              _id: recordId,
-              workspaceId: req.workspaceId,
-              ...updated,
-              createdAt: new Date(),
-              createdBy: req.user.email,
-              createdById: String(req.user._id),
-              createdByType: req.serviceAccount ? 'service_account' : 'user',
-              revision: 0,
-            };
-            await collection.insertOne(row);
-            res.status(201).json({ item: view(row) });
-          }
+        }
+        const recordId = current?._id ?? new ObjectId();
+        input.attachmentIds = await claimAttachments(
+          db,
+          req,
+          kind,
+          recordId,
+          body.attachmentIds ?? current?.attachmentIds ?? [],
+          current?.attachmentIds ?? [],
+          article?.imageIds ?? [],
+        );
+        const fields = recordFields(schema, current?.fields);
+        input.fields = fields;
+        input.custom = validateValues(
+          body.custom ?? current?.custom ?? {},
+          fields,
+          current?.custom,
+        );
+        for (const key of task ? ['status', 'priority'] : ['status', 'articleType']) {
+          input[`${key}Option`] = chosen[`${key}Option`];
+          input[`${key}Label`] = chosen[`${key}Label`];
+        }
+        const related = await associations(db, req.workspaceId, input, current, task);
+        const updated = {
+          ...input,
+          ...related,
+          updatedAt: new Date(),
+          updatedBy: req.user.email,
+          updatedById: String(req.user._id),
+          updatedByType: req.serviceAccount ? 'service_account' : 'user',
         };
-        app[method](`/api/${kind}${method === 'patch' ? '/:id' : ''}`, requireResponder, saveRecord);
-        if (method === 'post' && machine) machine.post(`/${kind}`, requireResponder, saveRecord);
+        if (current) {
+          const result = await collection.findOneAndUpdate(
+            { _id: current._id, workspaceId: req.workspaceId, revision: current.revision },
+            { $set: updated, $inc: { revision: 1 } },
+            { returnDocument: 'after' },
+          );
+          if (!result)
+            throw new InputError('This record changed. Reload it before saving again.', 409);
+          res.json({ item: view(result) });
+        } else {
+          const row = {
+            _id: recordId,
+            workspaceId: req.workspaceId,
+            ...updated,
+            createdAt: new Date(),
+            createdBy: req.user.email,
+            createdById: String(req.user._id),
+            createdByType: req.serviceAccount ? 'service_account' : 'user',
+            revision: 0,
+          };
+          await collection.insertOne(row);
+          res.status(201).json({ item: view(row) });
+        }
+      };
+      app.locals.aiRecordWriters ??= {};
+      app.locals.aiRecordWriters[`${kind}:${method}`] = saveRecord;
+      app[method](`/api/${kind}${method === 'patch' ? '/:id' : ''}`, requireResponder, saveRecord);
+      if (method === 'post' && machine) machine.post(`/${kind}`, requireResponder, saveRecord);
     }
   }
 }

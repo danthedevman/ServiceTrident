@@ -7,7 +7,7 @@ import { createApp } from '../../api/src/app.js';
 
 test('incident trigger events enforce roles, workspace ownership, exact check references and retention', async (t) => {
   process.env.DATABASE_SCHEMA =
-    process.env.MONGODB_DB = `incident_events_${randomUUID().replaceAll('-', '')}`;
+    process.env.MONGODB_DB = `incident_events_test_${randomUUID().replaceAll('-', '')}`;
   const { db, client } = await connectDatabase();
   const server = createApp(db).listen(0, '0.0.0.0');
   await new Promise((resolve) => server.once('listening', resolve));
@@ -63,42 +63,38 @@ test('incident trigger events enforce roles, workspace ownership, exact check re
     monitorId = new ObjectId(),
     eventId = new ObjectId(),
     checkedAt = new Date();
-  await db
-    .collection('incidents')
-    .insertOne({
-      _id: incidentId,
-      workspaceId,
-      source: 'monitor',
-      title: 'Demo dependency outage',
-      serviceName: 'Demo Portal',
-      status: 'open',
-      severity: 'high',
-      fields: [],
-      timeline: [],
-      createdById: endUser.data.user.id,
-      createdAt: checkedAt,
-      triggeringChecks: [
-        {
-          monitorId: String(monitorId),
-          monitorName: 'Demo API health',
-          serviceName: 'Demo API',
-          checkedAt,
-        },
-      ],
-    });
-  await db
-    .collection('events')
-    .insertOne({
-      _id: eventId,
-      userId: workspaceId,
-      monitorId,
-      checkedAt,
-      status: 'down',
-      statusCode: 503,
-      durationMs: 20,
-      error: 'HTTP 503',
-      details: { body: 'Private synthetic details' },
-    });
+  await db.collection('incidents').insertOne({
+    _id: incidentId,
+    workspaceId,
+    source: 'monitor',
+    title: 'Demo dependency outage',
+    serviceName: 'Demo Portal',
+    status: 'open',
+    severity: 'high',
+    fields: [],
+    timeline: [],
+    createdById: endUser.data.user.id,
+    createdAt: checkedAt,
+    triggeringChecks: [
+      {
+        monitorId: String(monitorId),
+        monitorName: 'Demo API health',
+        serviceName: 'Demo API',
+        checkedAt,
+      },
+    ],
+  });
+  await db.collection('events').insertOne({
+    _id: eventId,
+    userId: workspaceId,
+    monitorId,
+    checkedAt,
+    status: 'down',
+    statusCode: 503,
+    durationMs: 20,
+    error: 'HTTP 503',
+    details: { body: 'Private synthetic details' },
+  });
   const path = `/tables/incident-monitor-events?recordId=${incidentId}&sortBy=checkedAt&order=desc`;
   for (const person of [owner, responder, viewer]) {
     const result = await request(path, person.cookie);

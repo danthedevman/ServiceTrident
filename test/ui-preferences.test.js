@@ -19,6 +19,7 @@ test('layout preferences accept only boolean changes and exclude unrelated user 
     textScale: 'standard',
     timeFormat: 'locale',
     dateFormat: 'locale',
+    aiChat: true,
     aiSummaries: true,
     aiDrafting: true,
     aiKnowledgeAnswers: true,

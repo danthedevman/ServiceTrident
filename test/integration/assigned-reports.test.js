@@ -10,7 +10,7 @@ test(
   { timeout: 30000 },
   async (t) => {
     process.env.DATABASE_SCHEMA =
-      process.env.MONGODB_DB = `assigned_reports_${randomUUID().replaceAll('-', '')}`;
+      process.env.MONGODB_DB = `assigned_reports_test_${randomUUID().replaceAll('-', '')}`;
     const { db, client } = await connectDatabase();
     const server = createApp(db).listen(0, '0.0.0.0');
     await new Promise((resolve) => server.once('listening', resolve));

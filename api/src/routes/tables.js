@@ -359,6 +359,7 @@ async function source(db, req) {
           if (!all) pipeline.push({ $skip: (q.page - 1) * q.pageSize }, { $limit: q.pageSize });
           pipeline.push({
             $project: {
+              number: 1,
               name: 1,
               url: 1,
               component: 1,

@@ -58,7 +58,11 @@ export function installReferenceRoutes(app, db) {
       }
       const search = tableSearch(
         { search: q },
-        { label: `$${label}`, ...(type === 'members' ? { email: '$email' } : {}) },
+        {
+          label: `$${label}`,
+          ...(type === 'members' ? { email: '$email' } : {}),
+          ...(type === 'incidents' ? { number: '$number' } : {}),
+        },
       );
       const filter = {
         $and: [
@@ -86,7 +90,10 @@ export function installReferenceRoutes(app, db) {
       ]);
       const view = (row) => ({
         id: String(row._id),
-        label: row[label] || row.email || 'Untitled record',
+        label:
+          type === 'incidents' && row.number
+            ? `${row.number} · ${row[label]}`
+            : row[label] || row.email || 'Untitled record',
       });
       return res.json({
         options: matches.slice(0, 30).map(view),

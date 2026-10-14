@@ -66,8 +66,16 @@ test('audit history captures writes, failures and deletes without secrets and en
   assert.equal((await request(`/services/${id}`, owner.cookie, 'DELETE', {})).status, 204);
   const logs = await request('/tables/audit?sortBy=createdAt&order=asc', owner.cookie);
   assert.equal(logs.status, 200);
-  assert.equal(logs.data.total, 5);
-  const recordChanges = logs.data.rows.filter((row) => row.operation !== 'POST /api/auth/register');
+  assert.equal(logs.data.total, 7);
+  const recordChanges = logs.data.rows.filter(
+    (row) =>
+      row.operation !== 'POST /api/auth/register' &&
+      row.operation !== 'Assign sequential record number',
+  );
+  assert.equal(
+    logs.data.rows.filter((row) => row.operation === 'Assign sequential record number').length,
+    2,
+  );
   assert.deepEqual(
     recordChanges.map((row) => row.action),
     ['create', 'update', 'update', 'delete'],
@@ -77,8 +85,12 @@ test('audit history captures writes, failures and deletes without secrets and en
   assert.ok(!JSON.stringify(logs.data).includes('PRIVATE CONTENT'));
   assert.ok(!JSON.stringify(logs.data).includes('SECRET'));
   assert.ok(!JSON.stringify(logs.data).includes('DO NOT LOG'));
-  assert.equal((await request('/tables/audit', other.cookie)).data.total, 1);
-  assert.ok((await db.collection('auditEvents').find({}).toArray()).some((row) => row.operation === 'GET /api/tables/:kind' && row.recordType === 'audit'));
+  assert.equal((await request('/tables/audit', other.cookie)).data.total, 2);
+  assert.ok(
+    (await db.collection('auditEvents').find({}).toArray()).some(
+      (row) => row.operation === 'GET /api/tables/:kind' && row.recordType === 'audit',
+    ),
+  );
   const rejected = await request('/services', null);
   assert.equal(rejected.status, 401);
   assert.ok(await db.collection('auditEvents').findOne({ workspaceId: null, statusCode: 401 }));

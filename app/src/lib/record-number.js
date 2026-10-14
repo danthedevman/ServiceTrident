@@ -13,7 +13,7 @@ const prefixes = {
   integrations: 'INT',
 };
 
-/** Stable, collision-free display number derived from the complete record ID, not its list position. */
+/** Use the server-owned sequential number, with a stable legacy fallback. */
 export function recordNumber(kind, item) {
   if (!item?.id) return '';
   if (item.number || item.recordNumber) return item.number || item.recordNumber;
