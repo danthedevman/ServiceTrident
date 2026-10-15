@@ -5,6 +5,16 @@ export const helpTopics = [
     title: 'Getting Started',
     screenshots: [
       {
+        src: '/help/mobile-profile-menu.png',
+        alt: 'Compact mobile profile menu with Profile, Settings, Help, appearance, and sign-out controls',
+        caption: 'Open your profile menu for account settings, Help, appearance, and sign out.',
+      },
+      {
+        src: '/help/mobile-navigation-actions.png',
+        alt: 'Mobile navigation with search, create, and notification icons before the profile menu',
+        caption: 'Use the top navigation for search, record creation, alerts, and your profile.',
+      },
+      {
         src: '/help/help-navigation.png',
         alt: 'Help categories beside a guide with the category list scrolled independently',
         caption:
@@ -36,6 +46,7 @@ export const helpTopics = [
       },
     ],
     paragraphs: [
+      'On mobile, Search Workspace, Create, and Notifications appear in the top navigation to the left of the profile menu. Create is available only for roles allowed to create records. Select the bell to review alerts, or open the profile menu for Profile, Settings, and Help as permitted by your role.',
       'Forms show custom validation messages for required values and invalid formats. The API checks values and workspace permissions again. Normal Unicode and multiline text are supported; unsupported control characters are rejected. Keep article links to HTTP or HTTPS URLs without embedded usernames or passwords. Uploads are size/type checked and access-controlled but are not malware-scanned; treat downloaded files as untrusted.',
       'Saved records offer Export CSV and Export PDF in Record actions, including RCA records, knowledge articles, events and logs. Task previews offer the same controls in Task actions. Downloads use saved data, including current active custom fields; save edits first. CSV contains Field and Value columns. PDF uses a readable document layout with a title, sections and page numbers; timestamps follow your timezone and date/time preferences. Article text and runbook steps are included; embedded images, attachments, comments, work notes and related-list datasets are not bundled. RCA exports include linked incident and task titles. Credentials and monitor URL queries are excluded. Export requests recheck your current access and are audited. Existing table CSV exports still export the filtered list.',
       'Detect, Respond, Resolve describes the workflow: monitor services to detect issues, coordinate incident response, and resolve incidents with recorded outcomes.',

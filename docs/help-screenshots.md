@@ -82,3 +82,5 @@ README record previews can be refreshed with `HELP_CAPTURE_FOCUS=readme`. Captur
 Navigation captures verify compact link rows and a 32px highlight around each 20px icon, with larger invisible touch targets. Check theme-aware full-link highlights in expanded/mobile navigation and icon highlights when collapsed without changing link order.
 
 Expanded navigation captures check that the logo and link icons share a center line and the collapse control reaches the content-side edge of the rail.
+
+On mobile, verify Search Workspace, Create, and Notifications share the top navigation row immediately before Profile; record tabs occupy a separate row only when present. Open each control and confirm menus stay inside the viewport.

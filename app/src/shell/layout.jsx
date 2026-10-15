@@ -15,7 +15,7 @@ import { writeApi } from '../data/query-client.js';
 
 import { AuthContext } from '../auth/auth-context.js';
 
-import React, { useCallback, useContext, useRef, useState } from 'react';
+import React, { useCallback, useContext, useRef, useState, useSyncExternalStore } from 'react';
 
 import { Navigate, useLocation } from 'react-router-dom';
 
@@ -27,9 +27,21 @@ import { Logo } from '../components/brand.jsx';
 
 import { ErrorNotice } from '../components/feedback.jsx';
 
+const mobileToolbarQuery = () => window.matchMedia('(max-width: 767px)').matches;
+const subscribeToolbarViewport = (listener) => {
+  const query = window.matchMedia('(max-width: 767px)');
+  query.addEventListener('change', listener);
+  return () => query.removeEventListener('change', listener);
+};
+
 /** Private application shell with navigation and sign-out. */
 export function Layout() {
   const location = useLocation();
+  const mobileToolbar = useSyncExternalStore(
+    subscribeToolbarViewport,
+    mobileToolbarQuery,
+    () => false,
+  );
   const [tabHeight, setTabHeight] = useState(0);
   const [navigationActions, setNavigationActions] = useState(null);
   const dashboardPage = ['/', '/dashboard'].includes(location.pathname);
@@ -86,6 +98,12 @@ export function Layout() {
       setBusy(false);
     }
   };
+  const toolbarActions = (
+    <div className="topnav-actions">
+      <div ref={setNavigationActions} className="topnav-global-actions" />
+      {!sessionLoading && user && <Notifications key={`${user.id}:${user.role}`} />}
+    </div>
+  );
   return (
     <RecordNavigationProvider
       owner={user ? `${user.id}:${user.role}` : null}
@@ -100,6 +118,7 @@ export function Layout() {
       >
         <Sidebar
           toolbarTarget={navigationActions}
+          mobileActions={mobileToolbar ? toolbarActions : null}
           user={user}
           logout={logout}
           busy={busy || sessionLoading}
@@ -109,10 +128,7 @@ export function Layout() {
         />
         <header className="app-topbar" aria-label="Application toolbar">
           <RecordNavigationBar onHeightChange={setTabHeight} />
-          <div className="topnav-actions">
-            <div ref={setNavigationActions} className="topnav-global-actions" />
-            {!sessionLoading && user && <Notifications key={`${user.id}:${user.role}`} />}
-          </div>
+          {!mobileToolbar && toolbarActions}
         </header>
         <main
           id="main"

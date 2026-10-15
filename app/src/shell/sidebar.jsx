@@ -100,7 +100,7 @@ function ProfileMenu({ user, compact, logout, busy, onNavigate, dropdown = false
         </summary>
       </Tooltip>
       <div
-        className={`panel profile-dropup absolute z-50 w-60 max-w-[calc(100vw-2rem)] space-y-1 p-2 shadow-xl ${dropdown ? 'right-0 top-full mt-2 max-h-[calc(100dvh-6rem)] overflow-y-auto' : 'bottom-full left-0 mb-3'}`}
+        className={`panel profile-dropup absolute z-50 w-60 max-w-[calc(100vw-2rem)] space-y-0 p-1 shadow-xl ${dropdown ? 'right-0 top-full mt-2 max-h-[calc(100dvh-6rem)] overflow-y-auto' : 'bottom-full left-0 mb-3'}`}
       >
         <Link
           to="/profile"
@@ -157,6 +157,7 @@ export function Sidebar({
   setCollapsed,
   renderBrand,
   toolbarTarget,
+  mobileActions,
 }) {
   const dialog = useRef(null);
   const compact = collapsed;
@@ -381,7 +382,17 @@ export function Sidebar({
             {renderBrand(true)}
           </span>
         </button>
-        <ProfileMenu user={user} compact dropdown logout={logout} busy={busy} onNavigate={close} />
+        <div className="mobile-profile-actions flex items-center gap-2">
+          {mobileActions}
+          <ProfileMenu
+            user={user}
+            compact
+            dropdown
+            logout={logout}
+            busy={busy}
+            onNavigate={close}
+          />
+        </div>
       </header>
       <dialog
         ref={dialog}

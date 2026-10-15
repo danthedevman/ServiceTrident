@@ -2556,3 +2556,50 @@ body:has([data-app-shell]) {
 .sidenav-link-expanded.active .sidenav-link-icon {
   background: transparent;
 }
+
+@media (max-width: 767px) {
+  [data-app-shell] > .app-topbar {
+    height: var(--record-tabs-height, 0px);
+    flex: 0 0 var(--record-tabs-height, 0px);
+  }
+  .mobile-topbar .topnav-actions {
+    padding-left: 0;
+    margin-left: 0;
+  }
+  .mobile-topbar {
+    z-index: 50;
+  }
+  .mobile-topbar .notification-panel {
+    position: fixed;
+    top: var(--mobile-nav-height);
+    right: 8px;
+    max-height: calc(100dvh - var(--mobile-nav-height) - 16px);
+  }
+}
+
+.profile-menu-item,
+.action-menu button,
+.action-menu a {
+  min-height: 36px;
+  padding: 6px 10px;
+  gap: 8px;
+}
+.action-menu {
+  padding: 4px;
+}
+@media (pointer: coarse) {
+  .profile-menu-item,
+  .action-menu button,
+  .action-menu a {
+    min-height: 44px;
+  }
+}
+@media (max-width: 767px) {
+  .mobile-topbar .notification-panel {
+    display: flex;
+    flex-direction: column;
+  }
+  .mobile-topbar .notification-list {
+    min-height: 0;
+  }
+}

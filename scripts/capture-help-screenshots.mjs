@@ -1683,6 +1683,11 @@ async function captureReadmeRecords() {
   );
   const firstLink = page.locator('.desktop-sidebar .sidenav-link').first();
   await firstLink.hover();
+  await page.waitForFunction(
+    () =>
+      getComputedStyle(document.querySelector('.desktop-sidebar .sidenav-link:hover'))
+        .backgroundColor !== 'rgba(0, 0, 0, 0)',
+  );
   assert.notEqual(
     await firstLink.evaluate((link) => getComputedStyle(link).backgroundColor),
     'rgba(0, 0, 0, 0)',
@@ -1692,7 +1697,60 @@ async function captureReadmeRecords() {
   await page.screenshot({ path: `${output}/readme-service-dark.png` });
 }
 
+async function captureMobileNavigation() {
+  user.role = 'admin';
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`${base}/dashboard`);
+  const header = page.getByRole('banner', { name: 'Mobile navigation' });
+  const search = header.getByRole('button', { name: 'Search Workspace', exact: true });
+  await search.waitFor();
+  for (const width of [390, 320]) {
+    await page.setViewportSize({ width, height: 844 });
+    const boxes = await Promise.all([
+      search.boundingBox(),
+      header.getByRole('button', { name: 'Create', exact: true }).boundingBox(),
+      header.getByRole('button', { name: /^Notifications/ }).boundingBox(),
+      header.locator('summary').boundingBox(),
+    ]);
+    boxes.forEach((box, index) => {
+      assert.ok(box.x >= 0 && box.x + box.width <= width);
+      assert.ok(Math.abs(box.y + box.height / 2 - boxes[0].y - boxes[0].height / 2) < 1);
+      if (index) assert.ok(box.x >= boxes[index - 1].x + boxes[index - 1].width);
+    });
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
+  await search.click();
+  await page.getByRole('dialog', { name: 'Search Workspace', exact: true }).waitFor();
+  await page.keyboard.press('Escape');
+  await header.getByRole('button', { name: 'Create', exact: true }).click();
+  await page.getByRole('dialog', { name: 'Create', exact: true }).waitFor();
+  await page.keyboard.press('Escape');
+  await header.getByRole('button', { name: /^Notifications/ }).click();
+  const panel = page.getByRole('region', { name: 'Notifications', exact: true });
+  await panel.waitFor();
+  const bounds = await panel.boundingBox();
+  assert.ok(bounds.x >= 0 && bounds.x + bounds.width <= 390);
+  await page.screenshot({ path: `${output}/mobile-navigation-actions.png` });
+  await page.getByRole('button', { name: 'Close notifications', exact: true }).click();
+  await header.locator('summary').click();
+  await header.getByRole('link', { name: 'Profile', exact: true }).waitFor();
+  await page.screenshot({ path: `${output}/mobile-profile-menu.png` });
+  await page.keyboard.press('Escape');
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await page
+    .getByRole('banner', { name: 'Application toolbar' })
+    .getByRole('button', { name: 'Search Workspace', exact: true })
+    .waitFor();
+}
+
 try {
+  if (process.env.HELP_CAPTURE_FOCUS === 'mobile-nav') {
+    await captureMobileNavigation();
+    assert.deepEqual(faults, []);
+    console.log('Verified mobile action ordering, menus, viewport bounds and desktop restoration.');
+    await browser.close();
+    process.exit(0);
+  }
   if (process.env.HELP_CAPTURE_FOCUS === 'readme') {
     await captureReadmeRecords();
     assert.deepEqual(faults, []);
@@ -3928,6 +3986,7 @@ try {
   await captureCollaboration();
   await captureNavigation();
   await captureReadmeRecords();
+  await captureMobileNavigation();
   assert.deepEqual(faults, []);
   console.log(
     'Captured synthetic screenshots, including five dark-mode README images; verified task ordering and loading, knowledge base destination exclusion and runbooks, accessible labels, global lanes, AI gating and drafts, logo themes, textarea growth, incident monitor events, date formats, and navigation and record header alignment.',

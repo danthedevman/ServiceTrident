@@ -91,3 +91,5 @@ Breadcrumbs reuse cached, authorized detail reads for current parent labels. Kno
 Record tab labels refresh after their navigation entry is registered, including records already in the resource cache. Persisted labels are bounded to 512 characters; CSS truncates the single-line visible label while the hover title retains the bounded full label.
 
 New demo batches include six in-app comment/work-note alerts for the seeding administrator. These reuse same-batch incident comments and recipient metadata, are removed with the batch, and never enqueue external delivery. Existing batches require explicit deletion and recreation to receive them.
+
+The shell mounts one set of global action controls. A viewport subscription places Search, Create, and Notifications beside Profile in the mobile navigation and in the application toolbar on desktop. Record tabs retain their own row on mobile; an empty tab row has zero height. Notification menus remain viewport-bounded.
