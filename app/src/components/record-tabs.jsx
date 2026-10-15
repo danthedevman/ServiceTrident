@@ -1,5 +1,6 @@
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useResource } from '../data/use-resource.js';
-import React, { createContext, useContext, useId, useState } from 'react';
+import React, { createContext, useContext, useEffect, useId, useRef, useState } from 'react';
 
 export const ActivePanelContext = createContext(true);
 
@@ -17,24 +18,51 @@ export function RecordTabs({
   selectedId,
   onSelect,
 }) {
+  const location = useLocation(),
+    navigate = useNavigate();
+  const params = new URLSearchParams(location.search);
+  const relatedFromUrl = related ? params.get('related') : null;
   const scope = useContext(RelatedCountsContext);
   const counts = useResource(
     related && scope ? `/related-counts/${scope.kind}/${scope.id}` : null,
     60000,
   );
   const parentActive = useContext(ActivePanelContext);
+  const relatedSection = useRef(null);
   const [selected, setSelected] = useState(selectedId ?? tabs[0]?.id),
     prefix = useId();
   const [visited, setVisited] = useState(() => new Set([selectedId ?? tabs[0]?.id]));
   const select = (id) => {
+    if (relatedFromUrl) {
+      params.delete('related');
+      navigate(
+        {
+          pathname: location.pathname,
+          search: params.size ? `?${params}` : '',
+          hash: location.hash,
+        },
+        { replace: true },
+      );
+    }
     setSelected(id);
     onSelect?.(id);
     setVisited((current) => new Set([...current, id]));
   };
-  const requested = selectedId ?? selected;
+  const requested =
+    selectedId ?? (tabs.some((tab) => tab.id === relatedFromUrl) ? relatedFromUrl : selected);
   const active = tabs.some((tab) => tab.id === requested) ? requested : tabs[0]?.id;
+  useEffect(() => {
+    if (!related || !relatedFromUrl || active !== relatedFromUrl || !parentActive) return;
+    const frame = requestAnimationFrame(() =>
+      relatedSection.current?.scrollIntoView({ block: 'start', behavior: 'instant' }),
+    );
+    return () => cancelAnimationFrame(frame);
+  }, [related, relatedFromUrl, active, parentActive]);
   return (
-    <section className={related ? 'record-tabs related-lists' : 'record-tabs space-y-5'}>
+    <section
+      ref={relatedSection}
+      className={related ? 'record-tabs related-lists' : 'record-tabs space-y-5'}
+    >
       <div
         role="tablist"
         aria-label={label}

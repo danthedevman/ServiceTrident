@@ -5,7 +5,7 @@ import { ObjectId } from 'mongodb';
 import { onCall } from '@servicetrident/shared/domain/on-call';
 import { serviceHealth } from '@servicetrident/shared/domain/service-health';
 import { BUILTIN_FIELDS } from '@servicetrident/shared/forms/schema';
-import { monitorContext, relatedMonitorChecks } from './monitor-context.js';
+import { monitorContext, groupedCheckReferences } from './monitor-context.js';
 
 /** Reconcile monitor rollups and write durable, idempotent notification records. */
 export async function reconcileOperations(db, queue) {
@@ -40,8 +40,50 @@ export async function reconcileOperations(db, queue) {
         const existing = await db
           .collection('incidents')
           .findOne({ workspaceId: catalog._id, serviceId: service.id, activeAutomatic: true });
+        if (existing?.alertGroupUntil && +now < +new Date(existing.alertGroupUntil)) {
+          const grouped = groupedCheckReferences(
+            service.id,
+            catalog.services,
+            monitors,
+            now,
+            existing.triggeringChecks ?? [],
+          );
+          if (grouped.length !== (existing.triggeringChecks?.length ?? 0)) {
+            const updated = await db.collection('incidents').updateOne(
+              { _id: existing._id, workspaceId: catalog._id, revision: existing.revision },
+              {
+                $set: {
+                  triggeringChecks: grouped,
+                  updatedAt: now,
+                  updatedBy: 'System',
+                  updatedById: null,
+                },
+                $inc: { revision: 1 },
+              },
+            );
+            if (updated.modifiedCount) {
+              existing.triggeringChecks = grouped;
+              existing.revision++;
+              await writeAudit(db, {
+                workspaceId: catalog._id,
+                source: 'worker',
+                action: 'update',
+                recordType: 'incidents',
+                recordId: existing._id,
+                fields: 'triggeringChecks',
+                operation: 'Group related monitor checks',
+              });
+            }
+          }
+        }
         if (['down', 'degraded'].includes(state) && !existing && preferences.automaticIncidents) {
           try {
+            const triggeringChecks = groupedCheckReferences(
+              service.id,
+              catalog.services,
+              monitors,
+              now,
+            );
             const created = await db.collection('incidents').insertOne({
               _id: new ObjectId(),
               workspaceId: catalog._id,
@@ -54,22 +96,11 @@ export async function reconcileOperations(db, queue) {
                   : 'The service is flagged Down, or a monitor or dependency has confirmed an outage.',
               severity: state === 'degraded' ? 'medium' : 'high',
               status: 'open',
-              source: 'monitor',
+              source: triggeringChecks.length ? 'monitor' : 'automation',
               // Match immutable monitor/time pairs even if the event insert is still finishing.
-              triggeringChecks: relatedMonitorChecks(
-                service.id,
-                'impacted',
-                catalog.services,
-                monitors,
-                now,
-              )
-                .slice(0, 1000)
-                .map(({ monitor, service: checkedService }) => ({
-                  monitorId: String(monitor._id),
-                  checkedAt: monitor.lastCheck.checkedAt,
-                  monitorName: String(monitor.name ?? 'Monitor').slice(0, 200),
-                  serviceName: String(checkedService.name ?? '').slice(0, 200),
-                })),
+              triggeringChecks,
+              alertGrouping: 'service',
+              alertGroupUntil: new Date(+now + preferences.alertGroupingSeconds * 1000),
               createdBy: 'System',
               updatedBy: 'System',
               activeAutomatic: true,
@@ -154,6 +185,7 @@ export async function reconcileOperations(db, queue) {
           { status: 'resolved', notifiedResolved: { $ne: true } },
         ],
       })) {
+        if (incident.alertGroupUntil && +now < +new Date(incident.alertGroupUntil)) continue;
         for (const event of ['impacted', 'recovered']) {
           const flag = event === 'impacted' ? 'notifiedOpen' : 'notifiedResolved';
           if (incident[flag] || (event === 'recovered' && incident.status !== 'resolved')) continue;
@@ -186,6 +218,14 @@ export async function reconcileOperations(db, queue) {
                   resolutionCycle: cycle,
                   event,
                   monitorChecks: checks,
+                  ...(incident.alertGrouping === 'service'
+                    ? {
+                        alertGrouping: 'service',
+                        monitorCheckCount: new Set(
+                          (incident.triggeringChecks ?? []).map((check) => check.monitorId),
+                        ).size,
+                      }
+                    : {}),
                   status: 'pending',
                   attempts: 0,
                   createdAt: now,

@@ -221,7 +221,9 @@ export function IncidentBuilderPage({ kind = 'incidents' }) {
         ? '/incident-fields'
         : kind === 'tasks'
           ? '/task-fields'
-          : '/knowledge-fields';
+          : kind === 'rcas'
+            ? '/rca-fields'
+            : '/knowledge-fields';
   const resource = useResource(user?.role === 'admin' ? path : null);
   return (
     <div className="space-y-3">
@@ -251,6 +253,7 @@ export function IncidentBuilderPage({ kind = 'incidents' }) {
 /** Keep unsaved settings stable during background query refreshes. */
 function Builder({ initial, path, kind, onCancel }) {
   const [editing, setEditing] = useState(false);
+  const [informationRequest, setInformationRequest] = useState(0);
   const [snapshot, setSnapshot] = useState(initial);
   const [search, setSearch] = useState('');
   const [fieldView, setFieldView] = useState('active');
@@ -264,6 +267,7 @@ function Builder({ initial, path, kind, onCancel }) {
   /** Reveal the selected field without remounting or discarding the draft. */
   function selectField(id) {
     setSelected(id);
+    setInformationRequest((value) => value + 1);
     if (rightCollapsed) setPreference('rightCollapsed', false);
   }
   const save = useSave(),
@@ -367,6 +371,7 @@ function Builder({ initial, path, kind, onCancel }) {
       <RecordWorkspace
         showToolbar={false}
         label="Field settings"
+        informationRequest={informationRequest}
         sidebar={
           <section className="panel form-body p-6">
             <h2 className="font-semibold">{field ? field.label : 'Field Settings'}</h2>

@@ -35,7 +35,7 @@ export function installReferenceRoutes(app, db) {
       knowledgeBases: ['knowledgeBases', 'title'],
       monitors: ['monitors', 'name'],
     };
-    if (definitions[type]) {
+    if (Object.hasOwn(definitions, type)) {
       const [collection, label] = definitions[type];
       const base =
         type === 'members'

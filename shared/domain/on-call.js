@@ -45,8 +45,18 @@ export function validateShifts(shifts, memberIds, serviceIds) {
         !a.serviceIds.length ||
         !b.serviceIds.length ||
         a.serviceIds.some((id) => b.serviceIds.includes(id))
-      )
-        invalid('shifts', 'Coverage overlaps. Edit or remove the existing shift first.');
+      ) {
+        const start = a.start > b.start ? a.start : b.start;
+        const end = a.end < b.end ? a.end : b.end;
+        invalid(
+          'shifts',
+          `Coverage overlaps from ${start} to ${end} (UTC). ${
+            !a.serviceIds.length || !b.serviceIds.length
+              ? 'An All services shift covers every service, including selected services.'
+              : 'Both shifts cover at least one of the same services.'
+          } Edit the existing coverage on the calendar, choose different services, or start the next shift at or after the existing end.`,
+        );
+      }
     }
   return result;
 }

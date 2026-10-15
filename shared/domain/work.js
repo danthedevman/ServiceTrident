@@ -109,7 +109,7 @@ export function workQuery(query, workspaceId, kind) {
             assignmentGroupName: { $ifNull: ['$assignmentGroupName', 'Unassigned'] },
             assignee: { $ifNull: ['$assigneeName', 'Unassigned'] },
           }
-        : {}),
+        : { knowledgeBaseTitle: { $ifNull: ['$knowledgeBaseTitle', 'Unassigned'] } }),
     }),
   );
   if (query.status)

@@ -16,6 +16,7 @@ export async function members(db, workspaceId) {
         phone: 1,
         timeZone: 1,
         location: 1,
+        slackId: 1,
         role: 1,
         disabled: 1,
         workspaceId: 1,

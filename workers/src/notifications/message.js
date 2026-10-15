@@ -42,6 +42,12 @@ export function message(
     ['Title', incident.title],
     ['Service', incident.serviceName],
     ['Severity', severity],
+    ...(delivery.alertGrouping === 'service'
+      ? [
+          ['Alert group', 'Service outage'],
+          ['Affected monitors', delivery.monitorCheckCount ?? delivery.monitorChecks?.length ?? 0],
+        ]
+      : []),
     ...(includeIncident ? [['Incident', `View Incident (${incidentLink(incident)})`]] : []),
     [event === 'recovered' ? 'Original Description' : 'Description', incident.description],
     ...(event === 'recovered'

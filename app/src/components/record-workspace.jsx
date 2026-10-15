@@ -1,3 +1,5 @@
+import { Modal } from './modal.jsx';
+import { RecordExportActions } from './record-export-actions.jsx';
 import { DateTime } from '../preferences/date-time.jsx';
 import { ActivePanelContext, RelatedCountsContext } from './record-tabs.jsx';
 import { useRecordTabLabel } from './record-navigation.jsx';
@@ -9,16 +11,31 @@ import { StateBadge } from './state-badge.jsx';
 import { ReferenceValue } from './reference-value.jsx';
 import { RecordActionContext, RecordHeader, RecordRailContext } from './record-actions.jsx';
 import { recordNumber } from '../lib/record-number.js';
-import React, { useContext, useId, useLayoutEffect, useState } from 'react';
+import React, {
+  useContext,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import {
   PencilSquareIcon,
   AdjustmentsHorizontalIcon,
-  ChevronDoubleLeftIcon,
-  ChevronDoubleRightIcon,
+  InformationCircleIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline';
 import { useUiPreferences } from '../preferences/ui-preferences.jsx';
 import { useResource } from '../data/use-resource.js';
 import { displayValue } from '../lib/display-value.js';
+
+const narrowInfoQuery = () => window.matchMedia('(max-width: 1199px)').matches;
+const subscribeInfoViewport = (listener) => {
+  const query = window.matchMedia('(max-width: 1199px)');
+  query.addEventListener('change', listener);
+  return () => query.removeEventListener('change', listener);
+};
 
 /** Keep the form mounted while collapsing independently scrolling record information. */
 export function RecordWorkspace({
@@ -31,15 +48,29 @@ export function RecordWorkspace({
   actions,
   secondaryActions,
   status,
+  identityExtra,
+  exportPath,
   showToolbar = true,
+  informationRequest = 0,
 }) {
   useRecordTabLabel(item?.title || item?.name || item?.displayName);
   const { user } = useContext(AuthContext);
   const showFormBuilder =
-    user?.role === 'admin' && ['incidents', 'tasks', 'knowledge'].includes(kind);
+    user?.role === 'admin' && ['incidents', 'tasks', 'knowledge', 'rcas'].includes(kind);
   const preferences = useUiPreferences();
   const { setPreference } = preferences;
   const { collapsed, handle } = useRecordSidebarResize(preferences);
+  const narrowInfo = useSyncExternalStore(subscribeInfoViewport, narrowInfoQuery, () => false);
+  const [mobileInfoOpen, setMobileInfoOpen] = useState(false);
+  const infoExpanded = narrowInfo ? mobileInfoOpen : !collapsed;
+  const infoTrigger = useRef(null),
+    seenInformationRequest = useRef(informationRequest);
+  useEffect(() => {
+    // A field-selection request opens details; resizing alone must not open an overlay.
+    if (seenInformationRequest.current === informationRequest) return;
+    seenInformationRequest.current = informationRequest;
+    if (narrowInfo) setMobileInfoOpen(true);
+  }, [informationRequest, narrowInfo]);
   const id = useId();
   const registerRail = useContext(RecordRailContext),
     active = useContext(ActivePanelContext);
@@ -61,18 +92,18 @@ export function RecordWorkspace({
           ? 'enabled'
           : 'disabled'
         : null);
-  const Icon = collapsed ? ChevronDoubleLeftIcon : ChevronDoubleRightIcon;
   return (
     <div className="record-container">
       <div className="record-workspace">
         <div className="record-body min-w-0 space-y-2">
-          {showToolbar && (
+          {(showToolbar || (item?.id && kind) || sidebar) && (
             <RecordHeader>
               <div className="record-toolbar flex flex-wrap items-center justify-end gap-3">
                 <div className="flex flex-wrap items-center gap-2">
-                  {(showFormBuilder || secondaryActions) && (
+                  {(showFormBuilder || secondaryActions || (item?.id && kind)) && (
                     <ActionMenu label="Record actions">
                       {secondaryActions}
+                      <RecordExportActions kind={kind} item={item} path={exportPath} />
                       {showFormBuilder && (
                         <Link to={`/${kind}/fields`}>
                           <AdjustmentsHorizontalIcon className="h-5 w-5" aria-hidden="true" />
@@ -85,6 +116,26 @@ export function RecordWorkspace({
                     {onEdit && <EditRecordButton onClick={onEdit} />}
                     {actions}
                   </div>
+                  <button
+                    type="button"
+                    ref={infoTrigger}
+                    className={`record-info-toggle shrink-0 ${infoExpanded ? 'record-info-active' : ''}`}
+                    aria-expanded={infoExpanded}
+                    aria-controls={id}
+                    aria-label={
+                      infoExpanded ? 'Collapse record information' : 'Expand record information'
+                    }
+                    title={
+                      infoExpanded ? 'Collapse record information' : 'Expand record information'
+                    }
+                    onClick={() =>
+                      narrowInfo
+                        ? setMobileInfoOpen(!mobileInfoOpen)
+                        : setPreference('rightCollapsed', !collapsed)
+                    }
+                  >
+                    <InformationCircleIcon className="h-5 w-5" aria-hidden="true" />
+                  </button>
                 </div>
               </div>
             </RecordHeader>
@@ -99,6 +150,7 @@ export function RecordWorkspace({
                   {recordNumber(kind, item)}
                 </span>
                 {state && <StateBadge status={state} label={item?.statusLabel} />}
+                {identityExtra}
               </div>
             )}
             <RelatedCountsContext.Provider value={item?.id ? { kind, id: item.id } : null}>
@@ -106,31 +158,47 @@ export function RecordWorkspace({
             </RelatedCountsContext.Provider>
           </RecordActionContext.Provider>
         </div>
-        <aside aria-label={label} data-collapsed={collapsed} className="record-sidebar min-w-0">
-          <div
-            {...handle}
-            className="record-sidebar-resizer"
-            aria-controls={id}
-            title="Drag to resize; Arrow keys resize, Home collapses, End expands to maximum"
-          />
-          <div className="record-sidebar-header">
-            <button
-              type="button"
-              className="btn-secondary shrink-0"
-              aria-expanded={!collapsed}
+        {!narrowInfo && (
+          <aside aria-label={label} data-collapsed={collapsed} className="record-sidebar min-w-0">
+            <div
+              {...handle}
+              className="record-sidebar-resizer"
               aria-controls={id}
-              aria-label={collapsed ? 'Expand record information' : 'Collapse record information'}
-              title={collapsed ? 'Expand record information' : 'Collapse record information'}
-              onClick={() => setPreference('rightCollapsed', !collapsed)}
-            >
-              <Icon className="h-5 w-5" aria-hidden="true" />
-            </button>
-            {!collapsed && <h2 className="text-sm font-semibold">{label}</h2>}
-          </div>
-          <div id={id} hidden={collapsed} className="record-sidebar-content space-y-5">
-            {sidebar}
-          </div>
-        </aside>
+              title="Drag to resize; Arrow keys resize, Home collapses, End expands to maximum"
+            />
+            {!collapsed && (
+              <div className="record-sidebar-header">
+                <h2 className="min-w-0 flex-1 truncate text-sm font-semibold">{label}</h2>
+                <button
+                  type="button"
+                  className="task-icon-action shrink-0"
+                  aria-label={`Close ${label.toLowerCase()}`}
+                  title={`Close ${label.toLowerCase()}`}
+                  onClick={() => {
+                    setPreference('rightCollapsed', true);
+                    infoTrigger.current?.focus();
+                  }}
+                >
+                  <XMarkIcon className="h-5 w-5" aria-hidden="true" />
+                </button>
+              </div>
+            )}
+            <div id={id} hidden={collapsed} className="record-sidebar-content space-y-5">
+              {sidebar}
+            </div>
+          </aside>
+        )}
+        {narrowInfo && mobileInfoOpen && active && (
+          <Modal
+            title={label}
+            className="record-info-modal"
+            onClose={() => setMobileInfoOpen(false)}
+          >
+            <div id={id} className="space-y-5">
+              {sidebar}
+            </div>
+          </Modal>
+        )}
       </div>
     </div>
   );

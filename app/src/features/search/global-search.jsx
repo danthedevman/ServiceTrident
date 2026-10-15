@@ -27,6 +27,7 @@ export function GlobalSearch({ role, onClose }) {
       : [
           ['incidents', 'Incidents'],
           ['tasks', 'Tasks'],
+          ['rcas', 'RCAs'],
           ['knowledge', 'Knowledge'],
           ['services', 'Services'],
           ['collections', 'Collections'],

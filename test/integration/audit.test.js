@@ -103,6 +103,35 @@ test('audit history captures writes, failures and deletes without secrets and en
   assert.equal(exported.status, 200);
   assert.ok((await exported.text()).includes(id));
   assert.equal((await request('/tables/audit?sortBy=password', owner.cookie)).status, 400);
+  const retained = await request('/services', owner.cookie, 'POST', {
+    name: 'Export target',
+    description: 'PRIVATE EXPORT TEXT',
+  });
+  await request(`/services?recordExport=pdf&recordExportId=${retained.data.item.id}`, owner.cookie);
+  assert.ok(
+    await db
+      .collection('auditEvents')
+      .findOne({
+        action: 'export',
+        recordId: retained.data.item.id,
+        operation: 'GET /api/services (PDF record export)',
+      }),
+  );
+  await request(`/services?recordExport=pdf&recordExportId=${id}`, owner.cookie);
+  assert.ok(
+    await db
+      .collection('auditEvents')
+      .findOne({
+        action: 'export',
+        recordId: '',
+        operation: 'GET /api/services (PDF record export)',
+      }),
+  );
+  assert.ok(
+    !JSON.stringify(await db.collection('auditEvents').find({}).toArray()).includes(
+      'PRIVATE EXPORT TEXT',
+    ),
+  );
   await request('/auth/role', owner.cookie, 'POST', { role: 'viewer' });
   assert.equal((await request('/tables/audit', owner.cookie)).status, 403);
   assert.equal((await request('/tables/audit?export=csv', owner.cookie)).status, 403);

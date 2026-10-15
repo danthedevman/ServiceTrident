@@ -1,3 +1,4 @@
+import { AlertGroupingSettings } from './alert-grouping.jsx';
 import { PageTitle } from '../../components/page-title.jsx';
 import { UsersIcon, UserGroupIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 import { AuthContext } from '../../auth/auth-context.js';
@@ -51,6 +52,7 @@ function AdminSettings() {
   }
   return (
     <div className="space-y-6">
+      <AlertGroupingSettings />
       <section className="panel space-y-4 p-6">
         <h2 className="text-lg font-semibold">Audit Log</h2>
         <p>
@@ -83,11 +85,21 @@ function AdminSettings() {
       </section>
       <section className="panel space-y-4 p-6">
         <h2 className="text-lg font-semibold">Service Accounts</h2>
-        <p>Allow external integrations to create records with scoped API keys or OAuth client credentials.</p>
-        <Link className="btn-primary" to="/settings/service-accounts">Manage Service Accounts</Link>
+        <p>
+          Allow external integrations to create records with scoped API keys or OAuth client
+          credentials.
+        </p>
+        <Link className="btn-primary" to="/settings/service-accounts">
+          Manage Service Accounts
+        </Link>
       </section>
-      <section className="panel space-y-4 p-6">
+      <section id="demo-data" className="panel space-y-4 p-6">
         <h2 className="text-lg font-semibold">Demo Data</h2>
+        <p className="text-sm text-slate-500">
+          New batches include 50 linked RCAs alongside incidents, tasks, knowledge articles and
+          runbooks, plus six sample alerts in Notifications. Existing batches stay unchanged; delete
+          and re-add demo data to include newly supported types.
+        </p>
         <Notice error={resource.error || save.error || clientError} />
         {message && <p role="status">{message}</p>}
         {!resource.data ? (
@@ -96,15 +108,15 @@ function AdminSettings() {
           </p>
         ) : (
           <>
-            <p role="status">
-              {working
-                ? 'Updating demo data…'
-                : batch?.status === 'failed' || batch?.recoverable
+            {!working && (
+              <p role="status">
+                {batch?.status === 'failed' || batch?.recoverable
                   ? 'An interrupted operation needs cleanup. Use Delete demo data before adding again.'
                   : batch
                     ? 'Demo data is installed.'
                     : 'No demo data installed.'}
-            </p>
+              </p>
+            )}
             {batch && (
               <p className="text-sm text-slate-500">
                 Added by {batch.createdBy} · {<DateTime value={batch.createdAt} />}
@@ -116,7 +128,7 @@ function AdminSettings() {
                 disabled={save.busy || working || !!batch}
                 onClick={() => run('add')}
               >
-                {save.busy && !confirm ? 'Adding…' : 'Add Demo Data'}
+                Add Demo Data
               </button>
               <button
                 className="btn-danger"

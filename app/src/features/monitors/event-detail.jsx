@@ -310,8 +310,9 @@ function EventContent({ data, loading, error }) {
                       <span>Connected IP: {response.remoteAddress ?? 'Not recorded'}</span>
                       <span>Headers received: {response.headersMs ?? '—'} ms</span>
                     </div>
-                    <h3 className="mt-6 text-sm font-semibold">Response Headers</h3>
-                    <HeaderTable headerSet={String(index)} />
+                    <div className="mt-6">
+                      <HeaderTable headerSet={String(index)} />
+                    </div>
                     <h3 className="mt-6 text-sm font-semibold">Response Body</h3>
                     {response.body ? (
                       <>

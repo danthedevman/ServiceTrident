@@ -1,3 +1,4 @@
+import { Notifications } from './notifications.jsx';
 import { RecordRailContext } from '../components/record-actions.jsx';
 import {
   RecordNavigationProvider,
@@ -30,14 +31,15 @@ import { ErrorNotice } from '../components/feedback.jsx';
 export function Layout() {
   const location = useLocation();
   const [tabHeight, setTabHeight] = useState(0);
+  const [navigationActions, setNavigationActions] = useState(null);
   const dashboardPage = ['/', '/dashboard'].includes(location.pathname);
   const recordPage =
     location.pathname === '/profile' ||
     location.pathname.startsWith('/records/') ||
     /^\/monitors\/[a-f0-9]{24}\/events\/[a-f0-9]{24}\/?$/.test(location.pathname) ||
-    /^\/(incidents|tasks|knowledge)\/fields\/?$/.test(location.pathname) ||
+    /^\/(incidents|tasks|rcas|knowledge)\/fields\/?$/.test(location.pathname) ||
     /^\/knowledge\/bases\/[a-f0-9]{24}\/?$/.test(location.pathname) ||
-    /^\/(incidents|tasks|knowledge|services|collections|monitors|groups|integrations|workspace|on-call)\/(?!new(?:\/|$)|fields(?:\/|$)|articles(?:\/|$)|ai(?:\/|$))[^/]+\/?$/.test(
+    /^\/(incidents|tasks|rcas|knowledge|services|collections|monitors|groups|integrations|workspace|on-call)\/(?!new(?:\/|$)|fields(?:\/|$)|articles(?:\/|$)|ai(?:\/|$))[^/]+\/?$/.test(
       location.pathname,
     );
   const formPage = /\/(new|invite|password|settings|ai)(?:\/|$)/.test(location.pathname);
@@ -51,6 +53,7 @@ export function Layout() {
     '/monitors',
     '/incidents',
     '/tasks',
+    '/rcas',
     '/knowledge',
     '/knowledge/articles',
     '/groups',
@@ -93,9 +96,10 @@ export function Layout() {
         style={{ '--record-tabs-height': `${tabHeight}px` }}
         data-nav-collapsed={collapsed}
         data-record-tabs-visible={recordLayout && tabHeight > 0 ? true : undefined}
-        className={`min-h-screen ${collapsed ? 'md:pl-20' : 'md:pl-72'}`}
+        className={`min-h-screen ${collapsed ? 'md:pl-16' : 'md:pl-72'}`}
       >
         <Sidebar
+          toolbarTarget={navigationActions}
           user={user}
           logout={logout}
           busy={busy || sessionLoading}
@@ -103,6 +107,13 @@ export function Layout() {
           setCollapsed={changeCollapsed}
           renderBrand={(compact) => <Logo compact={compact} />}
         />
+        <header className="app-topbar" aria-label="Application toolbar">
+          <RecordNavigationBar onHeightChange={setTabHeight} />
+          <div className="topnav-actions">
+            <div ref={setNavigationActions} className="topnav-global-actions" />
+            {!sessionLoading && user && <Notifications key={`${user.id}:${user.role}`} />}
+          </div>
+        </header>
         <main
           id="main"
           data-record-collapsed={
@@ -113,12 +124,11 @@ export function Layout() {
           }
         >
           <RolePreview banner />
-          <RecordNavigationBar onHeightChange={setTabHeight} />
           <div
             className={`record-sticky-header${dashboardPage ? ' dashboard-header' : ''}${recordLayout && tabHeight > 0 ? ' record-header-with-tabs' : ''}`}
           >
             {!dashboardPage && <Breadcrumbs resolveNames={!sessionLoading} />}
-            <div ref={setRecordHeader} />
+            <div ref={setRecordHeader} className="record-header-actions" />
           </div>
           <ErrorNotice>{error}</ErrorNotice>
           <RecordRailContext.Provider value={registerRail}>

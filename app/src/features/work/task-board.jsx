@@ -1,3 +1,4 @@
+import { RecordExportActions } from '../../components/record-export-actions.jsx';
 import { useBoardDragScroll } from './use-board-drag-scroll.js';
 import { PageTitle } from '../../components/page-title.jsx';
 import {
@@ -12,8 +13,12 @@ import {
 } from '@heroicons/react/24/outline';
 import { ActionMenu } from '../../components/action-menu.jsx';
 import { AdjustmentsHorizontalIcon } from '@heroicons/react/24/outline';
-import { RecordHeader } from '../../components/record-actions.jsx';
-import React, { useContext, useEffect, useRef, useState } from 'react';
+import {
+  RecordHeaderContext,
+  RecordActionContext,
+  RecordHeader,
+} from '../../components/record-actions.jsx';
+import React, { useContext, useEffect, useRef, useState, lazy, Suspense } from 'react';
 import { Link } from 'react-router-dom';
 import { AuthContext } from '../../auth/auth-context.js';
 import { Select } from '../../components/forms/select.jsx';
@@ -22,6 +27,14 @@ import { Skeleton } from '../../components/skeleton.jsx';
 import { useResource, useInfiniteResource } from '../../data/use-resource.js';
 import { queryClient, writeApi } from '../../data/query-client.js';
 import { fieldChoices, optionLabel } from '../../../../shared/forms/form-options.js';
+import { recordFields } from '../../../../shared/forms/form-options.js';
+import { Modal } from '../../components/modal.jsx';
+import { RecordLink } from '../../components/record-navigation.jsx';
+import { TaskDetails } from './task-details.jsx';
+
+const TaskEditor = lazy(() =>
+  import('./work.jsx').then((module) => ({ default: module.WorkEditor })),
+);
 
 /** Lanes load continuously in bounded requests; writes use saved revisions. */
 export function TaskBoard({ serviceId, incidentId }) {
@@ -43,6 +56,7 @@ export function TaskBoard({ serviceId, incidentId }) {
     ...available.filter((lane) => !(boardSettings.data?.order ?? []).includes(lane.id)),
   ];
   const [search, setSearch] = useState('');
+  const [openedTask, setOpenedTask] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [announcement, setAnnouncement] = useState('');
@@ -177,8 +191,8 @@ export function TaskBoard({ serviceId, incidentId }) {
             {error || schema.error || boardSettings.error}
           </p>
         )}
-        <p role="status" className={busy ? 'text-sm' : 'sr-only'}>
-          {busy ? 'Saving board changes…' : announcement}
+        <p role="status" className="sr-only">
+          {announcement}
         </p>
       </div>
       <div
@@ -206,10 +220,173 @@ export function TaskBoard({ serviceId, incidentId }) {
             draggedLane={draggedLane}
             setDraggedLane={setDraggedLane}
             reorderLane={reorderLane}
+            onOpen={setOpenedTask}
           />
         ))}
       </div>
+      {openedTask && (
+        <TaskDialog
+          id={openedTask}
+          canEdit={canEdit}
+          schema={schema.data}
+          onClose={() => setOpenedTask(null)}
+        />
+      )}
     </div>
+  );
+}
+
+/** Fetch only the selected task; closing keeps lane scroll, filters, and card state intact. */
+function TaskDialog({ id, schema, canEdit, onClose }) {
+  const resource = useResource(`/tasks/${id}`, 30000);
+  const item = resource.data?.item;
+  const [editing, setEditing] = useState(false),
+    [busy, setBusy] = useState(false),
+    [dirty, setDirty] = useState(false),
+    [discardTo, setDiscardTo] = useState(null),
+    [toolbar, setToolbar] = useState(null);
+  const keepEditing = useRef(null);
+  useEffect(() => {
+    if (!canEdit) {
+      setEditing(false);
+      setDirty(false);
+    }
+  }, [canEdit]);
+  const leave = (target) => {
+    if (busy) return;
+    if (editing && dirty) {
+      setDiscardTo(target);
+      return;
+    }
+    if (target === 'dialog') onClose();
+    else {
+      setEditing(false);
+      void resource.refresh();
+    }
+  };
+  const visibleFields =
+    item && schema
+      ? recordFields(schema.fields, item.fields).filter((field) => !field.archived)
+      : [];
+  return (
+    <>
+      <Modal
+        title={item?.title || 'Task'}
+        onClose={() => leave('dialog')}
+        busy={busy}
+        className="task-preview-modal"
+        footerBorder={!editing}
+        footer={
+          editing ? (
+            <div ref={setToolbar} />
+          ) : (
+            <>
+              <button type="button" className="btn-secondary" onClick={onClose}>
+                Close
+              </button>
+              {item && (
+                <ActionMenu label="Task actions">
+                  <RecordExportActions kind="tasks" item={item} />
+                </ActionMenu>
+              )}
+              {item && canEdit && (
+                <button type="button" className="btn-primary" onClick={() => setEditing(true)}>
+                  Edit
+                </button>
+              )}
+              {item && (
+                <RecordLink
+                  to={`/tasks/${id}`}
+                  recordLabel={item.title}
+                  className="btn-secondary"
+                  onClick={onClose}
+                >
+                  Open Record
+                </RecordLink>
+              )}
+            </>
+          )
+        }
+      >
+        {resource.error && (
+          <p role="alert" className="text-rose-700 dark:text-rose-300">
+            {resource.error}
+          </p>
+        )}
+        {item ? (
+          editing ? (
+            <RecordHeaderContext.Provider value={null}>
+              <RecordActionContext.Provider value={toolbar}>
+                <Suspense
+                  fallback={
+                    <div aria-busy="true">
+                      <Skeleton className="h-64 w-full" />
+                    </div>
+                  }
+                >
+                  <TaskEditor
+                    kind="tasks"
+                    focusTitle
+                    item={item}
+                    onClose={() => leave('view')}
+                    onSaved={() => {
+                      setEditing(false);
+                      setDirty(false);
+                    }}
+                    onBusyChange={setBusy}
+                    onDirtyChange={setDirty}
+                  />
+                </Suspense>
+              </RecordActionContext.Provider>
+            </RecordHeaderContext.Provider>
+          ) : (
+            <TaskDetails item={item} visibleFields={visibleFields} />
+          )
+        ) : (
+          !resource.error && (
+            <div aria-busy="true" className="space-y-4">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-48 w-full" />
+            </div>
+          )
+        )}
+      </Modal>
+      {discardTo && (
+        <Modal
+          title="Discard Task Changes?"
+          onClose={() => setDiscardTo(null)}
+          initialFocusRef={keepEditing}
+          footer={
+            <>
+              <button
+                type="button"
+                className="btn-primary"
+                ref={keepEditing}
+                onClick={() => setDiscardTo(null)}
+              >
+                Keep Editing
+              </button>
+              <button
+                type="button"
+                className="btn-danger"
+                onClick={() => {
+                  const target = discardTo;
+                  setDiscardTo(null);
+                  setDirty(false);
+                  setEditing(false);
+                  if (target === 'dialog') onClose();
+                  else void resource.refresh();
+                }}
+              >
+                Discard Changes
+              </button>
+            </>
+          }
+        >
+          <p>Your unsaved task changes will be discarded.</p>
+        </Modal>
+      )}
+    </>
   );
 }
 
@@ -230,6 +407,7 @@ function TaskLane({
   draggedLane,
   setDraggedLane,
   reorderLane,
+  onOpen,
 }) {
   const [over, setOver] = useState(false);
   const [dropTarget, setDropTarget] = useState(null);
@@ -404,6 +582,27 @@ function TaskLane({
             <article
               key={item.id}
               data-task-id={item.id}
+              onClick={(event) => {
+                if (
+                  event.defaultPrevented ||
+                  event.button !== 0 ||
+                  event.metaKey ||
+                  event.ctrlKey ||
+                  event.shiftKey ||
+                  event.altKey ||
+                  dragged ||
+                  busy
+                )
+                  return;
+                if (
+                  event.target.closest(
+                    'a,button,input,select,textarea,label,[role="button"],[role="combobox"],[role="menu"]',
+                  )
+                )
+                  return;
+                if (window.getSelection()?.toString()) return;
+                onOpen(item.id);
+              }}
               className={`task-card ${dragged?.id === item.id ? 'task-drag-source' : ''} ${dropTarget?.id === item.id ? `task-card-drop-${dropTarget.side}` : ''}`}
               onDragOver={(event) => {
                 if (!allowed || dragged.id === item.id || draggedLane) return;
@@ -454,6 +653,18 @@ function TaskLane({
               <Link
                 className="font-medium text-blue-700 hover:underline dark:text-blue-300"
                 to={`/tasks/${item.id}`}
+                onClick={(event) => {
+                  if (
+                    event.button !== 0 ||
+                    event.metaKey ||
+                    event.ctrlKey ||
+                    event.shiftKey ||
+                    event.altKey
+                  )
+                    return;
+                  event.preventDefault();
+                  onOpen(item.id);
+                }}
               >
                 {item.title}
               </Link>
@@ -536,9 +747,9 @@ function TaskLane({
         )}
         <div ref={sentinel} aria-hidden="true" className="h-px" />
         {resource.data && resource.pending && (
-          <p role="status" className="text-sm text-slate-500">
-            Loading more tasks…
-          </p>
+          <div aria-busy="true">
+            <Skeleton className="h-20 w-full" />
+          </div>
         )}
         {resource.error && resource.hasMore && (
           <button className="btn-secondary" onClick={resource.loadMore}>

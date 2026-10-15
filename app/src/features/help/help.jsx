@@ -25,6 +25,11 @@ const guides = {
     'Set up your workspace and create your first service',
   ],
   services: [ServerStackIcon, 'Services', 'Organize ownership, collections, and dependencies'],
+  rcas: [
+    BookOpenIcon,
+    'Root Cause Analyses and Alert Grouping',
+    'Analyze incidents, track corrective work, and group related alerts',
+  ],
   monitoring: [SignalIcon, 'Monitoring', 'Configure Endpoint Checks and Understand Results'],
   incidents: [
     ExclamationTriangleIcon,
@@ -37,7 +42,11 @@ const guides = {
     'Impersonation and Role Preview',
     'Preview permissions and understand how actions affect your workspace',
   ],
-  'service-accounts': [PuzzlePieceIcon, 'Service Accounts and External API', 'Create scoped credentials for external record creation'],
+  'service-accounts': [
+    PuzzlePieceIcon,
+    'Service Accounts and External API',
+    'Create scoped credentials for external record creation',
+  ],
   integrations: [PuzzlePieceIcon, 'Integrations', 'Connect communication and ticketing tools'],
   'status-page': [GlobeAltIcon, 'Status pages', 'Publish updates and configure subscriptions'],
   configuration: [
@@ -85,7 +94,7 @@ export function HelpPage() {
       <div className="grid items-start gap-6 lg:grid-cols-[13rem_minmax(0,1fr)] lg:gap-8">
         <nav
           aria-label="Help topics"
-          className="flex gap-1 overflow-x-auto pb-2 lg:sticky lg:top-6 lg:flex-col lg:overflow-visible"
+          className="help-topic-nav flex gap-1 overflow-x-auto pb-2 lg:sticky lg:top-4 lg:flex-col"
         >
           <Link
             to="/help"

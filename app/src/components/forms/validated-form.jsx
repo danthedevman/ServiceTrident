@@ -1,3 +1,4 @@
+import { monitorIntervalMinutes } from '../../../../shared/validation/monitor-interval.js';
 import { notify } from '../../data/toast.js';
 import React, { useEffect, useId, useRef, useState } from 'react';
 import { fieldErrors, controlError } from '../../../../shared/validation/form-validation.js';
@@ -46,9 +47,10 @@ export function ValidatedForm({ kind, onSubmit, children, ...props }) {
     const form = new FormData(event.currentTarget);
     const input = Object.fromEntries(form);
     if (kind === 'monitor' || kind === 'monitor-create') {
-      input.intervalMinutes = form.get('intervalMinutes')?.trim()
-        ? Number(form.get('intervalMinutes'))
-        : NaN;
+      input.intervalMinutes = monitorIntervalMinutes(
+        form.get('intervalMinutes'),
+        form.get('intervalUnit') || 'minutes',
+      );
       input.followRedirects = form.get('followRedirects') === 'true';
     }
     for (const field of ['dependencyIds', 'collectionIds', 'serviceIds'])

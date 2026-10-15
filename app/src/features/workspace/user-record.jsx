@@ -1,3 +1,4 @@
+import { useResource } from '../../data/use-resource.js';
 import { ValidatedForm } from '../../components/forms/validated-form.jsx';
 import { Link } from 'react-router-dom';
 import { notify } from '../../data/toast.js';
@@ -18,6 +19,7 @@ import { USER_DETAIL_FIELDS, userDetails } from '../../../../shared/domain/user-
 
 /** One directory record layout for profiles and workspace members; private controls are self-only. */
 export function UserRecord({ member }) {
+  const communication = useResource('/communication-options', 30000);
   const { user } = useContext(AuthContext);
   const own = member.id === user?.id;
   const [editing, setEditing] = useState(false);
@@ -40,7 +42,9 @@ export function UserRecord({ member }) {
       ) : (
         <section className="record-details">
           <dl className="grid gap-5 sm:grid-cols-2">
-            {USER_DETAIL_FIELDS.map((field) => (
+            {USER_DETAIL_FIELDS.filter(
+              (field) => !field.communication || communication.data?.[field.communication],
+            ).map((field) => (
               <div key={field.key}>
                 <dt>{field.label}</dt>
                 <dd>
@@ -86,6 +90,7 @@ export function UserRecord({ member }) {
 
 /** Validate shared contact fields on both client and server while keeping access controls separate. */
 function UserDetailsForm({ member, own, onClose }) {
+  const communication = useResource('/communication-options', 30000);
   const { user } = useContext(AuthContext);
   const admin = user?.role === 'admin';
   const save = useSave();
@@ -125,7 +130,9 @@ function UserDetailsForm({ member, own, onClose }) {
       }}
     >
       <Notice error={save.error || Object.values(errors)[0]} />
-      {USER_DETAIL_FIELDS.map((field) => (
+      {USER_DETAIL_FIELDS.filter(
+        (field) => !field.communication || communication.data?.[field.communication],
+      ).map((field) => (
         <Field
           key={field.key}
           name={field.key}

@@ -46,6 +46,10 @@ test(
       }),
       owner = registered.cookie,
       workspaceId = new ObjectId(registered.data.user.id);
+    // This suite exercises immediate delivery; grouping windows have their own regression suite.
+    await db
+      .collection('users')
+      .updateOne({ _id: workspaceId }, { $set: { 'workspaceSettings.alertGroupingSeconds': 0 } });
     const other = (
       await request('/auth/register', null, 'POST', {
         displayName: 'Test user',
@@ -151,9 +155,12 @@ test(
       (await request('/incidents', teammate, 'POST', { ...input, custom: {} })).status,
       400,
     );
-    const created = await request('/incidents', teammate, 'POST', input);
+    const created = await request('/incidents', teammate, 'POST', {...input, source: 'monitor', sourceAccountId: String(workspaceId)});
     assert.equal(created.status, 201);
     const incident = created.data.incident;
+    assert.equal(incident.source, 'manual');
+    assert.equal(incident.sourceAccountId, undefined);
+    assert.equal((await request('/incidents?source=manual', teammate)).data.total, 1);
     assert.equal((await request(`/incidents/${incident.id}`, other)).status, 404);
     assert.equal((await request('/incidents', other)).data.total, 0);
     assert.equal(
@@ -306,6 +313,12 @@ test(
       1,
     );
     const automatic = await db.collection('incidents').findOne({ activeAutomatic: true });
+    assert.equal(automatic.source, 'monitor');
+    const origin = await request(`/incidents/${automatic._id}`, teammate);
+    assert.ok(origin.data.origin.some(row => row.href === `/monitors/${monitorId}`));
+    assert.ok(origin.data.origin.some(row => row.href?.endsWith(`/events/${triggerEventId}`)));
+    assert.equal((await request('/incidents?source=monitor', teammate)).data.total, 1);
+    assert.equal((await request('/incidents?searchColumn=source&search=Monitor', teammate)).data.total, 1);
     assert.equal(automatic.assigneeId, joined.data.user.id);
     assert.equal(automatic.triggeringChecks.length, 1);
     const eventsPath = `/tables/incident-monitor-events?recordId=${automatic._id}&sortBy=checkedAt&order=desc`;

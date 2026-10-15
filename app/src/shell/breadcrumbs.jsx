@@ -1,3 +1,4 @@
+import { historyParent, historyBreadcrumbs, recordAncestors } from '../lib/navigation-context.js';
 import React from 'react';
 import { onCallLabel } from '../lib/on-call-label.js';
 import { dashboardReport } from '../../../shared/domain/dashboard-reports.js';
@@ -12,6 +13,7 @@ const sections = {
   settings: 'Settings',
   incidents: 'Incidents',
   tasks: 'Tasks',
+  rcas: 'RCAs',
   knowledge: 'Knowledge Bases',
   services: 'Services',
   collections: 'Collections',
@@ -43,7 +45,7 @@ export function Breadcrumbs({ resolveNames = true }) {
     nested &&
     id &&
     !['new', 'fields', 'invite', 'settings', 'articles', 'bases', 'ai'].includes(id)
-      ? ['monitors', 'incidents', 'tasks', 'knowledge'].includes(kind)
+      ? ['monitors', 'incidents', 'tasks', 'rcas', 'knowledge'].includes(kind)
         ? `/${kind}/${id}`
         : catalog
           ? kind === 'workspace'
@@ -60,6 +62,30 @@ export function Breadcrumbs({ resolveNames = true }) {
       : basePath && action && action !== 'new'
         ? `/knowledge-bases/${action}`
         : path,
+  );
+  const query = new URLSearchParams(search);
+  const historyContext = kind === 'records' ? historyParent(id, query) : null;
+  const history = useResource(
+    resolveNames && kind === 'records' && action
+      ? `/table-records/${encodeURIComponent(id)}/${encodeURIComponent(action)}${search}`
+      : null,
+  );
+  const historyRecord = useResource(resolveNames && historyContext ? historyContext.path : null);
+  const currentEvent = useResource(
+    resolveNames && kind === 'monitors' && action === 'events' ? pathname : null,
+  );
+  const articleRecord =
+    kind === 'knowledge' && id && !['new', 'fields', 'articles', 'bases', 'ai'].includes(id);
+  const articleCreate = kind === 'knowledge' && id === 'new';
+  const articleBaseId = articleRecord
+    ? data?.item?.knowledgeBaseId
+    : articleCreate && /^[a-f0-9]{24}$/i.test(query.get('knowledgeBaseId') || '')
+      ? query.get('knowledgeBaseId')
+      : historyContext?.kind === 'knowledge'
+        ? historyRecord.data?.item?.knowledgeBaseId
+        : null;
+  const articleBase = useResource(
+    resolveNames && articleBaseId ? `/knowledge-bases/${encodeURIComponent(articleBaseId)}` : null,
   );
   const coverageRecord = resolveNames && kind === 'on-call' && id && id !== 'new';
   const coverageMembers = useResource(coverageRecord ? '/members' : null);
@@ -81,6 +107,7 @@ export function Breadcrumbs({ resolveNames = true }) {
   const nouns = {
     incidents: 'incident',
     tasks: 'task',
+    rcas: 'RCA',
     knowledge: 'article',
     services: 'service',
     collections: 'collection',
@@ -92,26 +119,34 @@ export function Breadcrumbs({ resolveNames = true }) {
   };
   const noun = nouns[kind] || 'record',
     crumbs = [{ label: sections[kind], to: `/${kind}` }];
-  if (kind === 'records') {
-    crumbs[0] = {
-      to: id === 'audit' ? '/settings/audit' : undefined,
-      label:
-        {
-          audit: 'Audit Log',
-          activity: 'Activity',
-          comments: 'Discussion',
-          deliveries: 'Delivery Logs',
-          invitations: 'Invitations',
-          inquiries: 'Hosting Inquiries',
-          attachments: 'Attachments',
-          headers: 'Headers',
-          demo: 'Demo Record Type',
-        }[id] || 'Record',
-    };
-    crumbs.push({ label: 'Details' });
-  }
+  if (articleRecord || articleCreate)
+    crumbs.splice(
+      0,
+      crumbs.length,
+      ...recordAncestors(
+        'knowledge',
+        articleRecord
+          ? data?.item
+          : articleBase.data?.item
+            ? { knowledgeBaseId: articleBaseId, knowledgeBaseTitle: articleBase.data.item.title }
+            : {},
+        articleBase.data?.item,
+      ),
+    );
+  if (kind === 'records')
+    crumbs.splice(
+      0,
+      crumbs.length,
+      ...historyBreadcrumbs(
+        id,
+        history.data?.item,
+        historyContext,
+        historyRecord.data,
+        articleBase.data?.item,
+      ),
+    );
   if (directory) crumbs.unshift({ label: 'Settings', to: '/settings' });
-  if (kind === 'monitors') crumbs.unshift({ label: 'Services', to: '/services' });
+  if (kind === 'collections') crumbs.unshift({ label: 'Services', to: '/services' });
   if (basePath)
     crumbs.push({ label: action === 'new' ? 'Create Knowledge Base' : name || 'Knowledge Base' });
   else if (kind === 'knowledge' && id === 'articles') crumbs.push({ label: 'All Articles' });
@@ -152,7 +187,11 @@ export function Breadcrumbs({ resolveNames = true }) {
       crumbs.length,
       { label: 'Events', to: '/events' },
       { label: name || 'Monitor', to: `/monitors/${id}` },
-      { label: 'Check Event' },
+      {
+        label: currentEvent.data?.event?.number
+          ? `Event ${currentEvent.data.event.number}`
+          : 'Check Event',
+      },
     );
   return (
     <nav aria-label="Breadcrumb">

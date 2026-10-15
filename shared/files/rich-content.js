@@ -1,11 +1,14 @@
+/* eslint-disable no-control-regex -- Explicitly reject unsafe control bytes at input boundaries. */
 import { InputError } from '../validation/input-error.js';
 
 const imagePath = /^\/api\/attachments\/files\/([a-f0-9]{24})\/preview$/;
 /** Accept only web links; never execute scripts, load local files, or embed external images. */
 export function safeLink(value) {
-  if (typeof value !== 'string' || value.length > 2048) return false;
+  if (typeof value !== 'string' || value.length > 2048 || /[\u0000-\u001f\u007f]/.test(value))
+    return false;
   try {
-    return ['http:', 'https:'].includes(new URL(value).protocol);
+    const url = new URL(value);
+    return ['http:', 'https:'].includes(url.protocol) && !url.username && !url.password;
   } catch {
     return false;
   }

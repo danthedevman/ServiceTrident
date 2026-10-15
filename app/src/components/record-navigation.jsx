@@ -50,6 +50,7 @@ const RecordNavigationContext = createContext(null);
 const names = {
   incidents: 'Incident',
   tasks: 'Task',
+  rcas: 'RCA',
   knowledge: 'Knowledge',
   services: 'Service',
   collections: 'Collection',
@@ -69,7 +70,7 @@ export function recordTabKey(location) {
   if (/^\/monitors\/[a-f\d]{24}\/events\/[a-f\d]{24}\/?$/i.test(path)) return path;
   if (/^\/knowledge\/bases\/(?:[a-f\d]{24}|new)\/?$/i.test(path)) return path;
   if (
-    /^\/(incidents|tasks|knowledge|services|collections|monitors|groups|integrations|workspace|on-call)\/(?:[a-f\d]{24}|new)(?:\/(?:edit|password))?\/?$/i.test(
+    /^\/(incidents|tasks|rcas|knowledge|services|collections|monitors|groups|integrations|workspace|on-call)\/(?:[a-f\d]{24}|new)(?:\/(?:edit|password))?\/?$/i.test(
       path,
     )
   )
@@ -109,7 +110,7 @@ function restoreTabs(owner) {
           key,
           to: url.pathname + url.search,
           label:
-            typeof stored?.label === 'string' ? stored.label.slice(0, 100) : fallbackLabel(url),
+            typeof stored?.label === 'string' ? stored.label.slice(0, 512) : fallbackLabel(url),
           relatedTo: typeof stored?.relatedTo === 'string' ? stored.relatedTo.slice(0, 100) : '',
           dirty: false,
         });
@@ -243,12 +244,16 @@ export function RecordNavigationProvider({ children, owner }) {
   );
   const rename = useCallback(
     (tabKey, label) => {
-      if (!label || !current.current.some((tab) => tab.key === tabKey && tab.label !== label))
+      const boundedLabel = String(label || '')
+        .trim()
+        .slice(0, 512);
+      if (
+        !boundedLabel ||
+        !current.current.some((tab) => tab.key === tabKey && tab.label !== boundedLabel)
+      )
         return;
       update((list) =>
-        list.map((tab) =>
-          tab.key === tabKey ? { ...tab, label: String(label).slice(0, 100) } : tab,
-        ),
+        list.map((tab) => (tab.key === tabKey ? { ...tab, label: boundedLabel } : tab)),
       );
     },
     [update],
@@ -390,9 +395,11 @@ export function useRecordTabLabel(label) {
     location = useLocation();
   const key = recordTabKey(location),
     rename = navigation?.rename;
+  // A loaded record can mount before its navigation entry is registered. Retry on registration.
+  const registered = navigation?.tabs.some((tab) => tab.key === key);
   useLayoutEffect(() => {
     if (key && rename && label) rename(key, label);
-  }, [key, rename, label]);
+  }, [key, rename, label, registered]);
 }
 
 /** Cache routed elements with their original location/params; inactive records keep drafts but contribute no header portals. */
@@ -606,6 +613,7 @@ function TabIcon({ to }) {
     Incident: ExclamationTriangleIcon,
     Event: BoltIcon,
     Task: ClipboardDocumentCheckIcon,
+    RCA: DocumentTextIcon,
     Service: ServerStackIcon,
     Collection: Square3Stack3DIcon,
     Monitor: SignalIcon,

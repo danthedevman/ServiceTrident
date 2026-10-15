@@ -12,6 +12,7 @@ export function installSearchRoute(app, db) {
         'all',
         'incidents',
         'tasks',
+        'rcas',
         'knowledge',
         'services',
         'collections',
@@ -77,6 +78,14 @@ export function installSearchRoute(app, db) {
             : undefined,
     );
     if (!limited) {
+      search(
+        'rcas',
+        'rcas',
+        { workspaceId, status: { $ne: 'archived' } },
+        ['title', 'summary'],
+        'RCA',
+        (row) => `/rcas/${row._id}`,
+      );
       search(
         'tasks',
         'tasks',

@@ -181,7 +181,17 @@ export function installWorkRoutes(app, db, machine = null) {
             'Created UTC',
             'Updated UTC',
           ]
-        : ['ID', 'Title', 'Status', 'Service', 'Summary', 'Content', 'Created UTC', 'Updated UTC'];
+        : [
+            'ID',
+            'Title',
+            'Status',
+            'Knowledge Base',
+            'Service',
+            'Summary',
+            'Content',
+            'Created UTC',
+            'Updated UTC',
+          ];
       res.type('text/csv; charset=utf-8').attachment(`${kind}.csv`);
       async function* rows() {
         try {
@@ -206,6 +216,7 @@ export function installWorkRoutes(app, db, machine = null) {
                   String(row._id),
                   row.title,
                   row.statusLabel || row.status,
+                  row.knowledgeBaseTitle,
                   row.serviceName,
                   row.summary,
                   row.content,

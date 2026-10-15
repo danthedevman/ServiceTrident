@@ -1,3 +1,4 @@
+/* eslint-disable no-control-regex -- Explicitly reject unsafe control bytes at input boundaries. */
 import { InputError } from './input-error.js';
 
 /** Return one field error in the same format as existing forms. */
@@ -17,6 +18,8 @@ export function text(value, field, max = 200, required = true) {
   if (required && (value == null || (typeof value === 'string' && !value.trim())))
     invalid(field, `${label} is required.`);
   if (typeof value !== 'string') invalid(field, `${label} must be text.`);
+  if (/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(value))
+    invalid(field, `${label} contains unsupported control characters.`);
   if (value.trim().length > max) invalid(field, `${label} must be ${max} characters or fewer.`);
   return value.trim();
 }

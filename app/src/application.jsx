@@ -1,3 +1,4 @@
+import { RcaList, RcaPage } from './features/work/rcas.jsx';
 import { TableRecordPage } from './features/records/table-record.jsx';
 import { IdentityProvidersPage } from './features/settings/identity-providers.jsx';
 import { ServiceAccountsPage } from './features/settings/service-accounts.jsx';
@@ -210,6 +211,7 @@ export function App() {
                   }
                 />
 
+                <Route path="rcas/fields" element={<IncidentBuilderPage kind="rcas" />} />
                 <Route path="tasks/fields" element={<IncidentBuilderPage kind="tasks" />} />
                 <Route path="knowledge/fields" element={<IncidentBuilderPage kind="knowledge" />} />
                 <Route
@@ -248,6 +250,23 @@ export function App() {
                   element={<WorkDetail key="article" kind="knowledge" />}
                 />
                 <Route path="groups" element={<GroupsPage />} />
+                <Route
+                  path="rcas"
+                  element={
+                    <div className="list-page">
+                      <RcaList />
+                    </div>
+                  }
+                />
+                <Route
+                  path="rcas/new"
+                  element={
+                    <ResponderOnly page>
+                      <RcaPage create />
+                    </ResponderOnly>
+                  }
+                />
+                <Route path="rcas/:id" element={<RcaPage />} />
                 <Route path="incidents" element={<IncidentsPage />} />
                 <Route
                   path="incidents/new"

@@ -1,3 +1,4 @@
+/* eslint-disable no-control-regex -- Explicitly reject unsafe control bytes at input boundaries. */
 /** Return all field errors together, shared by browser forms and server validation.
  * @param {'auth'|'register'|'profile'|'monitor'|'monitor-create'|'services'|'collections'|'status'} kind
  * @param {object} input @returns {Record<string, string>}
@@ -11,6 +12,11 @@ export function fieldErrors(kind, input = {}) {
     const value = input[name];
     if (required && (typeof value !== 'string' || !value.trim()))
       errors[name] = `${label} is required.`;
+    else if (
+      typeof value === 'string' &&
+      /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(value)
+    )
+      errors[name] = `${label} contains unsupported control characters.`;
     else if (value !== undefined && (typeof value !== 'string' || value.trim().length > max))
       errors[name] = `${label} must be ${max} characters or fewer.`;
   }
@@ -19,6 +25,7 @@ export function fieldErrors(kind, input = {}) {
       errors.email = 'Email address is required.';
     else if (
       input.email.trim().length > 254 ||
+      /[\u0000-\u001f\u007f]/.test(input.email) ||
       !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email.trim())
     )
       errors.email = 'Enter a valid email address, such as you@example.com.';
@@ -84,7 +91,10 @@ export function fieldErrors(kind, input = {}) {
       input.intervalMinutes < 1 ||
       input.intervalMinutes > 1440
     )
-      errors.intervalMinutes = 'Check interval must be a whole number from 1 to 1,440 minutes.';
+      errors.intervalMinutes =
+        input.intervalUnit === 'hours'
+          ? 'Use 1 minute to 24 hours in whole-minute increments, such as 1.5 hours.'
+          : 'Check interval must be a whole number from 1 to 1,440 minutes.';
     if (!['GET', 'HEAD'].includes(input.method === undefined ? 'GET' : input.method))
       errors.method = 'Choose GET or HEAD.';
     if (typeof (input.followRedirects ?? false) !== 'boolean' || input.followRedirects === null)
@@ -144,7 +154,14 @@ export function controlError({
   const text = String(value).trim();
   if (required && (type === 'checkbox' ? !checked : !text)) return `${label} is required.`;
   if (!text || ['checkbox', 'radio'].includes(type)) return '';
-  if (type === 'email' && (text.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text)))
+  if (type !== 'password' && /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(String(value)))
+    return `${label} contains unsupported control characters.`;
+  if (
+    type === 'email' &&
+    (text.length > 254 ||
+      /[\u0000-\u001f\u007f]/.test(text) ||
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text))
+  )
     return 'Enter a valid email address, such as you@example.com.';
   if (type === 'url') {
     try {

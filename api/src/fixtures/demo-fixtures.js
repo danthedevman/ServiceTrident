@@ -1,3 +1,4 @@
+import { validateRca, RCA_FIELDS, RCA_STATUSES } from '@servicetrident/shared/domain/rca';
 import { randomBytes } from 'node:crypto';
 import { ObjectId } from 'mongodb';
 import { DEMO_COUNT } from '@servicetrident/shared/domain/demo-data';
@@ -128,6 +129,7 @@ export function demoFixtures(workspaceId, actor, batchId, config, passwordHash, 
       'monitors',
       'incidents',
       'tasks',
+      'rcas',
       'articles',
       'knowledgeBases',
       'groups',
@@ -149,6 +151,7 @@ export function demoFixtures(workspaceId, actor, batchId, config, passwordHash, 
     events: [],
     incidents: [],
     tasks: [],
+    rcas: [],
     articles: [],
     knowledgeBases: [],
     incidentComments: [],
@@ -156,6 +159,7 @@ export function demoFixtures(workspaceId, actor, batchId, config, passwordHash, 
     deliveries: [],
   };
   const schemas = {
+    rcas: config.rcaFields || RCA_FIELDS,
     incidents: config.fields || BUILTIN_FIELDS,
     tasks: config.taskFields || workBuiltinFields('tasks'),
     knowledge: config.knowledgeFields || workBuiltinFields('knowledge'),
@@ -326,6 +330,35 @@ export function demoFixtures(workspaceId, actor, batchId, config, passwordHash, 
       custom: customValues(schemas.tasks),
       attachmentIds: [],
     });
+    const rca = validateRca({
+      title: `${name}: ${scenario.issue.toLowerCase()} analysis`,
+      status: ['draft', 'in_review', 'completed'][i % 3],
+      summary: `${scenario.issue} affected ${name}. The team reviewed the response and identified preventative follow-up work.`,
+      impact: scenario.impact,
+      timeline: `${stamp(i).createdAt.toISOString()}: Impact identified and response started.\n${new Date(+stamp(i).createdAt + 15 * 60000).toISOString()}: Mitigation reviewed and service checks verified.`,
+      rootCause: [
+        'Connection pool capacity did not match peak request concurrency, causing requests to wait for available connections.',
+        'Signing-key propagation lagged behind token issuance during rotation, causing intermittent validation failures.',
+        'A release introduced a request-handling regression that was not covered by the deployment checks.',
+        'Retry traffic exceeded worker throughput and delayed queued customer updates.',
+        'A dependent service exceeded its response deadline and exhausted the caller’s retry budget.',
+      ][i % 5],
+      contributingFactors: `${scenario.check} Alert thresholds and rollout checks did not identify the risk early enough.`,
+      correctiveActions: `${scenario.action} Add a regression check and track the linked corrective-action task to completion.`,
+      lessonsLearned:
+        'Keep service ownership and runbooks current, validate rollback steps, and review alert coverage after recovery.',
+      incidentIds: [String(incident._id)],
+      taskIds: [String(ids.tasks[i])],
+    });
+    result.rcas.push({
+      ...stamp(i),
+      _id: ids.rcas[i],
+      workspaceId,
+      ...rca,
+      statusLabel: RCA_STATUSES[rca.status],
+      fields: schemas.rcas.filter((field) => field.type !== 'builtin'),
+      custom: customValues(schemas.rcas),
+    });
     const articleType = i % 2 ? 'runbook' : 'article';
     const steps =
       articleType === 'runbook'
@@ -415,8 +448,10 @@ export function demoFixtures(workspaceId, actor, batchId, config, passwordHash, 
           kind === 'comment'
             ? `We are investigating ${scenario.issue.toLowerCase()} affecting ${name}. We will share another update after confirming the scope and mitigation.`
             : `${scenario.check} ${scenario.action} Preserve relevant logs and record the timeline before making changes.`,
-        authorId: String(actor._id),
-        author: actor.email,
+        authorId: String(ids.users[i]),
+        author: person,
+        // Six fresh in-app examples target the seeding admin; no email deliveries are queued.
+        ...(i < 3 ? { createdAt: now, alertRecipientIds: [String(actor._id)] } : {}),
         recipientIds: [],
         notificationsQueued: true,
       });

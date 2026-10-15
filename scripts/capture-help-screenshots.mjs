@@ -1,10 +1,14 @@
+import { DEMO_TYPES, DEMO_COUNT } from '../shared/domain/demo-data.js';
+import { monitorIntervalMinutes } from '../shared/validation/monitor-interval.js';
+import { validateRca, RCA_FIELDS } from '../shared/domain/rca.js';
+import { workspaceSettings } from '../shared/domain/workspace-settings.js';
 import { AI_DEMO_EXAMPLES } from '../shared/domain/ai-chat.js';
 import { dateTime } from '../app/src/lib/date-time.js';
 import { validateWork } from '../shared/domain/work.js';
 import { uiPreferences } from '../shared/domain/ui-preferences.js';
 import { validateRichContent } from '../shared/files/rich-content.js';
 /** Capture the real UI with fully synthetic responses; no API request reaches a backend. */
-import { mkdir } from 'node:fs/promises';
+import { mkdir, readFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { resolve } from 'node:path';
 import assert from 'node:assert/strict';
@@ -14,6 +18,12 @@ import { rankBetween, taskRank } from '../shared/domain/task-board.js';
 const { chromium } = await import(
   process.env.PLAYWRIGHT_MODULE ? pathToFileURL(process.env.PLAYWRIGHT_MODULE).href : 'playwright'
 );
+const incidentListSources = [];
+const monitorIntervalSaves = [];
+let knowledgeFailPage = 0;
+const knowledgePages = [];
+let rcaFields = RCA_FIELDS;
+let rcaRevision = 0;
 const base = process.env.HELP_CAPTURE_URL || 'http://127.0.0.1:5173';
 const output = resolve(process.env.HELP_CAPTURE_OUTPUT || 'app/public/help');
 await mkdir(output, { recursive: true });
@@ -29,6 +39,37 @@ const context = await browser.newContext({
 });
 const page = await context.newPage();
 page.setDefaultTimeout(15000);
+const captureScreenshot = page.screenshot.bind(page);
+// Record documentation shows the reading area; panel behavior is tested separately.
+page.screenshot = async (options) => {
+  if (options?.path?.endsWith('/failure.png')) return captureScreenshot(options);
+  const collapse = page.locator(
+    '.record-sticky-header button[aria-label="Collapse record information"]',
+  );
+  const restore = (await collapse.count()) > 0;
+  if (restore) await collapse.evaluate((button) => button.click());
+  try {
+    await page.evaluate(() => {
+      for (const menu of document.querySelectorAll('.action-menu:popover-open')) {
+        const trigger = [...document.querySelectorAll('[aria-controls]')].find(
+          (node) => node.getAttribute('aria-controls') === menu.id,
+        );
+        if (!trigger) continue;
+        const anchor = trigger.getBoundingClientRect(),
+          bounds = menu.getBoundingClientRect();
+        menu.style.left = `${Math.max(8, Math.min(anchor.right - bounds.width, innerWidth - bounds.width - 8))}px`;
+        menu.style.top = `${Math.max(8, Math.min(anchor.bottom + 6, innerHeight - bounds.height - 8))}px`;
+      }
+    });
+    return await captureScreenshot(options);
+  } finally {
+    if (restore)
+      await page
+        .locator('.record-sticky-header button[aria-label="Expand record information"]')
+        .evaluate((button) => button.click());
+  }
+};
+
 const faults = [];
 page.on('pageerror', (error) => faults.push(error.message));
 const demoAuditRows = Array.from({ length: 12 }, (_, i) => ({
@@ -180,10 +221,18 @@ const demoIncident = {
   fields: [],
   timeline: [],
   source: 'monitor',
+  createdBy: 'System',
+  createdAt: '2026-10-10T16:05:00Z',
+  updatedAt: '2026-10-10T16:06:00Z',
   monitorTriggersRecorded: true,
   hasMonitorEvents: true,
 };
 let incidentWrites = 0;
+let demoComments = [];
+let detailedEvent = false;
+const demoRcas = [];
+let workspaceConfig = workspaceSettings(),
+  workspaceRevision = 0;
 const demoBases = [
   {
     id: 'cccccccccccccccccccccccc',
@@ -236,13 +285,55 @@ demoBases.forEach((row, index) => {
 });
 demoServiceNow.number = 'INT0000001';
 const recordRequests = [];
+let watcherUserIds = [],
+  watcherGroupIds = [];
 await context.route('**/api/**', async (route) => {
   const request = route.request();
   const url = new URL(request.url());
   const path = url.pathname.slice(4);
   recordRequests.push(path);
   let data = {};
-  if (path.startsWith('/related-counts/'))
+  if (path === '/communication-options') data = { slack: true };
+  else if (path === '/notifications')
+    data = {
+      notifications: [
+        {
+          id: 'notice-one',
+          incidentId: demoIncident.id,
+          title: demoIncident.title,
+          number: demoIncident.number,
+          author: 'Morgan Lee',
+          kind: 'comment',
+          unread: true,
+          createdAt: '2026-10-15T11:30:00Z',
+        },
+      ],
+      checkedAt: new Date().toISOString(),
+    };
+  else if (path === '/notifications/read') data = { ok: true };
+  else if (path === `/incidents/${demoIncident.id}/collaboration`)
+    data = {
+      members: [
+        { id: user.id, label: user.displayName, staff: true },
+        { id: 'abcabcabcabcabcabcabcabc', label: 'Morgan Lee', staff: true },
+      ],
+      groups: [{ id: 'defdefdefdefdefdefdefdef', label: 'Response team' }],
+      watcherUserIds,
+      watcherGroupIds,
+      revision: 0,
+    };
+  else if (path === `/incidents/${demoIncident.id}/watchers`) {
+    const body = request.postDataJSON();
+    assert.ok(Array.isArray(body.watcherUserIds));
+    watcherUserIds = body.watcherUserIds;
+    watcherGroupIds = body.watcherGroupIds;
+    data = { ok: true };
+  } else if (path === `/incidents/${demoIncident.id}/comments`) {
+    const body = request.postDataJSON();
+    assert.ok(body.body.includes('@Morgan Lee'));
+    assert.deepEqual(body.mentionIds, ['abcabcabcabcabcabcabcabc']);
+    data = { ok: true };
+  } else if (path.startsWith('/related-counts/'))
     data = {
       counts: {
         incidents: 1,
@@ -251,6 +342,7 @@ await context.route('**/api/**', async (route) => {
         monitors: 2,
         events: path.startsWith('/related-counts/monitors/') ? 2 : 30,
         discussion: 0,
+        rcas: demoRcas.length,
         attachments: 0,
         activity: 1,
         'monitor-events': 1,
@@ -258,7 +350,56 @@ await context.route('**/api/**', async (route) => {
         deliveries: 2,
       },
     };
-  else if (path === '/event-metrics')
+  else if (path === '/settings/workspace') {
+    if (request.method() === 'PUT') {
+      workspaceConfig = request.postDataJSON().settings;
+      workspaceRevision++;
+    }
+    data = { settings: workspaceConfig, revision: workspaceRevision, monitorCount: 2 };
+  } else if (path === '/rca-fields') {
+    if (request.method() === 'PUT') {
+      rcaFields = validateFields(request.postDataJSON().fields, rcaFields, RCA_FIELDS, 'rcas');
+      rcaRevision++;
+    }
+    data = { fields: rcaFields, revision: rcaRevision };
+  } else if (path === '/rcas' && request.method() === 'POST') {
+    const input = {
+      ...validateRca(request.postDataJSON()),
+      custom: request.postDataJSON().custom ?? {},
+      fields: rcaFields.filter((field) => field.type !== 'builtin'),
+    };
+    const item = {
+      ...input,
+      id: 'fafafafafafafafafafafafa',
+      number: 'RCA0000001',
+      revision: 0,
+      createdBy: user.displayName,
+      createdAt: '2026-10-10T17:05:06Z',
+      updatedAt: '2026-10-10T17:05:06Z',
+    };
+    demoRcas.push(item);
+    data = { item };
+  } else if (path.startsWith('/rcas/')) {
+    const item = demoRcas.find((row) => row.id === path.split('/').at(-1));
+    if (request.method() === 'PATCH') {
+      Object.assign(item, validateRca(request.postDataJSON()));
+      item.revision++;
+    }
+    data = {
+      item,
+      incidents: item.incidentIds.includes(demoIncident.id) ? [demoIncident] : [],
+      tasks: tasks.filter((row) => item.taskIds.includes(row.id)),
+    };
+  } else if (path === '/tables/rcas') {
+    data = {
+      rows: demoRcas.filter((row) =>
+        url.searchParams.get('status')
+          ? row.status === url.searchParams.get('status')
+          : row.status !== 'archived',
+      ),
+      total: demoRcas.length,
+    };
+  } else if (path === '/event-metrics')
     data = {
       outcomes: [
         { status: 'up', count: 24, durationTotal: 4800, durationCount: 24 },
@@ -273,16 +414,40 @@ await context.route('**/api/**', async (route) => {
     };
   else if (path === '/incident-fields')
     data = { fields: [...BUILTIN_FIELDS, ...visibilityFields], revision: 0 };
-  else if (path === '/incidents')
-    data = { incidents: [demoIncident], total: 1, page: 1, pageSize: 50 };
-  else if (path === `/incidents/${demoIncident.id}`) {
+  else if (path === '/incidents') {
+    incidentListSources.push(url.searchParams.get('source'));
+    const rows =
+      !url.searchParams.get('source') || url.searchParams.get('source') === demoIncident.source
+        ? [demoIncident]
+        : [];
+    data = { incidents: rows, total: rows.length, page: 1, pageSize: 50 };
+  } else if (path === `/incidents/${demoIncident.id}`) {
     if (request.method() === 'PATCH') {
       incidentWrites++;
       demoIncident.status = request.postDataJSON().statusOption;
       demoIncident.statusOption = demoIncident.status;
       demoIncident.revision++;
     }
-    data = { incident: demoIncident, knowledge: [], comments: [] };
+    data = {
+      incident: demoIncident,
+      knowledge: [],
+      comments: demoComments,
+      origin:
+        user.role === 'user'
+          ? undefined
+          : [
+              {
+                key: 'monitor',
+                label: `Monitor: ${monitors[0].name}`,
+                href: `/monitors/${monitors[0].id}`,
+              },
+              {
+                key: 'event',
+                label: 'Event: EVT0000001',
+                href: `/monitors/${monitors[0].id}/events/cdcdcdcdcdcdcdcdcdcdcdcd`,
+              },
+            ],
+    };
   } else if (path === '/ai/settings') {
     if (request.method() === 'PUT') {
       const body = request.postDataJSON();
@@ -442,6 +607,18 @@ await context.route('**/api/**', async (route) => {
         builderFields.find((field) => field.id === 'status'),
       ).find((choice) => choice.value === body.statusOption).base;
     }
+    for (const key of [
+      'title',
+      'description',
+      'dueDate',
+      'serviceId',
+      'assigneeId',
+      'assignmentGroupId',
+      'incidentId',
+      'priorityOption',
+      'custom',
+    ])
+      if (Object.hasOwn(body, key)) item[key] = body[key];
     if (body.boardPosition) {
       const target = tasks.find((task) => task.id === body.boardPosition.targetId);
       const others = tasks
@@ -470,7 +647,21 @@ await context.route('**/api/**', async (route) => {
           .toLowerCase()
           .includes((url.searchParams.get('search') || '').toLowerCase()),
       );
-      data = { items: matches, total: matches.length, page: 1, pageSize: 25 };
+      const pageNumber = Number(url.searchParams.get('page') || 1);
+      knowledgePages.push(pageNumber);
+      if (pageNumber === knowledgeFailPage) {
+        knowledgeFailPage = 0;
+        return route.fulfill({
+          status: 503,
+          json: { error: 'Unable to load more knowledge bases.' },
+        });
+      }
+      data = {
+        items: matches.slice((pageNumber - 1) * 25, pageNumber * 25),
+        total: matches.length,
+        page: pageNumber,
+        pageSize: 25,
+      };
     }
   } else if (path.startsWith('/knowledge-bases/'))
     data = {
@@ -505,7 +696,7 @@ await context.route('**/api/**', async (route) => {
           id: 'edededededededededededed',
           userId: user.id,
           serviceIds: [services[0].id],
-          start: '2026-10-11T08:00:00Z',
+          start: '2026-10-11T08:00:56.789Z',
           end: '2026-10-12T08:00:00Z',
         },
       ],
@@ -586,13 +777,28 @@ await context.route('**/api/**', async (route) => {
       createdById: user.id,
     };
     data = path === '/settings/service-accounts' ? { items: [item] } : { item };
-  } else if (path === '/settings/demo-data') data = { batch: null };
+  } else if (path === '/settings/demo-data')
+    data = {
+      batch: null,
+      types: DEMO_TYPES.map(([key, label]) => ({ key, label, count: DEMO_COUNT })),
+    };
   else if (path === '/settings/marketing') data = { available: false };
   else if (path.startsWith('/public/identity-providers/'))
     data = {
       providers: [
         { id: demoIdentity.id, name: demoIdentity.name, provider: demoIdentity.provider },
       ],
+    };
+  else if (path.startsWith('/table-records/activity/'))
+    data = {
+      item: {
+        id: path.split('/').pop(),
+        at: '2026-10-15T11:00:00Z',
+        by: 'Morgan Lee',
+        note: 'Service health reviewed.',
+      },
+      fields: ['at', 'by', 'note'],
+      dateColumn: 'at',
     };
   else if (path.startsWith('/table-records/audit/')) {
     const item = demoAuditRows.find((row) => row.id === path.split('/').pop());
@@ -674,8 +880,20 @@ await context.route('**/api/**', async (route) => {
   else if (path === `/monitors/${monitors[0].id}/check` && request.method() === 'POST') {
     monitors[0].manualCheckPending = true;
     return route.fulfill({ status: 202, json: { monitor: monitors[0] } });
-  } else if (path === `/monitors/${monitors[0].id}`) data = { monitor: monitors[0] };
-  else if (path.startsWith(`/monitors/${monitors[0].id}/events/`))
+  } else if (path === `/monitors/${monitors[0].id}`) {
+    if (request.method() === 'PATCH') {
+      const body = request.postDataJSON();
+      monitorIntervalSaves.push(body.intervalMinutes);
+      assert.ok(
+        Number.isInteger(body.intervalMinutes) &&
+          body.intervalMinutes >= 1 &&
+          body.intervalMinutes <= 1440,
+      );
+      assert.equal(body.intervalUnit, undefined);
+      Object.assign(monitors[0], body);
+    }
+    data = { monitor: monitors[0] };
+  } else if (path.startsWith(`/monitors/${monitors[0].id}/events/`))
     data = {
       monitor: { id: monitors[0].id, name: monitors[0].name, serviceId: monitors[0].serviceId },
       event: {
@@ -685,6 +903,24 @@ await context.route('**/api/**', async (route) => {
         status: 'down',
         statusCode: 503,
         durationMs: 210,
+        details: detailedEvent
+          ? {
+              method: 'GET',
+              requestedUrl: 'https://status.example.invalid/health',
+              finalUrl: 'https://status.example.invalid/health',
+              followRedirects: true,
+              responses: [
+                {
+                  url: 'https://status.example.invalid/health',
+                  statusCode: 503,
+                  statusMessage: 'Service Unavailable',
+                  httpVersion: '1.1',
+                  headersMs: 12,
+                  body: { text: 'Temporarily unavailable', bytesCaptured: 23, truncated: false },
+                },
+              ],
+            }
+          : null,
       },
       incidents: [
         {
@@ -714,6 +950,8 @@ await context.route('**/api/**', async (route) => {
     const size = Number(url.searchParams.get('pageSize') || 10),
       start = (Number(url.searchParams.get('page') || 1) - 1) * size;
     data = { rows: demoAuditRows.slice(start, start + size), total: demoAuditRows.length };
+  } else if (path === '/tables/headers') {
+    data = { rows: [{ id: 'content-type', name: 'content-type', value: 'text/plain' }], total: 1 };
   } else if (path.startsWith('/tables/')) {
     if (path === '/tables/events') {
       const rows = Array.from({ length: 30 }, (_, index) => ({
@@ -802,7 +1040,15 @@ await context.route('**/api/**', async (route) => {
       page: Number(url.searchParams.get('page') || 1),
       pageSize: Number(url.searchParams.get('pageSize') || 10),
     };
-  } else if (path.startsWith('/references/')) data = { options: [], selected: [], hasMore: false };
+  } else if (path === '/references/tasks')
+    data = {
+      options: tasks.map((row) => ({ id: row.id, label: row.title })),
+      selected: tasks
+        .filter((row) => (url.searchParams.get('selected') || '').includes(row.id))
+        .map((row) => ({ id: row.id, label: row.title })),
+      hasMore: false,
+    };
+  else if (path.startsWith('/references/')) data = { options: [], selected: [], hasMore: false };
   else if (path === '/auth/preferences') {
     user.uiPreferences = uiPreferences({ ...user.uiPreferences, ...request.postDataJSON() });
     data = { preferences: user.uiPreferences };
@@ -817,7 +1063,606 @@ await context.route(
   (url) => url.origin !== new URL(base).origin,
   (route) => route.abort(),
 );
+/** Focused synthetic capture also runs as part of the full browser regression suite. */
+async function captureRcaWorkflows() {
+  user.role = 'admin';
+  await page.goto(`${base}/`);
+  await page.locator('.app-topbar').getByRole('button', { name: 'Create', exact: true }).click();
+  const createModal = page.getByRole('dialog', { name: 'Create', exact: true });
+  await createModal.locator('a[href="/rcas/new"]').waitFor();
+  await page.screenshot({ path: `${output}/global-create-rca.png` });
+  await createModal.locator('a[href="/rcas/new"]').click();
+  await page.getByLabel('Title', { exact: true }).fill('Checkout outage root cause review');
+  await page
+    .getByLabel('Summary', { exact: true })
+    .fill('Review the service interruption and corrective work.');
+  await page
+    .getByLabel('Root Cause', { exact: true })
+    .fill('A missing connection timeout exhausted the request pool.');
+  await page
+    .getByLabel('Corrective Actions', { exact: true })
+    .fill('Add bounded timeouts and verify recovery checks.');
+  await page.getByRole('combobox', { name: 'Related Incidents', exact: true }).click();
+  await page
+    .getByRole('option', { name: `INC0000001 · ${demoIncident.title}`, exact: true })
+    .click();
+  await page.keyboard.press('Escape');
+  await page.getByRole('combobox', { name: 'Corrective Action Tasks', exact: true }).click();
+  await page.getByRole('option', { name: tasks[0].title, exact: true }).click();
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await page.waitForURL('**/rcas/fafafafafafafafafafafafa');
+  await page.locator('.rca-reader h1').waitFor();
+  await page.screenshot({ path: `${output}/rca-record.png` });
+  await page
+    .getByRole('link', {
+      name: `${tasks[0].number ? `${tasks[0].number} · ` : ''}${tasks[0].title}`,
+      exact: true,
+    })
+    .waitFor();
+  await page.setViewportSize({ width: 390, height: 844 });
+  const lastRcaLink = page.getByRole('link', {
+    name: `${tasks[0].number ? `${tasks[0].number} · ` : ''}${tasks[0].title}`,
+    exact: true,
+  });
+  await lastRcaLink.scrollIntoViewIfNeeded();
+  const rcaBottom = await lastRcaLink.boundingBox();
+  assert.ok(
+    rcaBottom.y >= 0 && rcaBottom.y + rcaBottom.height <= 844,
+    'RCA records remain scrollable on mobile',
+  );
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await page.goto(`${base}/rcas`);
+  await page.getByRole('link', { name: 'RCA0000001', exact: true }).waitFor();
+  await page.getByRole('link', { name: 'Create', exact: true }).waitFor();
+  await page.screenshot({ path: `${output}/rca-list.png` });
+  await page.getByRole('link', { name: 'Create', exact: true }).click();
+  await page.waitForURL('**/rcas/new?*');
+  await page.getByLabel('Title', { exact: true }).waitFor();
+  await page.goto(`${base}/rcas/fields`);
+  await page.getByRole('button', { name: 'Edit', exact: true }).click();
+  await page.getByRole('button', { name: 'Add Custom Field', exact: true }).click();
+  await page.getByLabel('Label', { exact: true }).fill('Detection gap');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await page.getByText('Form saved.', { exact: true }).waitFor();
+  await page.screenshot({ path: `${output}/rca-form-builder.png` });
+  await page.goto(`${base}/rcas/new`);
+  await page.getByLabel('Detection gap', { exact: true }).fill('Missing timeout alert');
+  // Restore the fixture so the remaining captures use the default form.
+  rcaFields = RCA_FIELDS;
+  await page.goto(`${base}/settings`);
+  const groupingWindow = page.getByLabel('Alert grouping window (seconds)', { exact: true });
+  await groupingWindow.waitFor();
+  assert.equal(await groupingWindow.inputValue(), '30');
+  await groupingWindow.fill('0');
+  await page
+    .getByRole('heading', { name: 'Alert Grouping', exact: true })
+    .locator('..')
+    .getByRole('button', { name: 'Save', exact: true })
+    .click();
+  await page.getByText('Alert grouping saved.', { exact: true }).waitFor();
+  assert.equal(workspaceConfig.alertGroupingSeconds, 0);
+  await groupingWindow.fill('30');
+  await page.screenshot({ path: `${output}/alert-grouping-settings.png` });
+}
+
+async function captureNavigation() {
+  user.role = 'admin';
+  const originalBases = structuredClone(demoBases);
+  for (let index = 0; index < 60; index++)
+    demoBases.push({
+      id: (index + 500).toString(16).padStart(24, 'f'),
+      title: `Navigation base ${index}`,
+      description: 'Knowledge navigation fixture.',
+    });
+  knowledgeFailPage = 2;
+  await page.goto(`${base}/knowledge`);
+  await page.getByRole('link', { name: /^Navigation base 0/ }).waitFor();
+  await page.locator('.list-outlet').evaluate((el) => {
+    el.scrollTop = el.scrollHeight;
+  });
+  await page.getByRole('button', { name: 'Retry', exact: true }).waitFor();
+  assert.equal(await page.locator('.list-outlet a.panel').count(), 25);
+  await page.getByRole('button', { name: 'Retry', exact: true }).click();
+  await page.waitForFunction(() => document.querySelectorAll('.list-outlet a.panel').length >= 50);
+  await page.locator('.list-outlet').evaluate((el) => {
+    el.scrollTop = el.scrollHeight;
+  });
+  await page.getByRole('link', { name: /^Navigation base 59/ }).waitFor();
+  assert.ok(knowledgePages.includes(3));
+  await page.getByLabel('Search Knowledge Bases', { exact: true }).fill('Navigation base 59');
+  await page.waitForFunction(() => document.querySelectorAll('.list-outlet a.panel').length === 1);
+  demoBases.splice(0, demoBases.length, ...originalBases);
+  if (!demoArticles.length) await captureRecordExports();
+  const article = demoArticles[0],
+    originalArticle = structuredClone(article);
+  article.knowledgeBaseId = demoBases[0].id;
+  article.knowledgeBaseTitle = demoBases[0].title;
+  await page.goto(`${base}/knowledge/${article.id}`);
+  const crumbs = page.getByRole('navigation', { name: 'Breadcrumb', exact: true });
+  await crumbs.getByRole('link', { name: demoBases[0].title, exact: true }).waitFor();
+  assert.equal(
+    await crumbs.getByRole('link', { name: 'Knowledge Bases', exact: true }).getAttribute('href'),
+    '/knowledge',
+  );
+  assert.equal(
+    await crumbs.getByRole('link', { name: demoBases[0].title, exact: true }).getAttribute('href'),
+    `/knowledge/bases/${demoBases[0].id}`,
+  );
+  article.knowledgeBaseId = null;
+  article.knowledgeBaseTitle = null;
+  await page.reload();
+  await crumbs.getByRole('link', { name: 'All Articles', exact: true }).waitFor();
+  Object.assign(article, originalArticle);
+  await page.goto(`${base}/records/activity/abababababababababababac?recordId=${demoIncident.id}`);
+  await page
+    .getByRole('navigation', { name: 'Breadcrumb' })
+    .getByRole('link', { name: 'Activity', exact: true })
+    .click();
+  await page.getByRole('tab', { name: /^Activity/, selected: true }).waitFor();
+  await page.setViewportSize({ width: 1440, height: 720 });
+  await page.goto(`${base}/help?topic=configuration`);
+  const nav = page.getByRole('navigation', { name: 'Help topics' });
+  await nav.waitFor();
+  const root = page.locator('.page-scroll-area');
+  const before = await root.evaluate((el) => el.scrollTop);
+  await nav.hover();
+  await page.mouse.wheel(0, 400);
+  await page.waitForFunction(() => document.querySelector('.help-topic-nav').scrollTop > 0);
+  assert.equal(await root.evaluate((el) => el.scrollTop), before);
+  await root.evaluate((el) => {
+    el.scrollTop += 400;
+  });
+  await nav.getByRole('link', { name: 'Common questions', exact: true }).scrollIntoViewIfNeeded();
+  const bounds = await nav.boundingBox();
+  assert.ok(bounds.y >= 0 && bounds.y + bounds.height <= 720);
+  await page.screenshot({ path: `${output}/help-navigation.png` });
+  await page.setViewportSize({ width: 1440, height: 960 });
+}
+
+async function captureOverview() {
+  user.role = 'admin';
+  await page.goto(`${base}/`);
+  await page.getByRole('heading', { name: 'My Assignments', exact: true }).waitFor();
+  assert.equal(await page.getByRole('heading', { name: 'Your Work', exact: true }).count(), 0);
+  assert.equal(
+    await page
+      .getByText('Start with your active assignments, then review work shared with your team.', {
+        exact: true,
+      })
+      .count(),
+    0,
+  );
+  assert.equal(
+    await page.locator('[aria-label="Assignment overview"] .assignment-report').count(),
+    4,
+  );
+  await page.screenshot({ path: `${output}/dashboard-overview.png` });
+  await page.screenshot({ path: `${output}/readme-dashboard-dark.png` });
+  await page.setViewportSize({ width: 390, height: 844 });
+  const last = page.locator('[aria-label="Assignment overview"] .assignment-report').last();
+  await last.scrollIntoViewIfNeeded();
+  const bounds = await last.boundingBox();
+  assert.ok(
+    bounds.x >= 0 && bounds.x + bounds.width <= 390 && bounds.y + bounds.height <= 844,
+    'Assignment panels remain within the mobile viewport and scroll into view',
+  );
+  await page.setViewportSize({ width: 1440, height: 960 });
+}
+
+async function captureCollaboration() {
+  user.role = 'admin';
+  await page.goto(`${base}/incidents/${demoIncident.id}`);
+  await page.getByRole('tab', { name: 'Comments and work notes', exact: true }).click();
+  assert.equal(
+    await page
+      .locator('.app-topbar')
+      .getByText('Detect, Respond, Resolve', { exact: true })
+      .count(),
+    0,
+  );
+  const info = page.getByRole('button', { name: 'Collapse record information', exact: true });
+  assert.equal(
+    await page
+      .locator('.record-sticky-header')
+      .getByRole('button', { name: 'Collapse record information', exact: true })
+      .count(),
+    1,
+  );
+  await info.click();
+  await page.waitForFunction(
+    () => document.querySelector('.record-sidebar').getBoundingClientRect().width === 0,
+  );
+  await page.getByRole('button', { name: 'Expand record information', exact: true }).click();
+  await page.getByRole('button', { name: 'Close details', exact: true }).click();
+  await page.getByRole('button', { name: 'Expand record information', exact: true }).click();
+  await page.getByRole('button', { name: 'Edit watchers', exact: true }).click();
+  await page.getByRole('combobox', { name: 'Watcher users', exact: true }).click();
+  await page.getByRole('option', { name: 'Morgan Lee', exact: true }).click();
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  const composer = page.getByRole('textbox', { name: 'Comment', exact: true });
+  await composer.fill('@Morgan');
+  await page.getByRole('button', { name: 'Morgan Lee', exact: true }).click();
+  assert.equal(await composer.inputValue(), '@Morgan Lee ');
+  await composer.fill('@Morgan Lee please review the latest checks.');
+  await page.getByRole('button', { name: /^Notifications/ }).click();
+  await page.getByRole('heading', { name: 'Notifications', exact: true }).waitFor();
+  await page.screenshot({ path: `${output}/incident-mentions-notifications.png` });
+  await page.getByRole('button', { name: 'Close notifications', exact: true }).click();
+  await page.getByRole('button', { name: 'Post comment', exact: true }).click();
+  await page.waitForFunction(() => document.querySelector('.discussion-composer')?.value === '');
+  for (const viewport of [
+    { width: 1440, height: 960 },
+    { width: 390, height: 844 },
+  ]) {
+    await page.setViewportSize(viewport);
+    if (viewport.width < 1200) {
+      await page.getByRole('button', { name: 'Expand record information', exact: true }).click();
+      const panel = page.getByRole('dialog', { name: 'Details', exact: true });
+      await panel.waitFor();
+      await panel.getByRole('button', { name: 'Close details', exact: true }).click();
+      assert.equal(await panel.count(), 0);
+      await page.getByRole('button', { name: 'Expand record information', exact: true }).click();
+      await page.mouse.click(2, 100);
+      await page.waitForFunction(() => !document.querySelector('dialog.record-info-modal'));
+      await page.getByRole('button', { name: 'Expand record information', exact: true }).click();
+      await page.keyboard.press('Escape');
+      await page.waitForFunction(() => !document.querySelector('dialog.record-info-modal'));
+    }
+    const bottom = page.getByRole('heading', { name: 'Conversation', exact: false });
+    await bottom.scrollIntoViewIfNeeded();
+    const bounds = await bottom.boundingBox();
+    assert.ok(
+      bounds.y >= 0 && bounds.y + bounds.height <= viewport.height,
+      'Incident content scrolls to conversation',
+    );
+    assert.ok(
+      await page
+        .locator('#main')
+        .evaluate((el) => parseFloat(getComputedStyle(el).borderBottomLeftRadius) >= 12),
+    );
+    assert.ok(
+      await page.locator('.app-topbar').evaluate((el) => el.getBoundingClientRect().height <= 48),
+    );
+  }
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await page.goto(`${base}/tasks`);
+  const card = page.locator('[data-task-id]').first();
+  await card.locator('dl').click();
+  await page.getByRole('dialog').waitFor();
+  await page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).click();
+  await card.getByRole('combobox', { name: /^Move .* to$/ }).click();
+  await page.keyboard.press('Escape');
+  const reorder = page.locator('[data-task-id] button[title="Move Down"]:enabled').first();
+  if (await reorder.count()) await reorder.click();
+  assert.equal(
+    await page.getByRole('dialog').count(),
+    0,
+    'Ordering action does not open task preview',
+  );
+  await page
+    .locator('.desktop-sidebar')
+    .getByRole('link', { name: 'Dashboard', exact: true })
+    .click();
+  await page.waitForURL(`${base}/`);
+  await page.waitForFunction(
+    () =>
+      Math.abs(document.querySelector('#main').getBoundingClientRect().right - (innerWidth - 8)) <
+      1,
+  );
+  const perimeter = await page.locator('#main').evaluate((element) => {
+    const style = getComputedStyle(element);
+    return {
+      borders: [
+        style.borderTopWidth,
+        style.borderRightWidth,
+        style.borderBottomWidth,
+        style.borderLeftWidth,
+      ],
+      corners: [
+        style.borderTopLeftRadius,
+        style.borderTopRightRadius,
+        style.borderBottomRightRadius,
+        style.borderBottomLeftRadius,
+      ],
+      overflow: style.overflow,
+    };
+  });
+  assert.deepEqual(perimeter.borders, ['1px', '1px', '1px', '1px']);
+  assert.deepEqual(perimeter.corners, ['16px', '16px', '16px', '16px']);
+  assert.equal(perimeter.overflow, 'hidden');
+  const frame = await page.evaluate(() => {
+    const color = (selector) => getComputedStyle(document.querySelector(selector)).backgroundColor;
+    return [color('[data-app-shell]'), color('.app-topbar'), color('.desktop-sidebar')];
+  });
+  assert.equal(frame[0], frame[1]);
+  assert.equal(frame[1], frame[2]);
+  assert.equal(
+    await page.locator('.desktop-sidebar').evaluate((el) => getComputedStyle(el).borderRightWidth),
+    '0px',
+  );
+  assert.equal(
+    await page
+      .locator('.desktop-sidebar .sidebar-profile')
+      .evaluate((el) => getComputedStyle(el).borderTopWidth),
+    '0px',
+  );
+  assert.equal(
+    await page.locator('.record-sidebar:visible').count(),
+    0,
+    'Dashboard does not reserve record information space',
+  );
+  await page.goto(`${base}/incidents/fields`);
+  await page.getByRole('button', { name: 'Close field settings', exact: true }).click();
+  await page.getByRole('button', { name: 'Expand record information', exact: true }).click();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.locator('.record-body button[aria-pressed]').first().click();
+  const settingsPanel = page.getByRole('dialog', { name: 'Field settings', exact: true });
+  await settingsPanel.waitFor();
+  await settingsPanel.getByRole('button', { name: 'Close field settings', exact: true }).click();
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await page.goto(`${base}/settings`);
+  await page.getByRole('heading', { name: 'Demo Data', exact: true }).scrollIntoViewIfNeeded();
+  await page.getByText('New batches include 50 linked RCAs', { exact: false }).waitFor();
+  await page.screenshot({ path: `${output}/demo-data-rcas.png` });
+}
+
+async function captureMonitorIntervals() {
+  const originalMonitor = structuredClone(monitors[0]);
+  monitors[0].url = 'https://monitor.example.com/health';
+  monitors[0].authentication = { mode: 'none' };
+  monitors[0].authenticationConfigured = false;
+  user.role = 'admin';
+  const original = structuredClone(monitors[0]);
+  await page.goto(`${base}/monitors/${monitors[0].id}`);
+  await page.getByRole('button', { name: 'Edit Record', exact: true }).click();
+  const input = page.getByRole('spinbutton', { name: 'Check every', exact: false });
+  await input.waitFor();
+  await page.getByRole('combobox', { name: 'Interval unit', exact: true }).click();
+  await page.getByRole('option', { name: 'Hours', exact: true }).click();
+  assert.equal(monitorIntervalMinutes(await input.inputValue(), 'hours'), original.intervalMinutes);
+  await input.fill('1.5');
+  await input.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `${output}/monitor-interval-units.png` });
+  const before = monitorIntervalSaves.length;
+  await input.fill('25');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await page
+    .getByText('Use 1 minute to 24 hours in whole-minute increments, such as 1.5 hours.', {
+      exact: true,
+    })
+    .waitFor();
+  assert.equal(monitorIntervalSaves.length, before);
+  await input.fill('0.01');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  assert.equal(monitorIntervalSaves.length, before);
+  await input.fill('1.5');
+  await page.getByRole('combobox', { name: 'Interval unit', exact: true }).click();
+  await page.getByRole('option', { name: 'Minutes', exact: true }).click();
+  assert.equal(await input.inputValue(), '90');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await page.getByRole('button', { name: 'Edit Record', exact: true }).waitFor();
+  assert.equal(monitorIntervalSaves.at(-1), 90);
+  Object.assign(monitors[0], originalMonitor);
+}
+
+async function captureRecordExports() {
+  user.role = 'admin';
+  if (!demoRcas.length) await captureRcaWorkflows();
+  const rca = demoRcas[0];
+  rca.summary = 'Review the checkout interruption, recovery and prevention measures.';
+  rca.impact = 'Checkout requests were delayed during the interruption.';
+  rca.rootCause = 'A missing connection timeout exhausted the request pool.';
+  rca.contributingFactors = 'The timeout alert did not cover the dependency path.';
+  rca.correctiveActions = 'Add bounded timeouts and recovery checks.';
+  rca.lessonsLearned = 'Exercise dependency failure scenarios before release.';
+  await page.goto(`${base}/rcas/${rca.id}`);
+  await page.locator('.knowledge-reader h1').waitFor();
+  await page.screenshot({ path: `${output}/rca-record.png` });
+  await page.getByRole('button', { name: 'Record actions', exact: true }).click();
+  await page.getByRole('button', { name: 'Export PDF', exact: true }).waitFor();
+  await page.screenshot({ path: `${output}/record-export-actions.png` });
+  await page.keyboard.press('Escape');
+  async function download(type, name) {
+    await page.getByRole('button', { name: 'Record actions', exact: true }).click();
+    const pending = page.waitForEvent('download');
+    await page.getByRole('button', { name: `Export ${type.toUpperCase()}`, exact: true }).click();
+    const file = await pending;
+    const path = `${output}/${name}.${type}`;
+    await file.saveAs(path);
+    const content = await readFile(path);
+    if (type === 'pdf') {
+      assert.equal(content.subarray(0, 5).toString(), '%PDF-');
+      assert.ok(content.length > 2000);
+      assert.ok(content.toString('latin1').includes('%%EOF'));
+    } else assert.ok(content.toString().includes('"Field","Value"'));
+    return content;
+  }
+  const rcaCsv = await download('csv', 'rca-export');
+  assert.ok(rcaCsv.toString().includes('connection timeout'));
+  await download('pdf', 'rca-export');
+  if (!demoArticles.length)
+    demoArticles.push({
+      id: 'eeeeeeeeeeeeeeeeeeeeeeee',
+      title: 'Checkout recovery guide',
+      summary: 'Verify service health after recovery.',
+      articleType: 'runbook',
+      status: 'published',
+      createdBy: user.displayName,
+      updatedAt: '2026-10-10T17:05:06Z',
+      contentDocument: {
+        type: 'doc',
+        content: [
+          {
+            type: 'paragraph',
+            content: [{ type: 'text', text: 'Review dependency health and document the outcome.' }],
+          },
+        ],
+      },
+      steps: [
+        {
+          title: 'Verify recovery',
+          instructions: 'Confirm successful checks before closing the incident.',
+        },
+      ],
+      fields: [],
+      custom: {},
+    });
+  await page.goto(`${base}/knowledge/${demoArticles[0].id}`);
+  await page.locator('.knowledge-reader h1').waitFor();
+  await download('csv', 'knowledge-export');
+  await download('pdf', 'knowledge-export');
+  await page.goto(`${base}/records/audit/${demoAuditRows[0].id}`);
+  await page.getByRole('button', { name: 'Record actions', exact: true }).waitFor();
+  await download('csv', 'audit-export');
+  await download('pdf', 'audit-export');
+  await page.goto(`${base}/monitors/${monitors[0].id}/events/cdcdcdcdcdcdcdcdcdcdcdcd`);
+  await page.getByRole('button', { name: 'Record actions', exact: true }).waitFor();
+  const eventCsv = await download('csv', 'event-export');
+  assert.ok(eventCsv.toString().includes('503'));
+  await page.goto(`${base}/rcas/${rca.id}`);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.locator('.rca-reader section').last().scrollIntoViewIfNeeded();
+  const bounds = await page.locator('.rca-reader section').last().boundingBox();
+  assert.ok(bounds.y + bounds.height <= 844, 'RCA article remains scrollable on mobile');
+  await page.setViewportSize({ width: 1440, height: 960 });
+}
+
+async function captureIncidentSource() {
+  user.role = 'admin';
+  await page.goto(`${base}/incidents/${demoIncident.id}`);
+  await page.getByText('Source: Monitor', { exact: true }).waitFor();
+  await page.getByText('Triggered by', { exact: true }).waitFor();
+  await page.getByRole('link', { name: `Monitor: ${monitors[0].name}`, exact: true }).waitFor();
+  await page.getByRole('link', { name: 'Event: EVT0000001', exact: true }).waitFor();
+  await page.screenshot({ path: `${output}/incident-source.png` });
+  await page.goto(`${base}/incidents`);
+  await page.getByRole('columnheader', { name: 'Source', exact: true }).waitFor();
+  await page.getByRole('button', { name: 'Filters', exact: true }).click();
+  await page.getByRole('combobox', { name: 'Source', exact: true }).click();
+  await page.getByRole('option', { name: 'Monitor', exact: true }).click();
+  await page.getByRole('button', { name: 'Done', exact: true }).click();
+  await page.getByRole('cell', { name: 'Monitor', exact: true }).waitFor();
+  assert.ok(incidentListSources.includes('monitor'), 'Source filter reaches the API');
+  await page.screenshot({ path: `${output}/incident-source-list.png` });
+}
+
+async function captureLongReferences() {
+  user.role = 'admin';
+  const originalService = services[0].name;
+  const originalTitle = demoIncident.title;
+  const longLabel =
+    'Customer checkout production service with an exceptionally long reference label across multiple regions';
+  services[0].name = longLabel;
+  demoIncident.title = longLabel;
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`${base}/tasks/new`);
+  await page.getByRole('combobox', { name: 'Service', exact: true }).click();
+  await page.getByRole('option', { name: longLabel, exact: true }).click();
+  await page.keyboard.press('Escape');
+  const control = page.getByRole('combobox', { name: 'Service', exact: true }).locator('..');
+  await control.scrollIntoViewIfNeeded();
+  assert.ok(
+    await control.evaluate((element) => element.scrollWidth <= element.clientWidth + 1),
+    'Long single references stay inside the field',
+  );
+  const icon = control.getByRole('link');
+  await icon.waitFor();
+  const bounds = await control.boundingBox(),
+    iconBounds = await icon.boundingBox();
+  assert.ok(
+    iconBounds.x >= bounds.x && iconBounds.x + iconBounds.width <= bounds.x + bounds.width,
+    'Record icon remains within reference field',
+  );
+  await page
+    .getByRole('combobox', { name: 'Service', exact: true })
+    .evaluate((input) => input.blur());
+  await page.screenshot({ path: `${output}/reference-truncation.png` });
+  await page.goto(`${base}/rcas/new`);
+  await page.getByRole('combobox', { name: 'Related Incidents', exact: true }).click();
+  await page.getByRole('option', { name: `INC0000001 · ${longLabel}`, exact: true }).click();
+  await page.keyboard.press('Escape');
+  const multiple = page
+    .getByRole('combobox', { name: 'Related Incidents', exact: true })
+    .locator('..');
+  await multiple.scrollIntoViewIfNeeded();
+  assert.ok(
+    await multiple.evaluate((element) => element.scrollWidth <= element.clientWidth + 1),
+    'Long multi references stay inside the field',
+  );
+  await multiple.getByRole('link').waitFor();
+  services[0].name = originalService;
+  demoIncident.title = originalTitle;
+  await page.setViewportSize({ width: 1440, height: 960 });
+}
+
 try {
+  if (process.env.HELP_CAPTURE_FOCUS === 'navigation') {
+    await captureNavigation();
+    assert.deepEqual(faults, []);
+    console.log(
+      'Verified infinite loading/retry/search, article/history breadcrumbs and independent Help navigation.',
+    );
+    await browser.close();
+    process.exit(0);
+  }
+  if (process.env.HELP_CAPTURE_FOCUS === 'overview') {
+    await captureOverview();
+    assert.deepEqual(faults, []);
+    console.log('Verified updated assignment panels, removed heading and mobile scrolling.');
+    await browser.close();
+    process.exit(0);
+  }
+  if (process.env.HELP_CAPTURE_FOCUS === 'collaboration') {
+    await captureCollaboration();
+    assert.deepEqual(faults, []);
+    console.log(
+      'Verified mentions, watchers, notification panel, task-card actions and mobile scrolling.',
+    );
+    await browser.close();
+    process.exit(0);
+  }
+  if (process.env.HELP_CAPTURE_FOCUS === 'intervals') {
+    await captureMonitorIntervals();
+    assert.deepEqual(faults, []);
+    console.log('Verified interval conversion, invalid saves and canonical minute payloads.');
+    await browser.close();
+    process.exit(0);
+  }
+  if (process.env.HELP_CAPTURE_FOCUS === 'exports') {
+    await captureRecordExports();
+    assert.deepEqual(faults, []);
+    console.log(
+      'Verified article-style RCAs, record CSV/PDF downloads, audit/event exports and mobile scrolling.',
+    );
+    await browser.close();
+    process.exit(0);
+  }
+  if (process.env.HELP_CAPTURE_FOCUS === 'incident-source') {
+    await captureIncidentSource();
+    assert.deepEqual(faults, []);
+    console.log('Verified incident source badge, origin links and server filter.');
+    await browser.close();
+    process.exit(0);
+  }
+  if (process.env.HELP_CAPTURE_FOCUS === 'references') {
+    await captureLongReferences();
+    assert.deepEqual(faults, []);
+    console.log('Verified long single and multiple reference labels and visible icons on mobile.');
+    await browser.close();
+    process.exit(0);
+  }
+  if (process.env.HELP_CAPTURE_FOCUS === 'rcas') {
+    await captureRcaWorkflows();
+    assert.deepEqual(faults, []);
+    console.log(
+      'Verified global and list Create actions, linked RCA records, mobile scrolling, and alert grouping settings.',
+    );
+    await browser.close();
+    process.exit(0);
+  }
+
   await page.goto(`${base}/profile`);
   await page.getByRole('radio', { name: 'Default', exact: true }).waitFor();
   assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), 'dark');
@@ -841,7 +1686,6 @@ try {
   const headerCenters = await page.locator('.desktop-sidebar').evaluate((rail) => {
     const targets = [
       rail.querySelector('a[aria-label="ServiceTrident dashboard"] [data-brand-mark]'),
-      rail.querySelector('button[aria-label="Search Workspace"] svg'),
       rail.querySelector('button[aria-label="Collapse navigation"] svg'),
     ];
     return targets.map((target) => {
@@ -850,13 +1694,24 @@ try {
     });
   });
   assert.ok(Math.max(...headerCenters) - Math.min(...headerCenters) < 1);
+  assert.ok(
+    await page.evaluate(
+      () =>
+        Math.abs(
+          document.querySelector('.desktop-sidebar nav a').getBoundingClientRect().top -
+            document.querySelector('#main').getBoundingClientRect().top,
+        ) < 1,
+    ),
+    'Main navigation starts level with the content frame',
+  );
+
   const expandedOrder = await page
     .locator('.desktop-sidebar nav[aria-label="Main navigation"] a')
     .evaluateAll((links) => links.map((link) => link.getAttribute('href')));
   await page.getByRole('button', { name: 'Collapse navigation', exact: true }).click();
   await page.waitForFunction(() => {
     const rail = document.querySelector('.desktop-sidebar');
-    return Math.abs(rail.getBoundingClientRect().width - 80) < 1;
+    return Math.abs(rail.getBoundingClientRect().width - 64) < 1;
   });
   assert.deepEqual(
     await page
@@ -884,7 +1739,6 @@ try {
     const targets = [
       rail.querySelector('[data-brand-mark]'),
       rail.querySelector('button[aria-label="Expand Navigation"]'),
-      rail.querySelector('button[aria-label="Search Workspace"]'),
     ];
     return targets.map((target) => {
       const rect = target.getBoundingClientRect();
@@ -897,6 +1751,33 @@ try {
     () =>
       Math.abs(document.querySelector('.desktop-sidebar').getBoundingClientRect().width - 288) < 1,
   );
+  assert.equal(
+    await page
+      .locator('.app-topbar')
+      .getByRole('button', { name: 'Search Workspace', exact: true })
+      .count(),
+    1,
+  );
+  assert.equal(
+    await page
+      .locator('.desktop-sidebar')
+      .getByRole('button', { name: 'Search Workspace', exact: true })
+      .count(),
+    0,
+  );
+  const footerHeight = await page
+    .locator('.table-pagination')
+    .evaluate((el) => el.getBoundingClientRect().height);
+  assert.ok(footerHeight >= 44 && footerHeight < 64, 'List pagination uses a compact footer');
+  const paging = await page.locator('.table-pagination').evaluate((el) => ({
+    left: el.getBoundingClientRect().left,
+    buttons: el.querySelector('button[aria-label="Go to First Page"]').getBoundingClientRect().left,
+  }));
+  assert.ok(
+    paging.buttons - paging.left < 24,
+    'Pagination actions stay at the left, clear of chat',
+  );
+
   await page.screenshot({ path: `${output}/services.png` });
   const standardPadding = await page
     .locator('.data-table tbody td')
@@ -1056,6 +1937,63 @@ try {
   );
   await page.keyboard.press('Escape');
   await page.screenshot({ path: `${output}/tasks-board.png` });
+  const taskTrigger = page.getByRole('link', { name: 'Confirm rollback checklist', exact: true });
+  await taskTrigger.click();
+  const taskDialog = page.getByRole('dialog', { name: 'Confirm rollback checklist', exact: true });
+  await taskDialog
+    .getByRole('heading', { name: 'Confirm rollback checklist', exact: true })
+    .first()
+    .waitFor();
+  assert.ok(page.url().endsWith('/tasks'), 'Task preview keeps the board route');
+  await taskDialog.getByRole('link', { name: 'Open Record', exact: true }).waitFor();
+  await page.screenshot({ path: `${output}/task-board-modal.png` });
+  await taskDialog.getByRole('button', { name: 'Edit', exact: true }).click();
+  assert.equal(
+    await taskDialog
+      .locator('footer')
+      .evaluate((footer) => getComputedStyle(footer).borderTopWidth),
+    '0px',
+  );
+  assert.equal(
+    await taskDialog
+      .locator('footer > div > div')
+      .evaluate((actions) => getComputedStyle(actions).borderTopWidth),
+    '0px',
+  );
+  const modalDescription = taskDialog.getByLabel(/^Description/);
+  await modalDescription.fill('Updated from the Kanban task modal.');
+  await page.screenshot({ path: `${output}/task-board-modal-edit.png` });
+  await taskDialog.getByRole('button', { name: 'Save', exact: true }).click();
+  await taskDialog.getByText('Updated from the Kanban task modal.', { exact: true }).waitFor();
+  assert.ok(page.url().endsWith('/tasks'), 'Saving a task stays on the board');
+  await taskDialog.getByRole('button', { name: 'Edit', exact: true }).click();
+  await taskDialog.getByLabel(/^Description/).fill('Unsaved modal edit');
+  await page.keyboard.press('Escape');
+  const discardTask = page.getByRole('dialog', { name: 'Discard Task Changes?', exact: true });
+  await discardTask.getByRole('button', { name: 'Keep Editing', exact: true }).click();
+  assert.equal(await taskDialog.getByLabel(/^Description/).inputValue(), 'Unsaved modal edit');
+  await taskDialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await discardTask.getByRole('button', { name: 'Discard Changes', exact: true }).click();
+  await taskDialog.getByText('Updated from the Kanban task modal.', { exact: true }).waitFor();
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  const lastTaskField = taskDialog.locator('dd').last();
+  await lastTaskField.scrollIntoViewIfNeeded();
+  const taskBottom = await lastTaskField.boundingBox();
+  assert.ok(
+    taskBottom.y >= 0 && taskBottom.y + taskBottom.height <= 844,
+    'Task modal scrolls to the final field on mobile',
+  );
+  await taskDialog.getByRole('button', { name: 'Close', exact: true }).waitFor();
+  await page.setViewportSize({ width: 1440, height: 960 });
+
+  await page.keyboard.press('Escape');
+  assert.equal(await taskDialog.count(), 0);
+  assert.ok(
+    await taskTrigger.evaluate((element) => element === document.activeElement),
+    'Closing restores focus to the task title',
+  );
+
   await page
     .getByRole('button', { name: 'Move Confirm rollback checklist up in To do', exact: true })
     .click();
@@ -1225,6 +2163,11 @@ try {
   await recordTabs.getByRole('tab').first().focus();
   await recordTabs.getByRole('tab').first().press('ArrowRight');
   await page.waitForURL(`${base}/services/${services[0].id}`);
+  await recordTabs.getByRole('tab').last().filter({ hasText: services[0].name }).waitFor();
+  assert.equal(
+    await recordTabs.getByRole('tab').last().getAttribute('title'),
+    `Service: ${services[0].name}`,
+  );
   await recordTabs.getByRole('tab').last().press('Home');
   await page.waitForURL(`${base}/tasks/${tasks[0].id}`);
   assert.equal(await recordTabs.getByText(/From /).count(), 0);
@@ -1246,19 +2189,27 @@ try {
     const rail = [...document.querySelectorAll('.record-sidebar')]
       .find((element) => element.getBoundingClientRect().height > 0)
       ?.getBoundingClientRect();
-    return bar && rail && Math.abs(bar.right - 1440) < 2 && rail.top >= bar.bottom - 1;
+    const topbar = document.querySelector('.app-topbar')?.getBoundingClientRect();
+    return (
+      bar &&
+      rail &&
+      topbar &&
+      bar.top >= topbar.top &&
+      bar.bottom <= topbar.bottom &&
+      rail.top >= topbar.bottom - 1
+    );
   });
   assert.equal(
     await page
       .locator('.record-sticky-header')
       .evaluate((element) => getComputedStyle(element).borderTopWidth),
-    '1px',
+    '0px',
   );
   assert.equal(
     await page
       .locator('.record-sidebar-header:visible')
       .evaluate((element) => getComputedStyle(element).borderTopWidth),
-    '1px',
+    '0px',
   );
   await page.screenshot({ path: `${output}/record-tabs.png` });
   await page.evaluate(() => {
@@ -1564,6 +2515,10 @@ try {
   await page.goto(`${base}/knowledge`);
   await page.getByRole('link', { name: /^Demo Operations Runbooks/ }).waitFor();
   assert.equal(await page.getByRole('table').count(), 0);
+  assert.equal(
+    await page.getByRole('button', { name: 'Load More Knowledge Bases', exact: true }).count(),
+    0,
+  );
   await page.getByLabel('Search Knowledge Bases', { exact: true }).fill('missing');
   await page.getByText('No knowledge bases match your search.', { exact: true }).waitFor();
   await page.getByLabel('Search Knowledge Bases', { exact: true }).fill('recovery');
@@ -1577,6 +2532,10 @@ try {
       description: 'Verify growing card lists remain reachable.',
     });
   await page.reload();
+  await page.getByRole('link', { name: /^Synthetic scrolling base 0/ }).waitFor();
+  await page.locator('.list-outlet').evaluate((element) => {
+    element.scrollTop = element.scrollHeight;
+  });
   await page.getByRole('link', { name: /^Synthetic scrolling base 24/ }).waitFor();
   for (const viewport of [
     { width: 1440, height: 960 },
@@ -1631,9 +2590,16 @@ try {
     .fill('Synthetic recovery procedures for documentation.');
   await page.getByRole('button', { name: 'Create Knowledge Base', exact: true }).click();
   await page.getByRole('heading', { name: 'Demo Recovery Guides', exact: true }).waitFor();
+  assert.equal(
+    await page
+      .getByRole('region', { name: 'Articles', exact: true })
+      .getByRole('link', { name: 'Create Article', exact: true })
+      .count(),
+    0,
+  );
   await page
-    .getByRole('region', { name: 'Articles', exact: true })
-    .getByRole('link', { name: 'Create', exact: true })
+    .locator('.record-sticky-header')
+    .getByRole('link', { name: 'Create Article', exact: true })
     .click();
   await page.getByRole('combobox', { name: /^Knowledge Base/ }).waitFor();
   await page.getByLabel('Title *', { exact: true }).fill('Demo portal recovery guide');
@@ -1711,8 +2677,23 @@ try {
       response.request().method() === 'GET',
   );
   assert.equal(demoArticles[0].status, 'archived');
+  demoArticles.push({
+    ...demoArticles[0],
+    id: 'bbbbbbbbbbbbbbbbbbbbbbbd',
+    number: 'KB0000002',
+    statusLabel: 'Draft',
+    status: 'draft',
+    statusOption: 'draft',
+    knowledgeBaseId: demoBases[0].id,
+    knowledgeBaseTitle: demoBases[0].title,
+  });
   await page.goto(`${base}/knowledge/articles`);
-  await page.locator('aside').getByRole('button', { name: 'Create', exact: true }).click();
+  await page.getByRole('columnheader', { name: 'Knowledge Base', exact: true }).waitFor();
+  await page.locator(`td a[href="/knowledge/bases/${demoBases[0].id}"]`).waitFor();
+  await page.screenshot({ path: `${output}/all-articles-list.png` });
+  demoArticles.pop();
+
+  await page.locator('.app-topbar').getByRole('button', { name: 'Create', exact: true }).click();
   await page.waitForURL('**/knowledge/new');
   await page.getByRole('button', { name: 'Create Article', exact: true }).waitFor();
   assert.equal(
@@ -1797,6 +2778,24 @@ try {
     0,
     'Empty related lists omit the count badge',
   );
+  demoComments = ['comment', 'work_note'].map((kind, index) => ({
+    id: String(index + 1).padStart(24, 'b'),
+    kind,
+    author: 'Alex Demo',
+    authorId: user.id,
+    body:
+      kind === 'comment'
+        ? 'We are investigating the service impact.'
+        : 'Review the recent deployment before the handoff.',
+    createdAt: '2026-10-10T17:05:06Z',
+  }));
+  await page.reload();
+  await page.getByRole('tab', { name: 'Comments and work notes', exact: true }).click();
+  const authorLinks = page.locator(`article header a[href="/workspace/${user.id}"]`);
+  await authorLinks.first().waitFor();
+  assert.equal(await authorLinks.count(), 2);
+  await authorLinks.last().scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `${output}/incident-comment-authors.png` });
   await page
     .getByRole('tab', { name: 'Monitor Events', exact: true })
     .locator('span[aria-hidden="true"]')
@@ -2004,14 +3003,14 @@ try {
     const main = document.querySelector('#main').getBoundingClientRect();
     const header = document.querySelector('.record-sticky-header').getBoundingClientRect();
     return {
-      top: header.top,
+      top: Math.abs(header.top - main.top - 1),
       left: Math.abs(main.left - header.left),
       right: Math.abs(main.right - header.right),
     };
   });
   assert.ok(
-    providerHeader.top === 0 && providerHeader.left < 1 && providerHeader.right < 1,
-    'Provider header fills the content width without outer padding',
+    providerHeader.top < 1 && providerHeader.left <= 1 && providerHeader.right <= 1,
+    'Provider header aligns with the bordered content surface below the top toolbar',
   );
   await page.getByLabel('Model', { exact: true }).fill('demo-model');
   await page.getByLabel('API Key', { exact: true }).fill('synthetic-browser-test-key');
@@ -2094,8 +3093,8 @@ try {
       const header = document.querySelector('.record-sticky-header').getBoundingClientRect();
       const rail = [...document.querySelectorAll('.record-sidebar-header')]
         .find((element) => element.getBoundingClientRect().width > 0)
-        .getBoundingClientRect();
-      return Math.abs(header.bottom - rail.bottom);
+        ?.getBoundingClientRect();
+      return rail ? Math.abs(header.bottom - rail.bottom) : 0;
     });
     assert.ok(
       difference < 0.5,
@@ -2118,7 +3117,7 @@ try {
   await page.mouse.move(grip.x + 435, grip.y + 80, { steps: 10 });
   await page.mouse.up();
   await page.waitForFunction(
-    () => document.querySelector('.record-sidebar').getBoundingClientRect().width === 64,
+    () => document.querySelector('.record-sidebar').getBoundingClientRect().width === 0,
   );
   await assertRecordBordersAligned();
   await page.keyboard.press('ArrowLeft');
@@ -2127,7 +3126,7 @@ try {
   );
   await page.keyboard.press('ArrowRight');
   await page.waitForFunction(
-    () => document.querySelector('.record-sidebar').getBoundingClientRect().width === 64,
+    () => document.querySelector('.record-sidebar').getBoundingClientRect().width === 0,
   );
   await page.keyboard.press('End');
   for (
@@ -2209,7 +3208,7 @@ try {
       .locator('time')
       .first()
       .textContent(),
-    dateTime('2026-10-11T08:00:00Z', user.timeZone, user.uiPreferences),
+    dateTime('2026-10-11T08:00:56.789Z', user.timeZone, user.uiPreferences),
   );
   await page.goto(`${base}/on-call`);
   const headerReference = page
@@ -2233,6 +3232,15 @@ try {
     .waitFor();
   await page.screenshot({ path: `${output}/on-call-coverage-modal.png` });
   await coverageModal.getByRole('button', { name: 'Edit Coverage', exact: true }).click();
+  const coverageEditor = page.getByRole('dialog', { name: /^Edit coverage/ });
+  assert.equal(
+    await coverageEditor.locator('input[type="datetime-local"]').first().inputValue(),
+    '2026-10-11T08:00:56.789',
+  );
+  assert.equal(
+    await coverageEditor.locator('input[type="datetime-local"]').first().getAttribute('step'),
+    '0.001',
+  );
   await page
     .getByRole('dialog', { name: /^Edit coverage/ })
     .getByRole('button', { name: 'Cancel', exact: true })
@@ -2260,7 +3268,7 @@ try {
   );
   await page.getByRole('option', { name: 'Demo Customer Portal', exact: true }).click();
   await page.goto(`${base}/dashboard`);
-  await page.getByRole('heading', { name: 'Your Work', exact: true }).waitFor();
+  await page.getByRole('heading', { name: 'My Assignments', exact: true }).waitFor();
   const dashboardGap = () =>
     page.evaluate(
       () =>
@@ -2270,12 +3278,12 @@ try {
         document.querySelector('.dashboard-header').getBoundingClientRect().bottom,
     );
   await page.reload();
-  await page.getByRole('heading', { name: 'Your Work', exact: true }).waitFor();
+  await page.getByRole('heading', { name: 'My Assignments', exact: true }).waitFor();
   const freshGap = await dashboardGap();
   await page.goto(`${base}/incidents/${demoIncident.id}`);
   await page.getByRole('button', { name: 'Edit Record', exact: true }).waitFor();
   await page.getByRole('link', { name: 'Dashboard', exact: true }).click();
-  await page.getByRole('heading', { name: 'Your Work', exact: true }).waitFor();
+  await page.getByRole('heading', { name: 'My Assignments', exact: true }).waitFor();
   assert.equal(
     await dashboardGap(),
     freshGap,
@@ -2288,6 +3296,7 @@ try {
   assert.equal(
     await page
       .getByRole('link', { name: 'View data: Critical / High Incidents', exact: true })
+      .locator('..')
       .getAttribute('data-score-tone'),
     'rose',
   );
@@ -2336,7 +3345,7 @@ try {
       .evaluate(
         (el) =>
           el.getBoundingClientRect().top <
-          document.querySelector('#overview-work-title').getBoundingClientRect().top,
+          document.querySelector('[aria-label="Assignment overview"]').getBoundingClientRect().top,
       ),
   );
   assert.equal(
@@ -2624,7 +3633,18 @@ try {
   await page.getByRole('columnheader', { name: 'Incident', exact: true }).waitFor();
   await page.locator(`td a[href="/incidents/${demoIncident.id}"]`).first().waitFor();
   await page.screenshot({ path: `${output}/events-list.png` });
-  await page.locator(`a[href^="/monitors/${monitors[0].id}/events/"]`).first().click();
+  const eventNumber = page.getByRole('link', { name: 'EVT0000001', exact: true });
+  await eventNumber.waitFor();
+  const inlineNumber = await eventNumber.evaluate((link) => {
+    const text = link.querySelector('span').getBoundingClientRect();
+    const icon = link.querySelector('svg').getBoundingClientRect();
+    return (
+      icon.left >= text.right &&
+      Math.abs(icon.top + icon.height / 2 - (text.top + text.height / 2)) < 2
+    );
+  });
+  assert.ok(inlineNumber, 'Record number and reference icon stay on the same line');
+  await eventNumber.click();
   await page
     .getByRole('region', { name: 'Triggered Incidents', exact: true })
     .getByRole('link')
@@ -2667,6 +3687,17 @@ try {
     );
   }
   await page.setViewportSize({ width: 1440, height: 960 });
+  detailedEvent = true;
+  await page.reload();
+  const responseHeaders = page.getByRole('heading', { name: 'Response Headers', exact: true });
+  await responseHeaders.waitFor();
+  assert.equal(await responseHeaders.count(), 1, 'Response headers has one heading');
+  await responseHeaders.scrollIntoViewIfNeeded();
+  await page.getByRole('cell', { name: 'text/plain', exact: true }).waitFor();
+  await page.screenshot({ path: `${output}/event-response-headers.png` });
+  const responseEventUrl = page.url();
+  await captureRcaWorkflows();
+  await page.goto(responseEventUrl);
 
   await page
     .getByRole('navigation', { name: 'Breadcrumb' })
@@ -2788,10 +3819,18 @@ try {
     .waitFor();
   await page.getByRole('button', { name: 'Close AI Chat', exact: true }).last().click();
   assert.deepEqual(faults, []);
+  await captureLongReferences();
+  await captureIncidentSource();
+  await captureRecordExports();
+  await captureMonitorIntervals();
+  await captureCollaboration();
+  await captureNavigation();
+  assert.deepEqual(faults, []);
   console.log(
     'Captured synthetic screenshots, including five dark-mode README images; verified task ordering and loading, knowledge base destination exclusion and runbooks, accessible labels, global lanes, AI gating and drafts, logo themes, textarea growth, incident monitor events, date formats, and navigation and record header alignment.',
   );
 } catch (error) {
+  await page.screenshot({ path: `${output}/failure.png` });
   console.log('Browser faults', faults);
   throw error;
 } finally {

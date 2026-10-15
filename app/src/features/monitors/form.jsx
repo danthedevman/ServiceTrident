@@ -1,3 +1,7 @@
+import {
+  monitorIntervalMinutes,
+  convertMonitorInterval,
+} from '../../../../shared/validation/monitor-interval.js';
 import { MonitorAuthentication } from './authentication.jsx';
 import { MONITOR_AUTH_FIELDS, monitorAuthErrors } from '../../../../shared/domain/monitor-auth.js';
 import { PageTitle } from '../../components/page-title.jsx';
@@ -11,7 +15,7 @@ import { ReferenceField } from '../../components/forms/reference-field.jsx';
 import { writeApi } from '../../data/query-client.js';
 import { useResource } from '../../data/use-resource.js';
 
-import React, { useState } from 'react';
+import React, { useState, useId } from 'react';
 
 import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
@@ -61,6 +65,12 @@ function MonitorEditor({ monitor, onReset, defaults }) {
   const [followRedirects, setFollowRedirects] = useState(
     (monitor?.followRedirects ?? defaults?.defaultFollowRedirects) === true,
   );
+  const initialMinutes = monitor?.intervalMinutes ?? defaults?.defaultIntervalMinutes ?? 5;
+  const [intervalUnit, setIntervalUnit] = useState(initialMinutes % 60 === 0 ? 'hours' : 'minutes');
+  const [intervalValue, setIntervalValue] = useState(
+    String(initialMinutes % 60 === 0 ? initialMinutes / 60 : initialMinutes),
+  );
+  const intervalId = useId();
   const navigate = useNavigate();
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -99,7 +109,7 @@ function MonitorEditor({ monitor, onReset, defaults }) {
           component: serviceId ? form.get('component') : '',
           name: form.get('name'),
           url: form.get('url'),
-          intervalMinutes: Number(form.get('intervalMinutes')),
+          intervalMinutes: monitorIntervalMinutes(form.get('intervalMinutes'), intervalUnit),
           method: form.get('method'),
           followRedirects: form.get('followRedirects') === 'true',
         },
@@ -215,23 +225,45 @@ function MonitorEditor({ monitor, onReset, defaults }) {
             </>
           )}
         </label>
-        <label className="field-label">
-          Check every *
-          <div className="flex items-center gap-3">
+        <div className="space-y-2">
+          <label className="field-label" htmlFor={intervalId}>
+            Check every *
+          </label>
+          <div className="flex flex-wrap items-center gap-3">
             <input
+              id={intervalId}
               className="max-w-32"
               name="intervalMinutes"
               type="number"
-              min="1"
-              max="1440"
-              step="1"
-              defaultValue={monitor?.intervalMinutes ?? defaults?.defaultIntervalMinutes ?? 5}
+              min={intervalUnit === 'hours' ? 1 / 60 : 1}
+              max={intervalUnit === 'hours' ? 24 : 1440}
+              step={intervalUnit === 'hours' ? 'any' : 1}
+              value={intervalValue}
+              onChange={(event) => setIntervalValue(event.target.value)}
               required
             />
-            <span className="text-sm font-normal text-slate-500 dark:text-slate-400">minutes</span>
+            <div className="w-36">
+              <Select
+                aria-label="Interval unit"
+                name="intervalUnit"
+                value={intervalUnit}
+                onChange={(event) => {
+                  setIntervalValue(
+                    convertMonitorInterval(intervalValue, intervalUnit, event.target.value),
+                  );
+                  setIntervalUnit(event.target.value);
+                }}
+              >
+                <option value="minutes">Minutes</option>
+                <option value="hours">Hours</option>
+              </Select>
+            </div>
           </div>
-          <span className="field-hint">Minimum 1 minute. Maximum 1 day (1,440 minutes).</span>
-        </label>
+          <p className="field-hint">
+            Use 1 minute to 24 hours, in whole-minute increments. For example, 1.5 hours is 90
+            minutes.
+          </p>
+        </div>
         <div className="rounded-xl bg-blue-50 dark:bg-blue-950 px-4 py-3 text-sm leading-6 text-blue-800 dark:text-blue-300">
           {monitor
             ? 'Changes keep your existing history. Changing the URL or request type resets the current status until the next check. Checks remain at least one minute apart.'

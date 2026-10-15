@@ -20,9 +20,8 @@ import { DataTable } from '../../components/data-table.jsx';
 import { Field, Notice, ServicePills } from '../../components/forms/fields.jsx';
 import { newId } from '../../lib/identifiers.js';
 import { useSave } from '../../data/use-save.js';
+import { coverageTimeInput as utcInput } from '../../lib/coverage-time.js';
 
-/** Display explicit UTC boundaries so rotations do not silently drift at DST changes. */
-const utcInput = (date) => new Date(date).toISOString().slice(0, 16);
 /** A month calendar with actual saved coverage, service filtering, and editable shifts. */
 export function OnCallPage({ form = false }) {
   const { id } = useParams();
@@ -343,14 +342,16 @@ function Calendar({ schedule, members, services, admin, form, id, onReset }) {
       <Field name="start" label="Start" errors={save.fields}>
         <input
           type="datetime-local"
+          step="0.001"
           value={editor.start}
           onChange={(e) => setEditor({ ...editor, start: e.target.value })}
         />
       </Field>
       {!rotation && (
-        <Field name="end" label="End (exclusive)" errors={save.fields}>
+        <Field name="end" label="End" errors={save.fields}>
           <input
             type="datetime-local"
+            step="0.001"
             value={editor.end}
             onChange={(e) => setEditor({ ...editor, end: e.target.value })}
           />
@@ -537,7 +538,7 @@ function Calendar({ schedule, members, services, admin, form, id, onReset }) {
                   {shifts.map((s) => (
                     <button
                       key={s.id}
-                      onClick={() => edit({ ...s, start: utcInput(s.start), end: utcInput(s.end) })}
+                      onClick={() => edit(s)}
                       title={`${name(s.userId)}: ${s.start} – ${s.end}`}
                       className="mt-1 block w-full truncate rounded bg-blue-100 px-2 py-1 text-left text-xs text-blue-900 dark:bg-blue-950 dark:text-blue-200"
                     >
@@ -583,10 +584,7 @@ function Calendar({ schedule, members, services, admin, form, id, onReset }) {
                   sortable: false,
                   value: () => '',
                   render: (r) => (
-                    <button
-                      className="btn-secondary"
-                      onClick={() => edit({ ...r, start: utcInput(r.start), end: utcInput(r.end) })}
-                    >
+                    <button className="btn-secondary" onClick={() => edit(r)}>
                       Edit
                     </button>
                   ),

@@ -7,118 +7,480 @@ import { connectDatabase } from '../../shared/persistence/database.js';
 import { digestToken } from '../../api/src/auth/auth.js';
 import { fieldChoices, workBuiltinFields } from '../../shared/forms/form-options.js';
 
-test('external API enforces credentials, scopes, tenant/service boundaries, expiry, revocation and safe auditing', { timeout: 30000 }, async (t) => {
-  process.env.DATABASE_SCHEMA = process.env.MONGODB_DB = `machine_test_${randomUUID().replaceAll('-', '')}`;
-  const { db, client } = await connectDatabase();
-  const server = createApp(db).listen(0, '127.0.0.1');
-  await new Promise((resolve) => server.once('listening', resolve));
-  t.after(async () => { await new Promise((resolve) => server.close(resolve)); await db.dropDatabase(); await client.close(); });
-  const base = `http://127.0.0.1:${server.address().port}/api`;
-  async function json(path, method = 'GET', body, headers = {}) {
-    const response = await fetch(base + path, { method, headers: { 'Content-Type': 'application/json', ...headers }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
-    return { status: response.status, data: await response.json(), challenge: response.headers.get('www-authenticate') };
-  }
-  const ownerId = new ObjectId(), otherId = new ObjectId(), viewerId = new ObjectId();
-  const cookies = [];
-  for (const [userId, data] of [[ownerId, { displayName: 'Owner' }], [otherId, { displayName: 'Other' }], [viewerId, { displayName: 'Viewer', workspaceId: ownerId, role: 'viewer' }]]) {
-    await db.collection('users').insertOne({ _id: userId, email: `${userId}@example.test`, ...data });
-    const token = randomBytes(32).toString('hex');
-    await db.collection('sessions').insertOne({ _id: digestToken(token), userId, expiresAt: new Date(Date.now() + 3600000) });
-    cookies.push(`servicetrident_session=${token}`);
-  }
-  const admin = { Cookie: cookies[0], 'X-Requested-With': 'ServiceTrident' }, other = { Cookie: cookies[1], 'X-Requested-With': 'ServiceTrident' }, viewer = { Cookie: cookies[2], 'X-Requested-With': 'ServiceTrident' };
-  const service = (await json('/services', 'POST', { name: 'Scoped service', description: '' }, admin)).data.item;
-  const service2 = (await json('/services', 'POST', { name: 'Other permitted service', description: '' }, admin)).data.item;
-  const foreign = (await json('/services', 'POST', { name: 'Foreign service', description: '' }, other)).data.item;
-  const accountInput = { name: 'External source', description: 'Synthetic account', enabled: true, scopes: ['incidents:create', 'tasks:create', 'knowledge:create'], serviceIds: [service.id], apiKeyEnabled: true, oauthEnabled: true, expiresInDays: 90 };
-  assert.equal((await json('/settings/service-accounts', 'POST', accountInput, viewer)).status, 403);
-  assert.equal((await json('/settings/service-accounts', 'POST', { ...accountInput, serviceIds: [foreign.id] }, admin)).status, 400);
-  const created = await json('/settings/service-accounts', 'POST', accountInput, admin);
-  assert.equal(created.status, 201);
-  const accountId = created.data.item.id, apiKey = created.data.credentials.apiKey, oauthSecret = created.data.credentials.clientSecret;
-  const bearer = { Authorization: `Bearer ${apiKey}` };
-  const accountPath = `/settings/service-accounts/${accountId}`;
-  assert.equal((await json(accountPath, 'GET', undefined, other)).status, 404);
-  const listed = await json('/settings/service-accounts', 'GET', undefined, admin);
-  assert.equal(listed.data.items.length, 1);
-  assert.equal(JSON.stringify(listed.data).includes(apiKey), false);
-  assert.equal(JSON.stringify(listed.data).includes(oauthSecret), false);
-  const stored = await db.collection('serviceAccounts').findOne({ _id: new ObjectId(accountId) });
-  assert.equal(stored.apiKeyHash, digestToken(apiKey));
-  assert.equal(stored.clientSecretHash, digestToken(oauthSecret));
-  assert.equal(JSON.stringify(stored).includes(apiKey), false);
-  assert.equal(JSON.stringify(stored).includes(oauthSecret), false);
-  const incidentBody = { title: 'External incident', serviceId: service.id, severity: 'medium', description: '<script>synthetic text</script>' };
-  assert.equal((await json('/external/v1/incidents', 'POST', incidentBody)).status, 401);
-  assert.equal((await json('/external/v1/incidents', 'POST', incidentBody, admin)).status, 401);
-  assert.equal((await json('/external/v1/incidents', 'POST', incidentBody, { ...bearer, Cookie: cookies[0] })).status, 401);
-  assert.equal((await json('/external/v1/incidents?access_token=discarded', 'POST', incidentBody, bearer)).status, 401);
-  assert.equal((await json('/incidents', 'POST', incidentBody, bearer)).status, 403);
-  assert.equal((await json('/incidents', 'POST', incidentBody, { ...bearer, 'X-Requested-With': 'ServiceTrident' })).status, 401);
-  assert.equal((await json('/external/v1/incidents', 'GET', undefined, bearer)).status, 404);
-  assert.equal((await json('/external/v1/incidents', 'POST', { ...incidentBody, serviceId: service2.id }, bearer)).status, 403);
-  assert.equal((await json('/external/v1/incidents', 'POST', { ...incidentBody, serviceId: foreign.id }, bearer)).status, 403);
-  assert.equal((await json('/external/v1/incidents', 'POST', { ...incidentBody, workspaceId: otherId }, bearer)).status, 400);
-  assert.equal((await json('/external/v1/incidents', 'POST', { ...incidentBody, createdBy: 'spoofed' }, bearer)).status, 400);
-  const incident = await json('/external/v1/incidents', 'POST', incidentBody, bearer);
-  assert.equal(incident.status, 201);
-  assert.equal(incident.data.incident.createdBy, 'Service account: External source');
-  assert.equal(incident.data.incident.source, 'integration');
-  assert.equal(incident.data.incident.openedForId, null);
-  const foreignIncident = (await json('/incidents', 'POST', { ...incidentBody, serviceId: foreign.id }, other)).data.incident;
-  assert.equal((await json('/external/v1/tasks', 'POST', { title: 'Bad relationship', incidentId: foreignIncident.id }, bearer)).status, 400);
-  assert.equal((await json('/external/v1/tasks', 'POST', { title: 'Scoped task', incidentId: incident.data.incident.id }, bearer)).status, 201);
-  assert.equal((await json('/external/v1/tasks', 'POST', { title: 'Mismatched service', serviceId: service2.id, incidentId: incident.data.incident.id }, bearer)).status, 400);
-  assert.equal((await json('/external/v1/knowledge', 'POST', { title: 'Draft', content: 'Synthetic instructions', serviceId: service.id }, bearer)).status, 201);
-  assert.equal((await json('/external/v1/knowledge', 'POST', { title: 'Published', content: 'Synthetic', serviceId: service.id, status: 'published' }, bearer)).status, 403);
-  const knowledgeFields = workBuiltinFields('knowledge');
-  const customPublished = new ObjectId().toString();
-  knowledgeFields.find((field) => field.id === 'status').choices = [...fieldChoices('knowledge', knowledgeFields.find((field) => field.id === 'status')), { value: customPublished, label: 'Visible', base: 'published', hidden: false }];
-  await db.collection('operations').updateOne({ _id: ownerId }, { $set: { knowledgeFields } }, { upsert: true });
-  assert.equal((await json('/external/v1/knowledge', 'POST', { title: 'Published', content: 'Synthetic', serviceId: service.id, statusOption: customPublished }, bearer)).status, 403);
-  async function oauth(body = {}, header = `Basic ${Buffer.from(`${created.data.item.clientId}:${oauthSecret}`).toString('base64')}`) {
-    const response = await fetch(`${base}/oauth/token`, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', ...(header ? { Authorization: header } : {}) }, body: new URLSearchParams({ grant_type: 'client_credentials', ...body }) });
-    return { status: response.status, data: await response.json(), cache: response.headers.get('cache-control') };
-  }
-  assert.equal((await oauth({ scope: 'knowledge:publish' })).data.error, 'invalid_scope');
-  assert.equal((await oauth({}, 'Basic invalid')).status, 401);
-  assert.equal((await oauth({ client_id: created.data.item.clientId, client_secret: oauthSecret })).status, 400);
-  const minted = await oauth({ scope: 'tasks:create' });
-  assert.equal(minted.status, 200);
-  assert.equal(minted.cache, 'no-store');
-  assert.ok(minted.data.expires_in <= 3600);
-  const tokenBearer = { Authorization: `Bearer ${minted.data.access_token}` };
-  assert.equal((await json('/external/v1/incidents', 'POST', incidentBody, tokenBearer)).status, 403);
-  assert.equal((await json('/external/v1/tasks', 'POST', { title: 'OAuth task', serviceId: service.id }, tokenBearer)).status, 201);
-  const postAuth = await oauth({ client_id: created.data.item.clientId, client_secret: oauthSecret, scope: 'knowledge:create' }, null);
-  assert.equal(postAuth.status, 200);
-  const beforeChange = (await json(accountPath, 'GET', undefined, admin)).data.item;
-  assert.equal((await json(accountPath, 'PUT', { ...accountInput, apiKeyEnabled: undefined, oauthEnabled: undefined, expiresInDays: undefined, scopes: ['incidents:create', 'tasks:create', 'knowledge:create', 'knowledge:publish'], revision: beforeChange.revision }, admin)).status, 200);
-  assert.equal((await json('/external/v1/tasks', 'POST', { title: 'Old token', serviceId: service.id }, tokenBearer)).status, 401);
-  assert.equal((await json('/external/v1/knowledge', 'POST', { title: 'Allowed published', content: 'Synthetic', serviceId: service.id, statusOption: customPublished }, bearer)).status, 201);
-  let current = (await json(accountPath, 'GET', undefined, admin)).data.item;
-  const rotated = await json(`${accountPath}/credentials/api-key`, 'POST', { revision: current.revision, expiresInDays: 30 }, admin);
-  assert.equal(rotated.status, 200);
-  assert.equal((await json('/external/v1/incidents', 'POST', incidentBody, bearer)).status, 401);
-  const newBearer = { Authorization: `Bearer ${rotated.data.credentials.apiKey}` };
-  assert.equal((await json('/external/v1/incidents', 'POST', incidentBody, newBearer)).status, 201);
-  const newToken = await oauth();
-  current = (await json(accountPath, 'GET', undefined, admin)).data.item;
-  assert.equal((await json(`${accountPath}/credentials/oauth`, 'DELETE', { revision: current.revision }, admin)).status, 200);
-  assert.equal((await json('/external/v1/tasks', 'POST', { title: 'Revoked', serviceId: service.id }, { Authorization: `Bearer ${newToken.data.access_token}` })).status, 401);
-  assert.equal((await oauth()).status, 401);
-  await db.collection('serviceAccounts').updateOne({ _id: stored._id }, { $set: { apiKeyExpiresAt: new Date(Date.now() - 1000) } });
-  assert.equal((await json('/external/v1/incidents', 'POST', incidentBody, newBearer)).status, 401);
-  await db.collection('serviceAccounts').updateOne({ _id: stored._id }, { $set: { apiKeyExpiresAt: new Date(Date.now() + 3600000), enabled: false } });
-  assert.equal((await json('/external/v1/incidents', 'POST', incidentBody, newBearer)).status, 401);
-  const audit = await db.collection('auditEvents').find({ workspaceId: ownerId }).toArray();
-  assert.ok(audit.some((entry) => entry.operation === 'POST /api/external/v1/incidents' && entry.actorId === accountId && entry.effectiveRole === 'service_account' && entry.statusCode === 201));
-  assert.ok(audit.some((entry) => entry.operation === 'POST /api/oauth/token' && entry.statusCode === 200));
-  assert.ok(audit.some((entry) => entry.operation === 'GET /api/settings/service-accounts/:id'));
-  assert.ok(audit.some((entry) => entry.outcome === 'failed' && entry.statusCode === 403));
-  const serializedAudit = JSON.stringify(await db.collection('auditEvents').find({}).toArray());
-  for (const sensitive of [apiKey, oauthSecret, minted.data.access_token, rotated.data.credentials.apiKey, ...cookies, incidentBody.description]) assert.equal(serializedAudit.includes(sensitive), false);
-  current = (await json(accountPath, 'GET', undefined, admin)).data.item;
-  assert.equal((await json(accountPath, 'DELETE', { revision: current.revision }, admin)).status, 200);
-  assert.equal((await json(accountPath, 'GET', undefined, admin)).status, 404);
-});
+test(
+  'external API enforces credentials, scopes, tenant/service boundaries, expiry, revocation and safe auditing',
+  { timeout: 30000 },
+  async (t) => {
+    process.env.DATABASE_SCHEMA =
+      process.env.MONGODB_DB = `machine_test_${randomUUID().replaceAll('-', '')}`;
+    const { db, client } = await connectDatabase();
+    const server = createApp(db).listen(0, '127.0.0.1');
+    await new Promise((resolve) => server.once('listening', resolve));
+    t.after(async () => {
+      await new Promise((resolve) => server.close(resolve));
+      await db.dropDatabase();
+      await client.close();
+    });
+    const base = `http://127.0.0.1:${server.address().port}/api`;
+    async function json(path, method = 'GET', body, headers = {}) {
+      const response = await fetch(base + path, {
+        method,
+        headers: { 'Content-Type': 'application/json', ...headers },
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      });
+      return {
+        status: response.status,
+        data: await response.json(),
+        challenge: response.headers.get('www-authenticate'),
+      };
+    }
+    const ownerId = new ObjectId(),
+      otherId = new ObjectId(),
+      viewerId = new ObjectId();
+    const cookies = [];
+    for (const [userId, data] of [
+      [ownerId, { displayName: 'Owner' }],
+      [otherId, { displayName: 'Other' }],
+      [viewerId, { displayName: 'Viewer', workspaceId: ownerId, role: 'viewer' }],
+    ]) {
+      await db
+        .collection('users')
+        .insertOne({ _id: userId, email: `${userId}@example.test`, ...data });
+      const token = randomBytes(32).toString('hex');
+      await db
+        .collection('sessions')
+        .insertOne({ _id: digestToken(token), userId, expiresAt: new Date(Date.now() + 3600000) });
+      cookies.push(`servicetrident_session=${token}`);
+    }
+    const admin = { Cookie: cookies[0], 'X-Requested-With': 'ServiceTrident' },
+      other = { Cookie: cookies[1], 'X-Requested-With': 'ServiceTrident' },
+      viewer = { Cookie: cookies[2], 'X-Requested-With': 'ServiceTrident' };
+    const service = (
+      await json('/services', 'POST', { name: 'Scoped service', description: '' }, admin)
+    ).data.item;
+    const service2 = (
+      await json('/services', 'POST', { name: 'Other permitted service', description: '' }, admin)
+    ).data.item;
+    const foreign = (
+      await json('/services', 'POST', { name: 'Foreign service', description: '' }, other)
+    ).data.item;
+    const accountInput = {
+      name: 'External source',
+      description: 'Synthetic account',
+      enabled: true,
+      scopes: ['incidents:create', 'tasks:create', 'knowledge:create'],
+      serviceIds: [service.id],
+      apiKeyEnabled: true,
+      oauthEnabled: true,
+      expiresInDays: 90,
+    };
+    assert.equal(
+      (await json('/settings/service-accounts', 'POST', accountInput, viewer)).status,
+      403,
+    );
+    assert.equal(
+      (
+        await json(
+          '/settings/service-accounts',
+          'POST',
+          { ...accountInput, serviceIds: [foreign.id] },
+          admin,
+        )
+      ).status,
+      400,
+    );
+    const created = await json('/settings/service-accounts', 'POST', accountInput, admin);
+    assert.equal(created.status, 201);
+    const accountId = created.data.item.id,
+      apiKey = created.data.credentials.apiKey,
+      oauthSecret = created.data.credentials.clientSecret;
+    const bearer = { Authorization: `Bearer ${apiKey}` };
+    const accountPath = `/settings/service-accounts/${accountId}`;
+    assert.equal((await json(accountPath, 'GET', undefined, other)).status, 404);
+    const listed = await json('/settings/service-accounts', 'GET', undefined, admin);
+    assert.equal(listed.data.items.length, 1);
+    assert.equal(JSON.stringify(listed.data).includes(apiKey), false);
+    assert.equal(JSON.stringify(listed.data).includes(oauthSecret), false);
+    const stored = await db.collection('serviceAccounts').findOne({ _id: new ObjectId(accountId) });
+    assert.equal(stored.apiKeyHash, digestToken(apiKey));
+    assert.equal(stored.clientSecretHash, digestToken(oauthSecret));
+    assert.equal(JSON.stringify(stored).includes(apiKey), false);
+    assert.equal(JSON.stringify(stored).includes(oauthSecret), false);
+    const incidentBody = {
+      title: 'External incident',
+      serviceId: service.id,
+      severity: 'medium',
+      description: '<script>synthetic text</script>',
+    };
+    assert.equal((await json('/external/v1/incidents', 'POST', incidentBody)).status, 401);
+    assert.equal((await json('/external/v1/incidents', 'POST', incidentBody, admin)).status, 401);
+    assert.equal(
+      (
+        await json('/external/v1/incidents', 'POST', incidentBody, {
+          ...bearer,
+          Cookie: cookies[0],
+        })
+      ).status,
+      401,
+    );
+    assert.equal(
+      (await json('/external/v1/incidents?access_token=discarded', 'POST', incidentBody, bearer))
+        .status,
+      401,
+    );
+    assert.equal((await json('/incidents', 'POST', incidentBody, bearer)).status, 403);
+    assert.equal(
+      (
+        await json('/incidents', 'POST', incidentBody, {
+          ...bearer,
+          'X-Requested-With': 'ServiceTrident',
+        })
+      ).status,
+      401,
+    );
+    assert.equal((await json('/external/v1/incidents', 'GET', undefined, bearer)).status, 404);
+    assert.equal(
+      (
+        await json(
+          '/external/v1/incidents',
+          'POST',
+          { ...incidentBody, serviceId: service2.id },
+          bearer,
+        )
+      ).status,
+      403,
+    );
+    assert.equal(
+      (
+        await json(
+          '/external/v1/incidents',
+          'POST',
+          { ...incidentBody, serviceId: foreign.id },
+          bearer,
+        )
+      ).status,
+      403,
+    );
+    assert.equal(
+      (
+        await json(
+          '/external/v1/incidents',
+          'POST',
+          { ...incidentBody, workspaceId: otherId },
+          bearer,
+        )
+      ).status,
+      400,
+    );
+    assert.equal(
+      (
+        await json(
+          '/external/v1/incidents',
+          'POST',
+          { ...incidentBody, createdBy: 'spoofed' },
+          bearer,
+        )
+      ).status,
+      400,
+    );
+    const incident = await json('/external/v1/incidents', 'POST', incidentBody, bearer);
+    assert.equal(incident.status, 201);
+    assert.equal(incident.data.incident.createdBy, 'Service account: External source');
+    assert.equal(incident.data.incident.source, 'integration');
+    assert.equal(incident.data.incident.sourceAccountName, 'External source');
+    assert.equal(incident.data.incident.openedForId, null);
+    const origin = await json(`/incidents/${incident.data.incident.id}`, 'GET', undefined, admin);
+    assert.equal(origin.data.origin[0].href, `/settings/service-accounts/${accountId}`);
+    const viewerOrigin = await json(
+      `/incidents/${incident.data.incident.id}`,
+      'GET',
+      undefined,
+      viewer,
+    );
+    assert.equal(viewerOrigin.data.origin[0].label, 'External source');
+    assert.equal(viewerOrigin.data.origin[0].href, undefined);
+    assert.equal(JSON.stringify(origin.data.origin).includes(apiKey), false);
+    assert.equal(
+      (await json(`/incidents/${incident.data.incident.id}`, 'GET', undefined, other)).status,
+      404,
+    );
+    const foreignIncident = (
+      await json('/incidents', 'POST', { ...incidentBody, serviceId: foreign.id }, other)
+    ).data.incident;
+    assert.equal(
+      (
+        await json(
+          '/external/v1/tasks',
+          'POST',
+          { title: 'Bad relationship', incidentId: foreignIncident.id },
+          bearer,
+        )
+      ).status,
+      400,
+    );
+    assert.equal(
+      (
+        await json(
+          '/external/v1/tasks',
+          'POST',
+          { title: 'Scoped task', incidentId: incident.data.incident.id },
+          bearer,
+        )
+      ).status,
+      201,
+    );
+    assert.equal(
+      (
+        await json(
+          '/external/v1/tasks',
+          'POST',
+          {
+            title: 'Mismatched service',
+            serviceId: service2.id,
+            incidentId: incident.data.incident.id,
+          },
+          bearer,
+        )
+      ).status,
+      400,
+    );
+    assert.equal(
+      (
+        await json(
+          '/external/v1/knowledge',
+          'POST',
+          { title: 'Draft', content: 'Synthetic instructions', serviceId: service.id },
+          bearer,
+        )
+      ).status,
+      201,
+    );
+    assert.equal(
+      (
+        await json(
+          '/external/v1/knowledge',
+          'POST',
+          { title: 'Published', content: 'Synthetic', serviceId: service.id, status: 'published' },
+          bearer,
+        )
+      ).status,
+      403,
+    );
+    const knowledgeFields = workBuiltinFields('knowledge');
+    const customPublished = new ObjectId().toString();
+    knowledgeFields.find((field) => field.id === 'status').choices = [
+      ...fieldChoices(
+        'knowledge',
+        knowledgeFields.find((field) => field.id === 'status'),
+      ),
+      { value: customPublished, label: 'Visible', base: 'published', hidden: false },
+    ];
+    await db
+      .collection('operations')
+      .updateOne({ _id: ownerId }, { $set: { knowledgeFields } }, { upsert: true });
+    assert.equal(
+      (
+        await json(
+          '/external/v1/knowledge',
+          'POST',
+          {
+            title: 'Published',
+            content: 'Synthetic',
+            serviceId: service.id,
+            statusOption: customPublished,
+          },
+          bearer,
+        )
+      ).status,
+      403,
+    );
+    async function oauth(
+      body = {},
+      header = `Basic ${Buffer.from(`${created.data.item.clientId}:${oauthSecret}`).toString('base64')}`,
+    ) {
+      const response = await fetch(`${base}/oauth/token`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          ...(header ? { Authorization: header } : {}),
+        },
+        body: new URLSearchParams({ grant_type: 'client_credentials', ...body }),
+      });
+      return {
+        status: response.status,
+        data: await response.json(),
+        cache: response.headers.get('cache-control'),
+      };
+    }
+    assert.equal((await oauth({ scope: 'knowledge:publish' })).data.error, 'invalid_scope');
+    assert.equal((await oauth({}, 'Basic invalid')).status, 401);
+    assert.equal(
+      (await oauth({ client_id: created.data.item.clientId, client_secret: oauthSecret })).status,
+      400,
+    );
+    const minted = await oauth({ scope: 'tasks:create' });
+    assert.equal(minted.status, 200);
+    assert.equal(minted.cache, 'no-store');
+    assert.ok(minted.data.expires_in <= 3600);
+    const tokenBearer = { Authorization: `Bearer ${minted.data.access_token}` };
+    assert.equal(
+      (await json('/external/v1/incidents', 'POST', incidentBody, tokenBearer)).status,
+      403,
+    );
+    assert.equal(
+      (
+        await json(
+          '/external/v1/tasks',
+          'POST',
+          { title: 'OAuth task', serviceId: service.id },
+          tokenBearer,
+        )
+      ).status,
+      201,
+    );
+    const postAuth = await oauth(
+      {
+        client_id: created.data.item.clientId,
+        client_secret: oauthSecret,
+        scope: 'knowledge:create',
+      },
+      null,
+    );
+    assert.equal(postAuth.status, 200);
+    const beforeChange = (await json(accountPath, 'GET', undefined, admin)).data.item;
+    assert.equal(
+      (
+        await json(
+          accountPath,
+          'PUT',
+          {
+            ...accountInput,
+            apiKeyEnabled: undefined,
+            oauthEnabled: undefined,
+            expiresInDays: undefined,
+            scopes: ['incidents:create', 'tasks:create', 'knowledge:create', 'knowledge:publish'],
+            revision: beforeChange.revision,
+          },
+          admin,
+        )
+      ).status,
+      200,
+    );
+    assert.equal(
+      (
+        await json(
+          '/external/v1/tasks',
+          'POST',
+          { title: 'Old token', serviceId: service.id },
+          tokenBearer,
+        )
+      ).status,
+      401,
+    );
+    assert.equal(
+      (
+        await json(
+          '/external/v1/knowledge',
+          'POST',
+          {
+            title: 'Allowed published',
+            content: 'Synthetic',
+            serviceId: service.id,
+            statusOption: customPublished,
+          },
+          bearer,
+        )
+      ).status,
+      201,
+    );
+    let current = (await json(accountPath, 'GET', undefined, admin)).data.item;
+    const rotated = await json(
+      `${accountPath}/credentials/api-key`,
+      'POST',
+      { revision: current.revision, expiresInDays: 30 },
+      admin,
+    );
+    assert.equal(rotated.status, 200);
+    assert.equal((await json('/external/v1/incidents', 'POST', incidentBody, bearer)).status, 401);
+    const newBearer = { Authorization: `Bearer ${rotated.data.credentials.apiKey}` };
+    assert.equal(
+      (await json('/external/v1/incidents', 'POST', incidentBody, newBearer)).status,
+      201,
+    );
+    const newToken = await oauth();
+    current = (await json(accountPath, 'GET', undefined, admin)).data.item;
+    assert.equal(
+      (
+        await json(
+          `${accountPath}/credentials/oauth`,
+          'DELETE',
+          { revision: current.revision },
+          admin,
+        )
+      ).status,
+      200,
+    );
+    assert.equal(
+      (
+        await json(
+          '/external/v1/tasks',
+          'POST',
+          { title: 'Revoked', serviceId: service.id },
+          { Authorization: `Bearer ${newToken.data.access_token}` },
+        )
+      ).status,
+      401,
+    );
+    assert.equal((await oauth()).status, 401);
+    await db
+      .collection('serviceAccounts')
+      .updateOne({ _id: stored._id }, { $set: { apiKeyExpiresAt: new Date(Date.now() - 1000) } });
+    assert.equal(
+      (await json('/external/v1/incidents', 'POST', incidentBody, newBearer)).status,
+      401,
+    );
+    await db
+      .collection('serviceAccounts')
+      .updateOne(
+        { _id: stored._id },
+        { $set: { apiKeyExpiresAt: new Date(Date.now() + 3600000), enabled: false } },
+      );
+    assert.equal(
+      (await json('/external/v1/incidents', 'POST', incidentBody, newBearer)).status,
+      401,
+    );
+    const audit = await db.collection('auditEvents').find({ workspaceId: ownerId }).toArray();
+    assert.ok(
+      audit.some(
+        (entry) =>
+          entry.operation === 'POST /api/external/v1/incidents' &&
+          entry.actorId === accountId &&
+          entry.effectiveRole === 'service_account' &&
+          entry.statusCode === 201,
+      ),
+    );
+    assert.ok(
+      audit.some(
+        (entry) => entry.operation === 'POST /api/oauth/token' && entry.statusCode === 200,
+      ),
+    );
+    assert.ok(audit.some((entry) => entry.operation === 'GET /api/settings/service-accounts/:id'));
+    assert.ok(audit.some((entry) => entry.outcome === 'failed' && entry.statusCode === 403));
+    const serializedAudit = JSON.stringify(await db.collection('auditEvents').find({}).toArray());
+    for (const sensitive of [
+      apiKey,
+      oauthSecret,
+      minted.data.access_token,
+      rotated.data.credentials.apiKey,
+      ...cookies,
+      incidentBody.description,
+    ])
+      assert.equal(serializedAudit.includes(sensitive), false);
+    current = (await json(accountPath, 'GET', undefined, admin)).data.item;
+    assert.equal(
+      (await json(accountPath, 'DELETE', { revision: current.revision }, admin)).status,
+      200,
+    );
+    assert.equal((await json(accountPath, 'GET', undefined, admin)).status, 404);
+  },
+);

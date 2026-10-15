@@ -1,3 +1,4 @@
+import { UserCircleIcon, UserGroupIcon, ArrowUpRightIcon } from '@heroicons/react/24/outline';
 import { ReferenceField } from '../../components/forms/reference-field.jsx';
 import { RecordHeader } from '../../components/record-actions.jsx';
 import { useUiPreferences } from '../../preferences/ui-preferences.jsx';
@@ -623,7 +624,6 @@ function Overview({ data, chart, services, reportHref }) {
         </h2>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <Score
-            compact
             label="Critical / High Incidents"
             tone={(data.severity.critical ?? 0) + (data.severity.high ?? 0) ? 'rose' : 'emerald'}
             value={(data.severity.critical ?? 0) + (data.severity.high ?? 0)}
@@ -631,7 +631,6 @@ function Overview({ data, chart, services, reportHref }) {
             href={reportHref('urgent')}
           />
           <Score
-            compact
             label="Unassigned Incidents"
             tone={data.unassigned ? 'amber' : 'emerald'}
             value={data.unassigned}
@@ -639,7 +638,6 @@ function Overview({ data, chart, services, reportHref }) {
             href={reportHref('unassigned')}
           />
           <Score
-            compact
             label="Overdue Tasks"
             tone={data.overdue ? 'amber' : 'emerald'}
             value={data.overdue}
@@ -647,7 +645,6 @@ function Overview({ data, chart, services, reportHref }) {
             href={reportHref('overdue')}
           />
           <Score
-            compact
             label="Services Down"
             tone={
               services.some((service) => service.status === 'down')
@@ -665,57 +662,68 @@ function Overview({ data, chart, services, reportHref }) {
           />
         </div>
       </section>
-      <section className="space-y-4" aria-labelledby="overview-work-title">
-        <div>
-          <h2 id="overview-work-title" className="text-lg font-semibold">
-            Your Work
-          </h2>
-          <p className="mt-1 text-sm text-slate-500">
-            Start with your active assignments, then review work shared with your team.
-          </p>
-        </div>
-        <div className="grid gap-4 lg:grid-cols-2">
-          {[
-            ['My Assignments', 'my'],
-            ['My Team', 'team'],
-          ].map(([title, scope]) => (
-            <div key={scope} className="panel p-5">
-              <h3 className="font-semibold">{title}</h3>
-              <div className="mt-3 space-y-2">
-                {['incidents', 'tasks'].map((kind) => {
-                  const report = `${scope}-${kind}`;
-                  const work = data.assignedWork?.[report];
-                  return (
-                    <Link
-                      key={kind}
-                      to={reportHref(report)}
-                      className="flex items-center justify-between gap-4 rounded-lg p-3 hover:bg-slate-100 dark:hover:bg-slate-800"
-                    >
-                      <div>
-                        <span className="font-medium">
-                          {kind === 'incidents' ? 'Unresolved incidents' : 'Outstanding tasks'}
-                        </span>
-                        <p className="mt-1 text-sm text-slate-500">
-                          {scope === 'team' && !data.teamCount
-                            ? 'No assignment group membership'
-                            : `${work?.needsAttention ?? 0} ${kind === 'incidents' ? 'critical or high priority' : 'overdue'}`}
-                        </p>
-                      </div>
-                      <span className="text-2xl font-semibold text-blue-700 dark:text-blue-300">
-                        {work?.total ?? 0}
-                      </span>
-                    </Link>
-                  );
-                })}
-              </div>
+      <section className="grid gap-4 lg:grid-cols-2" aria-label="Assignment overview">
+        {[
+          ['My Assignments', 'my', UserCircleIcon],
+          ['My Team', 'team', UserGroupIcon],
+        ].map(([title, scope, Icon]) => (
+          <article key={scope} className="panel space-y-4 rounded-xl p-5">
+            <header className="flex items-center justify-between gap-3">
+              <h2 className="flex items-center gap-2 font-semibold">
+                <Icon className="h-5 w-5 text-blue-700 dark:text-blue-300" aria-hidden="true" />
+                {title}
+              </h2>
               {scope === 'team' && (
-                <p className="mt-3 text-xs text-slate-500">
-                  Includes all your assignment groups and may overlap your personal assignments.
-                </p>
+                <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                  {data.teamCount
+                    ? `${data.teamCount} ${data.teamCount === 1 ? 'group' : 'groups'}`
+                    : 'No groups'}
+                </span>
               )}
+            </header>
+            <div className="grid grid-cols-2 gap-3">
+              {['incidents', 'tasks'].map((kind) => {
+                const report = `${scope}-${kind}`,
+                  work = data.assignedWork?.[report];
+                const attention = work?.needsAttention ?? 0;
+                return (
+                  <Link
+                    key={kind}
+                    to={reportHref(report)}
+                    className="assignment-report group min-w-0 rounded-xl border border-slate-200 p-4 hover:border-blue-400 focus-visible:outline-2 focus-visible:outline-blue-500 dark:border-slate-700 dark:hover:border-blue-500"
+                  >
+                    <span className="flex items-center justify-between gap-2 text-sm font-medium">
+                      <span>{kind === 'incidents' ? 'Active incidents' : 'Open tasks'}</span>
+                      <ArrowUpRightIcon
+                        className="h-4 w-4 shrink-0 text-slate-500 group-hover:text-blue-600 dark:group-hover:text-blue-300"
+                        aria-hidden="true"
+                      />
+                    </span>
+                    <span className="mt-3 block text-3xl font-semibold tabular-nums">
+                      {number(work?.total ?? 0)}
+                    </span>
+                    <span
+                      className={`mt-2 block text-xs ${attention ? (kind === 'incidents' ? 'font-medium text-rose-700 dark:text-rose-300' : 'font-medium text-amber-700 dark:text-amber-300') : 'text-slate-500'}`}
+                    >
+                      {attention
+                        ? `${number(attention)} ${kind === 'incidents' ? 'critical / high' : 'overdue'}`
+                        : kind === 'incidents'
+                          ? 'No urgent incidents'
+                          : 'No overdue tasks'}
+                    </span>
+                  </Link>
+                );
+              })}
             </div>
-          ))}
-        </div>
+            {scope === 'team' && (
+              <p className="text-xs text-slate-500">
+                {data.teamCount
+                  ? 'Shared across your assignment groups; may include your own work.'
+                  : 'Join an assignment group to see team work here.'}
+              </p>
+            )}
+          </article>
+        ))}
       </section>
       <div className="grid gap-6 lg:grid-cols-2" aria-label="Overview charts">
         <BarChart

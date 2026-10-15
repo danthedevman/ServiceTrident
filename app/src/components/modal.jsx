@@ -12,6 +12,7 @@ export function Modal({
   busy = false,
   children,
   footer,
+  footerBorder = true,
   initialFocusRef,
   className = '',
 }) {
@@ -52,21 +53,23 @@ export function Modal({
       }}
     >
       <header className="shrink-0 flex items-center justify-between gap-4 border-b border-slate-200 bg-white px-6 py-4 dark:border-slate-700 dark:bg-slate-900">
-        <h2 id={titleId} className="text-xl font-semibold">
+        <h2 id={titleId} title={title} className="min-w-0 truncate text-xl font-semibold">
           {title}
         </h2>
         <button
           type="button"
           disabled={busy}
           onClick={onClose}
-          className="rounded-lg p-2 hover:bg-slate-100 dark:hover:bg-slate-800"
+          className="shrink-0 rounded-lg p-2 hover:bg-slate-100 dark:hover:bg-slate-800"
           aria-label={`Close ${title.toLowerCase()}`}
         >
           <XMarkIcon className="h-5 w-5" aria-hidden="true" />
         </button>
       </header>
       <div className="min-h-0 overflow-y-auto overscroll-contain p-6">{children}</div>
-      <footer className="flex shrink-0 flex-wrap items-center justify-end gap-3 border-t border-slate-200 px-6 py-4 dark:border-slate-700">
+      <footer
+        className={`flex shrink-0 flex-wrap items-center justify-end gap-3 px-6 py-4 ${footerBorder ? 'border-t border-slate-200 dark:border-slate-700' : ''}`}
+      >
         {footer ?? (
           <button type="button" className="btn-secondary" disabled={busy} onClick={onClose}>
             Close

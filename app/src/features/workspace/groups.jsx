@@ -23,6 +23,7 @@ export function GroupsPage({ form = false }) {
   const [params] = useSearchParams(),
     { id } = useParams(),
     navigate = useNavigate();
+  const communication = useResource('/communication-options', 30000);
   const groups = useResource(id || form ? '/groups' : null),
     members = useResource(id || form ? '/members' : null);
   const [formVersion, setFormVersion] = useState(0);
@@ -94,6 +95,16 @@ export function GroupsPage({ form = false }) {
                     <dt>Name</dt>
                     <dd>{item.name}</dd>
                   </div>
+                  <div>
+                    <dt>Group email</dt>
+                    <dd>{item.email || 'Not set'}</dd>
+                  </div>
+                  {communication.data?.slack && (
+                    <div>
+                      <dt>Slack channel</dt>
+                      <dd>{item.slackChannel || 'Not set'}</dd>
+                    </div>
+                  )}
                   <div>
                     <dt>Description</dt>
                     <dd className="whitespace-pre-wrap">{item.description || 'No description.'}</dd>
@@ -190,10 +201,13 @@ export function GroupsPage({ form = false }) {
 
 /** A searchable, scrollable member picker supports large groups without enlarging the page. */
 function GroupEditor({ initial, revision, members, onClose, onSaved }) {
+  const communication = useResource('/communication-options', 30000);
   const save = useSave(),
     [value, setValue] = useState({
       name: initial.name ?? '',
       description: initial.description ?? '',
+      email: initial.email ?? '',
+      slackChannel: initial.slackChannel ?? '',
       memberIds: initial.memberIds ?? [],
     });
   const [originalRevision] = useState(revision);
@@ -228,6 +242,24 @@ function GroupEditor({ initial, revision, members, onClose, onSaved }) {
             onChange={(e) => setValue({ ...value, description: e.target.value })}
           />
         </Field>
+        <Field name="email" label="Group email" errors={save.fields}>
+          <input
+            type="email"
+            value={value.email}
+            maxLength={254}
+            onChange={(event) => setValue({ ...value, email: event.target.value })}
+          />
+        </Field>
+        {communication.data?.slack && (
+          <Field name="slackChannel" label="Slack channel" errors={save.fields}>
+            <input
+              value={value.slackChannel}
+              maxLength={80}
+              placeholder="#channel-name or channel ID"
+              onChange={(event) => setValue({ ...value, slackChannel: event.target.value })}
+            />
+          </Field>
+        )}
         <ReferenceField
           referenceType="members"
           label="Group members"

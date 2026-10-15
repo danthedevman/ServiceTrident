@@ -39,7 +39,11 @@ export function RecordActions({ children }) {
       return child.type === 'button' ? React.cloneElement(child, { form: formId }) : child;
     });
   if (!active) return <span ref={anchor} hidden />;
-  const actions = <div className="form-actions">{associate(children)}</div>;
+  const actions = (
+    <div className={toolbar ? 'flex flex-wrap items-center justify-end gap-3' : 'form-actions'}>
+      {associate(children)}
+    </div>
+  );
   return (
     <>
       <span ref={anchor} hidden />

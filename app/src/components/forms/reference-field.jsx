@@ -186,7 +186,7 @@ export function ReferenceField({
   }
   return (
     <div
-      className="space-y-2"
+      className="min-w-0 space-y-2"
       onBlur={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget)) {
           setOpen(false);
@@ -227,7 +227,7 @@ export function ReferenceField({
         ids.map((selected) => <input key={selected} type="hidden" name={name} value={selected} />)}
       <div className="relative">
         <div
-          className={`reference-control ${disabled ? 'reference-disabled' : ''}`}
+          className={`reference-control ${multiple ? '' : 'reference-single'} ${disabled ? 'reference-disabled' : ''}`}
           onClick={(event) => {
             if (event.target === event.currentTarget) input.current?.focus();
           }}
@@ -236,9 +236,11 @@ export function ReferenceField({
             ids.map((selected) => (
               <span
                 key={selected}
-                className="inline-flex max-w-full items-center gap-1 rounded-md bg-blue-50 px-2 py-1 text-sm text-blue-800 dark:bg-blue-950 dark:text-blue-200"
+                className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-md bg-blue-50 px-2 py-1 text-sm text-blue-800 dark:bg-blue-950 dark:text-blue-200"
               >
-                <span className="min-w-0 break-words">{selectedLabel(selected)}</span>
+                <span className="min-w-0 truncate" title={selectedLabel(selected)}>
+                  {selectedLabel(selected)}
+                </span>
                 {recordLink(selected)}
                 <button
                   type="button"
@@ -264,6 +266,7 @@ export function ReferenceField({
             aria-required={required}
             type="text"
             autoComplete="off"
+            title={!multiple && ids.length ? selectedLabel(ids[0]) : undefined}
             value={!multiple && !typing && ids.length ? selectedLabel(ids[0]) : search}
             disabled={disabled}
             aria-expanded={open && !disabled}

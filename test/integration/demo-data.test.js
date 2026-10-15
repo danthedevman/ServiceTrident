@@ -1,3 +1,4 @@
+import { RCA_FIELDS } from '../../shared/domain/rca.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
@@ -40,6 +41,32 @@ test('demo route adds once and removes only its workspace batch', async (t) => {
   assert.equal((await request('/settings/demo-data')).status, 200);
   const real = await request('/services', 'POST', { name: 'Demo named real service' });
   assert.equal(real.status, 201);
+  const retainedRca = await request('/rcas', 'POST', {
+    title: 'Independent review',
+    status: 'draft',
+  });
+  assert.equal(retainedRca.status, 201);
+  const schema = await request('/rca-fields');
+  const customId = new ObjectId().toHexString();
+  assert.equal(
+    (
+      await request('/rca-fields', 'PUT', {
+        fields: [
+          ...RCA_FIELDS,
+          {
+            id: customId,
+            label: 'Review context',
+            type: 'text',
+            required: true,
+            archived: false,
+            options: [],
+          },
+        ],
+        revision: schema.data.revision,
+      })
+    ).status,
+    200,
+  );
   assert.equal((await request('/settings/demo-data', 'POST', {})).status, 400);
   const added = await request('/settings/demo-data', 'POST', { confirmation: 'ADD DEMO DATA' });
   assert.equal(added.status, 201, JSON.stringify(added.data));
@@ -55,6 +82,7 @@ test('demo route adds once and removes only its workspace batch', async (t) => {
     'events',
     'incidents',
     'tasks',
+    'rcas',
     'articles',
     'attachments',
     'deliveries',
@@ -99,6 +127,44 @@ test('demo route adds once and removes only its workspace batch', async (t) => {
       .filter((item) => item.demoBatchId)
       .every((item) => !item.name.startsWith('Demo')),
   );
+  const notifications = await request('/notifications');
+  assert.equal(notifications.status, 200);
+  assert.equal(notifications.data.notifications.length, 6);
+  assert.ok(
+    notifications.data.notifications.every((item) => item.unread && item.author !== 'Demo tester'),
+  );
+  assert.deepEqual(
+    new Set(notifications.data.notifications.map((item) => item.kind)),
+    new Set(['comment', 'work_note']),
+  );
+  assert.equal(
+    (await request('/notifications/read', 'POST', { checkedAt: notifications.data.checkedAt }))
+      .status,
+    200,
+  );
+  assert.ok((await request('/notifications')).data.notifications.every((item) => !item.unread));
+  assert.equal(added.data.batch.counts.rcas, 50);
+  assert.ok((await request('/settings/demo-data')).data.types.some((type) => type.key === 'rcas'));
+  const demoRcas = await db
+    .collection('rcas')
+    .find({ workspaceId, demoBatchId: batchId })
+    .toArray();
+  assert.equal(new Set(demoRcas.map((item) => item.status)).size, 3);
+  assert.ok(
+    demoRcas.every(
+      (item) => item.rootCause && item.correctiveActions && item.timeline && item.custom[customId],
+    ),
+  );
+  const demoRca = demoRcas[0];
+  const rcaDetails = await request(`/rcas/${demoRca._id}`);
+  assert.equal(rcaDetails.status, 200);
+  assert.equal(rcaDetails.data.incidents[0].id, demoRca.incidentIds[0]);
+  assert.equal(rcaDetails.data.tasks[0].id, demoRca.taskIds[0]);
+  const related = await request(`/tables/rcas?incidentId=${demoRca.incidentIds[0]}`);
+  assert.equal(related.status, 200);
+  assert.equal(related.data.total, 1);
+  assert.match(related.data.rows[0].number, /^RCA[0-9]{7,}$/);
+  assert.equal((await request('/tables/rcas')).data.total, 51);
   const incident = await db.collection('incidents').findOne({ demoBatchId: batchId });
   assert.match(
     incident.title,
@@ -179,6 +245,7 @@ test('demo route adds once and removes only its workspace batch', async (t) => {
     'events',
     'incidents',
     'tasks',
+    'rcas',
     'articles',
     'attachments',
     'deliveries',
@@ -186,4 +253,7 @@ test('demo route adds once and removes only its workspace batch', async (t) => {
   ])
     assert.equal(await db.collection(name).countDocuments({ demoBatchId: batchId }), 0, name);
   assert.equal((await request('/settings/demo-data')).data.batch, null);
+  assert.equal((await request(`/rcas/${retainedRca.data.item.id}`)).status, 200);
+  assert.equal((await request('/tables/rcas')).data.total, 1);
+  assert.equal((await request('/notifications')).data.notifications.length, 0);
 });

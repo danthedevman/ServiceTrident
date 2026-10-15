@@ -16,7 +16,7 @@ export function slackMessage(incident, delivery) {
         .slice(0, 500) || 'Not provided'
     }`;
   const diagnostics =
-    incident.source === 'monitor'
+    ['monitor', 'automation'].includes(incident.source)
       ? (delivery.monitorChecks ?? [])
           .slice(0, 5)
           .map((check) =>

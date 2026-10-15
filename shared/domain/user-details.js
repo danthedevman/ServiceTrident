@@ -6,6 +6,7 @@ export const USER_DETAIL_FIELDS = [
   { key: 'department', label: 'Department / team', max: 120 },
   { key: 'phone', label: 'On-call phone', max: 32, type: 'tel' },
   { key: 'timeZone', label: 'Time zone', max: 80, placeholder: 'America/New_York' },
+  { key: 'slackId', label: 'Slack user ID', max: 32, communication: 'slack' },
   { key: 'location', label: 'Location', max: 160 },
 ];
 
@@ -21,6 +22,8 @@ export function userDetails(input, current = {}) {
       field.max,
       !!field.required,
     );
+  if (result.slackId && !/^[UW][A-Z0-9]{8,31}$/.test(result.slackId))
+    invalid('slackId', 'Enter a Slack member ID, such as U0123456789.');
   if (result.phone && !/^\+?[0-9 ()-]{7,32}$/.test(result.phone))
     invalid(
       'phone',

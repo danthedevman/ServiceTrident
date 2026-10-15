@@ -2,6 +2,7 @@ const prefixes = {
   incidents: 'INC',
   events: 'EVT',
   tasks: 'TASK',
+  rcas: 'RCA',
   knowledge: 'KB',
   knowledgeBases: 'KBASE',
   services: 'SVC',

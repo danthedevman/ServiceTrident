@@ -18,6 +18,7 @@ const collections = [
   'events',
   'incidents',
   'tasks',
+  'rcas',
   'articles',
   'knowledgeBases',
   'incidentComments',

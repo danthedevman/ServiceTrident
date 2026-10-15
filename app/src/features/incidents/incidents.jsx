@@ -1,3 +1,9 @@
+import {
+  INCIDENT_SOURCES,
+  incidentSourceLabel,
+} from '../../../../shared/domain/incident-source.js';
+import { RecordLink } from '../../components/record-navigation.jsx';
+import { RcaList } from '../work/rcas.jsx';
 import { Modal } from '../../components/modal.jsx';
 import { ValidatedForm } from '../../components/forms/validated-form.jsx';
 import { PageTitle } from '../../components/page-title.jsx';
@@ -45,6 +51,7 @@ export function IncidentsPage({ initialServiceId = '', related = false }) {
   const [searchColumn, setSearchColumn] = useState('');
   const [search, setSearch] = useState(''),
     [status, setStatus] = useState(''),
+    [source, setSource] = useState(''),
     [serviceId, setService] = useState(initialServiceId),
     [page, setPage] = useState(1),
     [pageSize, setSize] = useState(10),
@@ -55,6 +62,7 @@ export function IncidentsPage({ initialServiceId = '', related = false }) {
     search,
     status,
     serviceId,
+    source,
     page,
     pageSize,
     sortBy,
@@ -84,6 +92,14 @@ export function IncidentsPage({ initialServiceId = '', related = false }) {
         >
           {r.title}
         </Link>
+      ),
+    },
+    {
+      key: 'source',
+      label: 'Source',
+      value: (row) => incidentSourceLabel(row.source),
+      render: (row) => (
+        <StateBadge status={row.source || 'unknown'} label={incidentSourceLabel(row.source)} />
       ),
     },
     {
@@ -133,7 +149,7 @@ export function IncidentsPage({ initialServiceId = '', related = false }) {
         rows={resource.data?.incidents ?? []}
         rowKey={(r) => r.id}
         remote={{
-          filtersActive: Boolean(search || status || serviceId !== initialServiceId),
+          filtersActive: Boolean(search || status || source || serviceId !== initialServiceId),
           page,
           pageSize,
           total: resource.data?.total ?? 0,
@@ -178,6 +194,17 @@ export function IncidentsPage({ initialServiceId = '', related = false }) {
                 ))}
               </Select>
             </label>
+            <label className="field-label">
+              Source
+              <Select aria-label="Source" value={source} onChange={update(setSource)}>
+                <option value="">All sources</option>
+                {Object.entries(INCIDENT_SOURCES).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </Select>
+            </label>
             {!related && (
               <label className="field-label">
                 Service
@@ -191,13 +218,18 @@ export function IncidentsPage({ initialServiceId = '', related = false }) {
                 </Select>
               </label>
             )}
-            {(search || status || serviceId !== initialServiceId || sort !== 'createdAt:desc') && (
+            {(search ||
+              status ||
+              source ||
+              serviceId !== initialServiceId ||
+              sort !== 'createdAt:desc') && (
               <button
                 className="btn-secondary"
                 onClick={() => {
                   setSearch('');
                   setSearchColumn('');
                   setStatus('');
+                  setSource('');
                   setService(initialServiceId);
                   setSort('createdAt:desc');
                   setPage(1);
@@ -337,6 +369,12 @@ export function IncidentPage({ edit = false }) {
                     )
                   ) : undefined
                 }
+                identityExtra={
+                  <StateBadge
+                    status={item.source || 'unknown'}
+                    label={`Source: ${incidentSourceLabel(item.source)}`}
+                  />
+                }
                 sidebar={
                   <>
                     <RecordMetadata
@@ -344,14 +382,55 @@ export function IncidentPage({ edit = false }) {
                       extra={[
                         ['Status', item.statusLabel || displayValue(item.status)],
                         ['Severity', item.severityLabel || displayValue(item.severity)],
-                        ['Source', displayValue(item.source)],
+                        ['Source', incidentSourceLabel(item.source)],
+                        ...(incident.data.origin?.length
+                          ? [
+                              [
+                                'Triggered by',
+                                <div key="origin" className="flex min-w-0 flex-col gap-2">
+                                  {incident.data.origin.map((origin) => (
+                                    <div key={origin.key} className="min-w-0">
+                                      {origin.href ? (
+                                        <RecordLink
+                                          to={origin.href}
+                                          className="inline-flex max-w-full text-blue-700 hover:underline dark:text-blue-300"
+                                        >
+                                          <span className="truncate" title={origin.label}>
+                                            {origin.label}
+                                          </span>
+                                        </RecordLink>
+                                      ) : (
+                                        <span>{origin.label}</span>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>,
+                              ],
+                            ]
+                          : []),
+                        ...(item.alertGrouping === 'service' && user?.role !== 'user'
+                          ? [
+                              ['Alert group', 'Service outage'],
+                              ['Affected monitors', item.groupedMonitorCount ?? 0],
+                              [
+                                'Initial collection ends',
+                                <DateTime key="group-until" value={item.alertGroupUntil} />,
+                              ],
+                            ]
+                          : []),
                         [
-                          'Opened by',
+                          'Created by',
                           <ReferenceValue
                             key="opened-by"
                             type="members"
-                            id={item.createdById}
-                            label={memberName(item.createdById)}
+                            id={item.createdByType === 'service_account' ? null : item.createdById}
+                            label={
+                              item.createdByType === 'service_account'
+                                ? item.createdBy
+                                : item.createdById
+                                  ? memberName(item.createdById)
+                                  : item.createdBy || 'Not recorded'
+                            }
                           />,
                         ],
                       ]}
@@ -492,6 +571,15 @@ export function IncidentPage({ edit = false }) {
                         />
                       ),
                     },
+                    ...(user?.role !== 'user'
+                      ? [
+                          {
+                            id: 'rcas',
+                            label: 'RCAs',
+                            content: <RcaList related incidentId={item.id} />,
+                          },
+                        ]
+                      : []),
                     {
                       id: 'attachments',
                       label: 'Attachments',
@@ -533,7 +621,7 @@ export function IncidentPage({ edit = false }) {
                     },
                     ...(user?.role !== 'user'
                       ? [
-                          ...(item.source === 'monitor' &&
+                          ...(['monitor', 'automation'].includes(item.source) &&
                           (!item.monitorTriggersRecorded || item.hasMonitorEvents)
                             ? [
                                 {
@@ -925,11 +1013,11 @@ function IncidentEditor({
             : save.error
         }
       />
-      {current?.source === 'monitor' && (
+      {['monitor', 'automation'].includes(current?.source) && (
         <p className="text-sm text-slate-500">
           {current.reopenedAt && !current.activeAutomatic
             ? 'This incident was manually reopened and requires manual resolution. Monitoring can create a separate incident for a new failure.'
-            : 'Created from monitor health. It resolves automatically after recovery. Resolving while the service is still down can create a new monitoring incident.'}
+            : 'Created from service health. It resolves automatically after recovery. Resolving while the service is still down can create a new monitoring incident.'}
         </p>
       )}
       {layout.map(control)}
@@ -1065,7 +1153,7 @@ function ResolveIncidentDialog({ item, schema, onClose }) {
         }}
       >
         <p>Resolve “{item.title}”? This marks the incident resolved and may notify subscribers.</p>
-        {item.source === 'monitor' && (
+        {['monitor', 'automation'].includes(item.source) && (
           <p className="text-sm text-slate-500">
             Resolving while the service is still down can create a new monitoring incident.
           </p>

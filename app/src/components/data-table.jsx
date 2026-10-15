@@ -76,6 +76,7 @@ function DataTableView({
     [
       'incidents',
       'tasks',
+      'rcas',
       'knowledge',
       'services',
       'collections',
@@ -90,7 +91,7 @@ function DataTableView({
       'priority-incidents',
       'priority-tasks',
       'impacted-services',
-    ].includes(source?.split('?')[0]);
+    ].includes((source || deletePath?.replace(/^\//, ''))?.split('?')[0]);
   const columns =
     numbered && !providedColumns.some((column) => column.key === 'number')
       ? [
@@ -496,6 +497,20 @@ function DataTableView({
                       <td key={column.key} className={column.className}>
                         {column.key === 'actions' && column.render ? (
                           <RowActions render={column.render} row={row} />
+                        ) : column.key === 'number' && row.number && recordHref(row) ? (
+                          <div className="table-cell-value" title={row.number}>
+                            <RecordLink
+                              to={recordHref(row)}
+                              recordLabel={row.title || row.name || row.displayName || row.number}
+                              className="inline-flex items-center gap-1 text-blue-700 hover:underline dark:text-blue-300"
+                            >
+                              <span className="min-w-0 truncate">{row.number}</span>
+                              <ArrowTopRightOnSquareIcon
+                                className="h-4 w-4 shrink-0"
+                                aria-hidden="true"
+                              />
+                            </RecordLink>
+                          </div>
                         ) : column.render ? (
                           <div
                             className="table-cell-value"
@@ -545,28 +560,8 @@ function DataTableView({
       )}
       <nav
         aria-label={`${title} pages`}
-        className="table-pagination flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 p-4 text-xs dark:border-slate-800"
+        className="table-pagination flex flex-wrap items-center justify-start gap-3 border-t border-slate-100 p-4 text-xs dark:border-slate-800"
       >
-        <span aria-live="polite">
-          {total.toLocaleString()} matching records · Page {current} of {pages}
-        </span>
-        <label className="flex items-center gap-2">
-          Rows per page
-          <Select
-            className="history-select !mt-0 !w-auto"
-            value={size}
-            onChange={(event) => {
-              const value = Number(event.target.value);
-              remote.onPageSize(value);
-            }}
-          >
-            {[10, 25, 50].map((value) => (
-              <option key={value} value={value}>
-                {value}
-              </option>
-            ))}
-          </Select>
-        </label>
         <div className="flex gap-2">
           <button
             type="button"
@@ -605,6 +600,26 @@ function DataTableView({
             <ChevronDoubleRightIcon className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
+        <span aria-live="polite">
+          {total.toLocaleString()} matching records · Page {current} of {pages}
+        </span>
+        <label className="flex items-center gap-2">
+          Rows per page
+          <Select
+            className="history-select !mt-0 !w-auto"
+            value={size}
+            onChange={(event) => {
+              const value = Number(event.target.value);
+              remote.onPageSize(value);
+            }}
+          >
+            {[10, 25, 50].map((value) => (
+              <option key={value} value={value}>
+                {value}
+              </option>
+            ))}
+          </Select>
+        </label>
       </nav>
       {confirmRows && (
         <Modal

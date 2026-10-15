@@ -717,13 +717,18 @@ test(
     for (const person of [user, viewer]) {
       const detail = await request(`/incidents/${created.data.incident.id}`, person.cookie);
       assert.equal(detail.data.comments.length, 1);
+      assert.ok(detail.data.comments.every((entry) => !Object.hasOwn(entry, 'authorId')));
       assert.ok(!JSON.stringify(detail.data).includes('INTERNAL_SECRET'));
     }
-    assert.equal(
-      (await request(`/incidents/${created.data.incident.id}`, responder.cookie)).data.comments
-        .length,
-      2,
-    );
+    const authored = (await request(`/incidents/${created.data.incident.id}`, owner.cookie)).data
+      .comments;
+    assert.equal(authored.length, 2);
+    assert.ok(authored.every((entry) => entry.authorId === responder.data.user.id));
+    const authorTable = (
+      await request(`/tables/comments?recordId=${created.data.incident.id}`, owner.cookie)
+    ).data;
+    assert.equal(authorTable.rows.length, 2);
+    assert.ok(authorTable.rows.every((entry) => entry.authorId === responder.data.user.id));
     const queue = { add: async () => {} };
     await reconcileOperations(db, queue);
     await reconcileOperations(db, queue);

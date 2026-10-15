@@ -44,6 +44,36 @@ async function source(db, req) {
     req.role !== 'admin'
   )
     throw new InputError('Administrator access required.', 403);
+  if (kind === 'rcas') {
+    const filter = { workspaceId };
+    for (const [key, collection] of [
+      ['incidentId', 'incidents'],
+      ['taskId', 'tasks'],
+    ])
+      if (req.query[key]) {
+        const recordId = String(req.query[key]);
+        if (
+          !(await db
+            .collection(collection)
+            .findOne({ _id: id(recordId), workspaceId }, { projection: { _id: 1 } }))
+        )
+          throw new InputError('Related record not found.', 404);
+        filter[key === 'incidentId' ? 'incidentIds' : 'taskIds'] = recordId;
+      }
+    if (req.query.status) {
+      if (!['draft', 'in_review', 'completed', 'archived'].includes(req.query.status))
+        throw new InputError('Choose a valid RCA status.');
+      filter.status = req.query.status;
+    } else filter.status = { $ne: 'archived' };
+    return databaseTable(
+      db,
+      'rcas',
+      filter,
+      fields('title', 'status', 'statusLabel', 'createdBy', 'createdAt', 'updatedAt'),
+      view,
+      'updatedAt',
+    );
+  }
   if (kind === 'events') {
     const data = await catalog(db, workspaceId);
     return workspaceMonitorEvents(
@@ -158,7 +188,7 @@ async function source(db, req) {
         incidentId: incident._id,
         ...(!['admin', 'responder'].includes(req.role) ? { kind: 'comment' } : {}),
       },
-      fields('createdAt', 'author', 'kind', 'body'),
+      fields('createdAt', 'author', 'kind', 'body', ...(req.role === 'admin' ? ['authorId'] : [])),
       view,
       'createdAt',
     );
@@ -554,10 +584,20 @@ export function installTableRoutes(app, db) {
           .map(id),
       },
     });
-    if (kind !== 'incidents') return res.json({ counts: { attachments } });
+    const rcas =
+      req.role === 'user' || !['incidents', 'tasks'].includes(kind)
+        ? 0
+        : await count('rcas', {
+            workspaceId,
+            [kind === 'incidents' ? 'incidentIds' : 'taskIds']: recordId,
+            status: { $ne: 'archived' },
+          });
+    if (kind !== 'incidents')
+      return res.json({ counts: { attachments, ...(kind === 'tasks' ? { rcas } : {}) } });
     const internal = ['admin', 'responder'].includes(req.role);
     const counts = {
       attachments,
+      ...(req.role !== 'user' ? { rcas } : {}),
       discussion: await count('incidentComments', {
         workspaceId,
         incidentId: _id,

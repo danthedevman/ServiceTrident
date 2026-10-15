@@ -26,7 +26,9 @@ export function tableQuery(query, columns, dateColumn) {
 
 /** SQL/Mongo filtering precedes pagination. Export uses this exact same predicate and ordering. */
 export function databaseTable(db, name, base, fields, view, dateColumn) {
-  if (['incidents', 'tasks', 'articles', 'monitors', 'users', 'knowledgeBases'].includes(name))
+  if (
+    ['incidents', 'tasks', 'articles', 'monitors', 'users', 'knowledgeBases', 'rcas'].includes(name)
+  )
     fields = { number: 'number', ...fields };
   return {
     fields: Object.keys(fields),

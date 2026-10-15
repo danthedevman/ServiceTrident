@@ -322,6 +322,34 @@ test(
       409,
     );
     assert.equal(await db.collection('articles').countDocuments({ workspaceId }), 1);
+    const service = (
+      await request('/services', owner.cookie, 'POST', {
+        name: 'Synthetic AI service',
+        description: '',
+      })
+    ).data.item;
+    plan = {
+      intent: 'action',
+      kind: 'incidents',
+      search: '',
+      action: {
+        kind: 'incidents',
+        operation: 'create',
+        changes: { title: 'AI-created incident', serviceId: service.id, severity: 'medium' },
+      },
+    };
+    const aiIncident = await request('/ai/chat', owner.cookie, 'POST', {
+      message: 'Create an incident',
+    });
+    assert.equal(aiIncident.status, 200);
+    const savedIncident = await request('/ai/actions', owner.cookie, 'POST', {
+      token: aiIncident.data.action.token,
+      confirm: true,
+    });
+    assert.equal(savedIncident.status, 201);
+    assert.equal(savedIncident.data.incident.source, 'ai');
+    assert.equal(savedIncident.data.incident.createdById, owner.data.user.id);
+
     const monitorId = new ObjectId(),
       outsideMonitor = new ObjectId();
     await db.collection('monitors').insertMany([

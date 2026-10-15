@@ -547,6 +547,7 @@ export function installAIChat(app, db, fetchImpl, limit) {
         );
       throw error;
     }
+    req.incidentSource = 'ai';
     req.params.id = action.id;
     req.body = {
       ...action.changes,

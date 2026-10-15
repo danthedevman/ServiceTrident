@@ -6,6 +6,7 @@ export const workspaceDefaults = Object.freeze({
   defaultFollowRedirects: false,
   automaticIncidents: true,
   automaticRecovery: true,
+  alertGroupingSeconds: 30,
 });
 
 /** Return only supported settings, including defaults for existing workspaces. */
@@ -23,6 +24,7 @@ export function workspaceSettingsErrors(value) {
   for (const [key, min, max, label] of [
     ['monitorLimit', 1, 10000, 'Monitor limit'],
     ['defaultIntervalMinutes', 1, 1440, 'Default check interval'],
+    ['alertGroupingSeconds', 0, 300, 'Alert grouping window'],
   ])
     if (!Number.isSafeInteger(value[key]) || value[key] < min || value[key] > max)
       errors[key] =

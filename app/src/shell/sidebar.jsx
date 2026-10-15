@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { ActionMenu } from '../components/action-menu.jsx';
 import { Tooltip } from '../components/tooltip.jsx';
 import { Modal } from '../components/modal.jsx';
@@ -9,6 +10,7 @@ import {
   QuestionMarkCircleIcon,
   MagnifyingGlassIcon,
   ClipboardDocumentListIcon,
+  DocumentMagnifyingGlassIcon,
   BookOpenIcon,
   UserGroupIcon,
   PlusIcon,
@@ -37,6 +39,7 @@ const links = [
   ['/events', 'Events', SignalIcon],
   ['/monitors', 'Monitors', CpuChipIcon],
   ['/tasks', 'Tasks', ClipboardDocumentListIcon],
+  ['/rcas', 'RCAs', DocumentMagnifyingGlassIcon],
   ['/on-call', 'On Call', CalendarDaysIcon],
   ['/services', 'Services', ServerStackIcon],
   ['/knowledge', 'Knowledge', BookOpenIcon],
@@ -146,7 +149,15 @@ function ProfileMenu({ user, compact, logout, busy, onNavigate, dropdown = false
 }
 
 /** Persistent desktop rail and a native mobile dialog with focus trapping and Escape support. */
-export function Sidebar({ user, logout, busy, collapsed, setCollapsed, renderBrand }) {
+export function Sidebar({
+  user,
+  logout,
+  busy,
+  collapsed,
+  setCollapsed,
+  renderBrand,
+  toolbarTarget,
+}) {
   const dialog = useRef(null);
   const compact = collapsed;
   const toggle = () => setCollapsed(!collapsed);
@@ -201,7 +212,7 @@ export function Sidebar({ user, logout, busy, collapsed, setCollapsed, renderBra
   const content = (compact, mobile = false) => (
     <>
       <div
-        className={`flex shrink-0 items-center gap-2 px-3 py-4 ${compact ? 'flex-col' : 'justify-between'}`}
+        className={`sidebar-brand-row flex h-12 shrink-0 items-center gap-2 px-3 ${compact ? 'justify-center' : 'justify-between'}`}
       >
         {compact ? (
           <div className="group relative grid h-10 w-10 shrink-0 place-items-center">
@@ -230,23 +241,8 @@ export function Sidebar({ user, logout, busy, collapsed, setCollapsed, renderBra
             {renderBrand(false)}
           </Link>
         )}
-        <div className={`flex shrink-0 items-center justify-center ${compact ? 'flex-col' : ''}`}>
-          <Tooltip label={compact ? 'Search Workspace' : null}>
-            <button
-              type="button"
-              className="grid h-10 w-10 place-items-center rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
-              aria-label="Search Workspace"
-              title="Search Workspace"
-              aria-haspopup="dialog"
-              onClick={() => {
-                close();
-                setSearchOpen(true);
-              }}
-            >
-              <MagnifyingGlassIcon className="h-5 w-5" aria-hidden="true" />
-            </button>
-          </Tooltip>
-          {!compact && (
+        {!compact && (
+          <div className="flex shrink-0 items-center justify-center">
             <button
               type="button"
               className="grid h-10 w-10 place-items-center rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
@@ -274,30 +270,12 @@ export function Sidebar({ user, logout, busy, collapsed, setCollapsed, renderBra
                 <ChevronDoubleLeftIcon className="h-5 w-5" aria-hidden="true" />
               )}
             </button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
-      {['admin', 'responder', 'user'].includes(user?.role) && (
-        <div className="shrink-0 px-3 pb-3">
-          {['admin', 'responder', 'user'].includes(user?.role) && (
-            <Tooltip label={compact ? 'Create' : null}>
-              <button
-                type="button"
-                className={`btn-primary flex w-full items-center justify-center gap-2 ${compact ? '!mx-auto !h-11 !w-11 !gap-0 !p-0' : ''}`}
-                aria-haspopup="dialog"
-                title="Create"
-                onClick={openCreate}
-              >
-                <PlusIcon className="h-5 w-5 shrink-0" aria-hidden="true" />
-                <span className={compact ? 'sr-only' : ''}>Create</span>
-              </button>
-            </Tooltip>
-          )}
-        </div>
-      )}
       <nav
         aria-label="Main navigation"
-        className={`min-h-0 flex-1 space-y-2 p-3 overflow-y-auto overflow-x-hidden`}
+        className={`min-h-0 flex-1 space-y-2 ${compact ? 'px-2 pb-2' : 'px-3 pb-3'} pt-0 overflow-y-auto overflow-x-hidden`}
       >
         {(compact ? visibleLinks.slice(0, 5) : visibleLinks).map(([to, label, Icon]) => (
           <Tooltip key={to} label={compact ? label : null}>
@@ -334,7 +312,7 @@ export function Sidebar({ user, logout, busy, collapsed, setCollapsed, renderBra
         )}
       </nav>
       <div
-        className={`sidebar-profile shrink-0 border-t border-slate-200 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] dark:border-slate-700 ${mobile ? '!hidden' : ''}`}
+        className={`sidebar-profile shrink-0 ${compact ? 'p-2' : 'p-3'} pb-[max(0.75rem,env(safe-area-inset-bottom))] ${mobile ? '!hidden' : ''}`}
       >
         <ProfileMenu user={user} compact={compact} logout={logout} busy={busy} onNavigate={close} />
       </div>
@@ -342,12 +320,43 @@ export function Sidebar({ user, logout, busy, collapsed, setCollapsed, renderBra
   );
   return (
     <>
+      {toolbarTarget &&
+        createPortal(
+          <>
+            <button
+              type="button"
+              className="notification-trigger"
+              aria-label="Search Workspace"
+              title="Search Workspace"
+              aria-haspopup="dialog"
+              onClick={() => {
+                close();
+                setSearchOpen(true);
+              }}
+            >
+              <MagnifyingGlassIcon className="h-5 w-5" aria-hidden="true" />
+            </button>
+            {['admin', 'responder', 'user'].includes(user?.role) && (
+              <button
+                type="button"
+                className="notification-trigger"
+                aria-label="Create"
+                title="Create"
+                aria-haspopup="dialog"
+                onClick={openCreate}
+              >
+                <PlusIcon className="h-5 w-5" aria-hidden="true" />
+              </button>
+            )}
+          </>,
+          toolbarTarget,
+        )}
       {searchOpen && <GlobalSearch role={user?.role} onClose={() => setSearchOpen(false)} />}
       {createOpen && (
         <CreateDialog role={user?.role} onClose={() => setCreateOpen(false)} onNavigate={close} />
       )}
       <aside
-        className={`desktop-sidebar fixed inset-y-0 left-0 z-30 hidden flex-col border-r border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900 md:flex ${compact ? 'w-20' : 'w-72'}`}
+        className={`desktop-sidebar fixed inset-y-0 left-0 z-30 hidden flex-col bg-white dark:bg-slate-900 md:flex ${compact ? 'w-16' : 'w-72'}`}
       >
         {content(compact)}
       </aside>
@@ -403,6 +412,12 @@ function CreateDialog({ role, onNavigate, onClose }) {
             title: 'Task',
             description: 'Track work for an incident or service.',
             Icon: ClipboardDocumentListIcon,
+          },
+          {
+            to: '/rcas/new',
+            title: 'RCA',
+            description: 'Analyze an incident and track corrective actions.',
+            Icon: DocumentMagnifyingGlassIcon,
           },
           {
             to: '/knowledge/bases/new',

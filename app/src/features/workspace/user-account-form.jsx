@@ -1,3 +1,4 @@
+import { useResource } from '../../data/use-resource.js';
 import { ValidatedForm } from '../../components/forms/validated-form.jsx';
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -15,6 +16,7 @@ import { notify } from '../../data/toast.js';
 
 /** Dedicated account forms keep credentials in memory and submit only on explicit confirmation. */
 export function UserAccountForm({ reset = false }) {
+  const communication = useResource(!reset ? '/communication-options' : null, 30000);
   const { id } = useParams();
   const navigate = useNavigate();
   const save = useSave();
@@ -60,7 +62,9 @@ export function UserAccountForm({ reset = false }) {
         <Notice error={save.error || Object.values(errors)[0]} />
         {!reset && (
           <>
-            {USER_DETAIL_FIELDS.map((field) => (
+            {USER_DETAIL_FIELDS.filter(
+              (field) => !field.communication || communication.data?.[field.communication],
+            ).map((field) => (
               <Field
                 key={field.key}
                 name={field.key}

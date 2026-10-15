@@ -1,3 +1,6 @@
+import { installCollaborationRoutes } from './routes/collaboration.js';
+import { validateInputShape } from './middleware/input-shape.js';
+import { installRcaRoutes } from './routes/rcas.js';
 import { installMachineRoutes, installServiceAccountSettings } from './routes/service-accounts.js';
 import {
   installPublicIdentityRoutes,
@@ -70,6 +73,7 @@ export function createApp(db, { aiFetch, oidcFetch, integrationRequest } = {}) {
     }),
   );
   app.use(express.json({ limit: '256kb' }));
+  app.use('/api', validateInputShape);
   const machine = installMachineRoutes(app, db);
   installStatusSubscriptions(app, db, appOrigin);
   app.use('/api', (req, res, next) => {
@@ -78,9 +82,8 @@ export function createApp(db, { aiFetch, oidcFetch, integrationRequest } = {}) {
       if (req.get('x-requested-with') !== 'ServiceTrident')
         throw new InputError('Missing request header. Reload the app and try again.', 403);
       if (origin && !isAllowedOrigin(origin, appOrigin)) {
-        console.warn('Rejected request origin:', origin);
         throw new InputError(
-          `Request from ${origin} is not allowed. Open the app at ${appOrigin}, or update APP_ORIGIN and recreate the API.`,
+          `Request origin is not allowed. Open the app at ${appOrigin}, or update APP_ORIGIN and recreate the API.`,
           403,
         );
       }
@@ -147,9 +150,16 @@ export function createApp(db, { aiFetch, oidcFetch, integrationRequest } = {}) {
     if (
       req.role === 'user' &&
       !/^\/(incidents|attachments)(?:\/|$)/.test(req.path) &&
+      !(req.path === '/notifications/read' && req.method === 'POST') &&
       !(
-        ['/search', '/services', '/members', '/incident-fields'].includes(req.path) &&
-        ['GET', 'HEAD'].includes(req.method)
+        [
+          '/search',
+          '/services',
+          '/members',
+          '/incident-fields',
+          '/notifications',
+          '/communication-options',
+        ].includes(req.path) && ['GET', 'HEAD'].includes(req.method)
       )
     )
       throw new InputError('Your role does not have access to this section.', 403);
@@ -162,7 +172,9 @@ export function createApp(db, { aiFetch, oidcFetch, integrationRequest } = {}) {
   installOperationsRoutes(app, db, appOrigin, integrationRequest, machine);
   installKnowledgeBases(app, db);
   installAI(app, db, aiFetch);
+  installCollaborationRoutes(app, db);
   installWorkRoutes(app, db, machine);
+  installRcaRoutes(app, db);
   installRecordDeletionRoutes(app, db);
   installSearchRoute(app, db);
   installServiceRoutes(app, db);

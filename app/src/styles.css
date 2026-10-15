@@ -461,7 +461,7 @@ dialog.modal-frame {
     --modal-left: 18rem;
   }
   body:has([data-app-shell][data-nav-collapsed='true']) dialog.modal-frame {
-    --modal-left: 5rem;
+    --modal-left: 4rem;
   }
 }
 @media (min-width: 1200px) {
@@ -648,6 +648,8 @@ body:has(.record-main) #main + footer {
 }
 
 .reference-control {
+  min-width: 0;
+  max-width: 100%;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -673,6 +675,16 @@ body:has(.record-main) #main + footer {
   padding: 0.375rem 0;
   margin: 0;
   border-radius: 0;
+}
+/* Keep single-value navigation and clear icons beside the shrinking label. */
+.reference-control.reference-single {
+  flex-wrap: nowrap;
+}
+.reference-control.reference-single input:not([type='checkbox']) {
+  flex: 1 1 0;
+  min-width: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .reference-disabled {
   opacity: 0.65;
@@ -1020,9 +1032,15 @@ select:disabled,
   white-space: nowrap;
 }
 .data-table .table-cell-value > a {
-  display: block;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.data-table .table-cell-value a svg {
+  flex-shrink: 0;
 }
 
 /* Shared field and action geometry; composite controls retain their own focus handling. */
@@ -2165,4 +2183,327 @@ body {
 .ai-chat-examples {
   max-height: 40%;
   overflow-y: auto;
+}
+
+/* A compact global toolbar frames a single rounded, explicitly scrollable content surface. */
+.app-topbar {
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1.25rem;
+  position: relative;
+  z-index: 45;
+}
+[data-app-shell] > #main {
+  border: 1px solid light-dark(var(--color-slate-200), var(--color-slate-800));
+  border-radius: 16px;
+  margin: 0 8px 8px;
+  width: auto;
+  height: calc(100dvh - 56px);
+  min-height: 0;
+  background: light-dark(var(--app-surface-light, #fff), var(--color-slate-950));
+}
+[data-app-shell] > .page-main {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.page-main > .page-scroll-area {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+[data-app-shell] .record-sticky-header {
+  border-start-start-radius: 16px;
+  border-start-end-radius: 16px;
+}
+.notification-control {
+  position: relative;
+}
+.notification-trigger {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+}
+.notification-trigger:hover {
+  background: light-dark(var(--color-slate-200), var(--color-slate-800));
+}
+.notification-count {
+  position: absolute;
+  top: -2px;
+  right: -4px;
+  min-width: 16px;
+  border-radius: 10px;
+  padding: 0 3px;
+  font-size: 10px;
+  color: white;
+  background: var(--color-rose-600);
+}
+.notification-panel {
+  position: absolute;
+  right: 0;
+  top: 42px;
+  width: min(380px, calc(100vw - 32px));
+  border: 1px solid light-dark(var(--color-slate-200), var(--color-slate-700));
+  border-radius: 14px;
+  background: light-dark(var(--app-surface-light, #fff), var(--color-slate-900));
+  box-shadow: 0 12px 36px #0003;
+  overflow: hidden;
+}
+.notification-list {
+  max-height: min(480px, 65dvh);
+  overflow-y: auto;
+}
+.notification-entry {
+  display: block;
+  padding: 12px 16px;
+  border-top: 1px solid light-dark(var(--color-slate-100), var(--color-slate-800));
+}
+.notification-entry:hover,
+.notification-unread {
+  background: light-dark(var(--color-slate-100), var(--color-slate-800));
+}
+.task-card {
+  cursor: pointer;
+}
+@media (min-width: 1200px) {
+  [data-app-shell] .record-sidebar {
+    top: 49px;
+    right: 8px;
+    height: calc(100dvh - 57px);
+    border-radius: 16px;
+  }
+  [data-app-shell] > #main.record-main[data-record-collapsed] {
+    margin-right: calc(16px + var(--record-rail-width, 320px));
+  }
+  [data-app-shell] > #main.record-main[data-record-collapsed='true'] {
+    margin-right: calc(16px + var(--record-rail-width, 64px));
+  }
+}
+
+.app-topbar {
+  gap: 12px;
+  padding-inline: 12px;
+  flex-shrink: 0;
+}
+.app-topbar > .record-navigation-bar {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  height: 40px;
+  align-items: center;
+}
+.app-topbar .record-navigation-scroll {
+  min-width: 0;
+  padding: 0;
+  align-items: center;
+}
+.app-topbar .record-navigation-tab {
+  max-height: 36px;
+}
+.app-topbar .notification-control {
+  flex-shrink: 0;
+  margin-left: auto;
+}
+.app-topbar .record-navigation-close-all > span {
+  display: none;
+}
+@media (max-width: 767px) {
+  [data-app-shell] > #main {
+    height: auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+  [data-app-shell] > .app-topbar {
+    flex: 0 0 48px;
+  }
+}
+
+/* The frame follows the navigation palette; content uses the selected page background. */
+[data-app-shell] {
+  --app-frame: light-dark(var(--color-slate-100), var(--color-slate-900));
+  background: var(--app-frame);
+}
+[data-app-shell] :is(.desktop-sidebar, .mobile-topbar, .app-topbar) {
+  background: var(--app-frame);
+}
+[data-app-shell] > #main {
+  background: var(--app-background);
+}
+
+.record-info-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  color: light-dark(var(--color-slate-600), var(--color-slate-300));
+}
+.record-info-toggle:hover,
+.record-info-active {
+  color: light-dark(var(--color-blue-700), var(--color-blue-300));
+  background: light-dark(var(--color-blue-50), var(--color-blue-950));
+}
+@media (min-width: 1200px) {
+  [data-app-shell] .record-sidebar[data-collapsed='true'] {
+    width: 0;
+    border: 0;
+  }
+  [data-app-shell] > #main.record-main[data-record-collapsed='true'] {
+    margin-right: 8px;
+  }
+}
+
+/* Private pages scroll inside their content panes, so a document gutter would leave an extra right gap. */
+:root:has([data-app-shell]) {
+  scrollbar-gutter: auto;
+  overflow: hidden;
+}
+body:has([data-app-shell]) {
+  overflow: hidden;
+}
+@media (min-width: 1200px) {
+  body:has(.record-main[data-record-collapsed='true']) dialog.modal-frame {
+    --modal-right: 0px;
+  }
+}
+
+/* One clipped perimeter owns every corner; headers and scroll panes cannot draw past it. */
+[data-app-shell] > #main {
+  overflow: hidden;
+}
+[data-app-shell] .record-sticky-header {
+  border-start-start-radius: 0;
+  border-start-end-radius: 0;
+}
+.record-sticky-header.record-header-with-tabs,
+[data-record-tabs-visible='true'] .record-sidebar-header {
+  border-top: 0;
+}
+@media (min-width: 1200px) {
+  [data-app-shell] .record-sidebar {
+    top: 48px;
+    height: calc(100dvh - 56px);
+    border: 1px solid light-dark(var(--color-slate-200), var(--color-slate-800));
+  }
+  [data-app-shell] .record-sidebar[data-collapsed='true'] {
+    border: 0;
+  }
+}
+
+@media (max-width: 1199px) {
+  dialog.modal-frame.record-info-modal {
+    width: min(26rem, calc(100dvw - 24px));
+    max-width: calc(100dvw - 24px);
+    height: calc(100dvh - 32px);
+    max-height: calc(100dvh - 32px);
+    margin: 16px 12px 16px auto;
+    inset: 0;
+  }
+  .record-info-modal > header {
+    padding: 16px;
+  }
+}
+
+.record-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
+}
+
+.topnav-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  margin-left: auto;
+  padding-left: 20px;
+}
+.topnav-global-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+/* Pagination is shared by full lists and related lists; keep the rail compact without shrinking mobile targets. */
+.table-pagination,
+.list-table .table-pagination {
+  height: auto;
+  min-height: 48px;
+  max-height: none;
+  padding: 6px 12px max(6px, env(safe-area-inset-bottom));
+  gap: 12px;
+}
+.table-pagination .select-trigger,
+.table-pagination .history-select {
+  min-height: 32px;
+  height: 32px;
+  padding-block: 4px;
+}
+#main .table-pagination .btn-secondary {
+  min-height: 32px;
+  height: 32px;
+  padding: 4px 8px;
+}
+@media (pointer: coarse) {
+  .table-pagination .select-trigger,
+  #main .table-pagination .btn-secondary {
+    min-height: 40px;
+    height: 40px;
+  }
+}
+
+.table-pagination,
+.list-table .table-pagination {
+  justify-content: flex-start;
+}
+@media (max-width: 767px) {
+  .app-topbar .record-navigation-tab > [role='tab'] {
+    max-width: clamp(64px, 17vw, 140px);
+  }
+  .app-topbar .record-navigation-tab {
+    max-width: min(110px, 100%);
+  }
+  .topnav-actions {
+    padding-left: 12px;
+    gap: 4px;
+  }
+  .topnav-global-actions {
+    gap: 4px;
+  }
+}
+
+.app-topbar .record-navigation-tab > [role='tab'] {
+  min-width: 0;
+}
+
+.assignment-report {
+  background: var(--app-background);
+}
+
+@media (min-width: 1024px) {
+  .help-topic-nav {
+    max-height: calc(100dvh - 15rem);
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+  }
+}
+
+.sidebar-brand-row [data-brand-mark] {
+  width: 28px;
+  height: 28px;
+}
+.sidebar-brand-row > a > span {
+  font-size: 14px;
 }

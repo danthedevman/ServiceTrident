@@ -58,7 +58,10 @@ export function auditActivity(db) {
     const mutation = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method);
     const recordRead = req.method === 'GET' && /\/[a-f\d]{24}(?:\/|$)/i.test(path);
     const exporting =
-      req.method === 'GET' && (req.query.export === 'csv' || path.endsWith('/export'));
+      req.method === 'GET' &&
+      (req.query.export === 'csv' ||
+        ['csv', 'pdf'].includes(req.query.recordExport) ||
+        path.endsWith('/export'));
     const requestId = randomUUID();
     const originalJson = res.json,
       originalEnd = res.end;
@@ -82,7 +85,10 @@ export function auditActivity(db) {
         requestId,
       };
       const route = typeof req.route?.path === 'string' ? req.route.path : '/api/unknown';
-      const parts = route.replace(/^\/api\//, '').replace(/^\//, '').split('/');
+      const parts = route
+        .replace(/^\/api\//, '')
+        .replace(/^\//, '')
+        .split('/');
       const record =
         payload?.group ||
         payload?.item ||
@@ -90,8 +96,18 @@ export function auditActivity(db) {
         payload?.monitor ||
         payload?.attachment ||
         payload?.user;
+      // Collection-backed exports may identify only an item actually returned by the authorized read.
+      const exportId = exporting && objectId(req.query.recordExportId);
+      const verifiedExportId =
+        exportId &&
+        ['services', 'collections', 'groups', 'members', 'integrations', 'shifts'].some(
+          (key) => Array.isArray(payload?.[key]) && payload[key].some((row) => row.id === exportId),
+        )
+          ? exportId
+          : '';
       const recordId =
         objectId(res.locals.auditRecordId) ||
+        verifiedExportId ||
         objectId(req.params.fileId) ||
         objectId(record?.id) ||
         objectId(req.params.id) ||
@@ -113,12 +129,16 @@ export function auditActivity(db) {
         parentId:
           objectId(req.params.recordId) ||
           (parts.includes('comments') ? objectId(req.params.id) : ''),
-        recordType: res.locals.auditRecordType || (parts.includes('comments')
-          ? 'comments'
-          : parts[0] === 'tables'
-            ? String(req.params.kind)
-            : parts[0]),
-        operation: res.locals.auditOperation || `${req.method} ${route}`,
+        recordType:
+          res.locals.auditRecordType ||
+          (parts.includes('comments')
+            ? 'comments'
+            : parts[0] === 'tables'
+              ? String(req.params.kind)
+              : parts[0]),
+        operation:
+          res.locals.auditOperation ||
+          `${req.method} ${route}${['csv', 'pdf'].includes(req.query.recordExport) ? ` (${req.query.recordExport.toUpperCase()} record export)` : ''}`,
         action,
         fields:
           mutation && req.body && !Buffer.isBuffer(req.body)

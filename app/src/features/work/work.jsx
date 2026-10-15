@@ -1,3 +1,5 @@
+import { RcaList } from './rcas.jsx';
+import { TaskDetails } from './task-details.jsx';
 import { ValidatedForm } from '../../components/forms/validated-form.jsx';
 import { PageTitle } from '../../components/page-title.jsx';
 import { ConfirmDeleteButton } from '../../components/confirm-delete-button.jsx';
@@ -33,7 +35,7 @@ import { AIAssistant } from '../ai/ai.jsx';
 import { ReferenceField } from '../../components/forms/reference-field.jsx';
 import { fieldChoices, recordFields } from '../../../../shared/forms/form-options.js';
 import { displayValue } from '../../lib/display-value.js';
-import React, { useContext, useEffect, useState, lazy, Suspense } from 'react';
+import React, { useContext, useEffect, useLayoutEffect, useState, lazy, Suspense } from 'react';
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   PlusIcon,
@@ -195,6 +197,23 @@ export function WorkTable({
             render: (r) => <StateBadge status={r.priority} label={r.priorityLabel} />,
           },
           { key: 'dueDate', label: 'Due date', value: (r) => r.dueDate },
+        ]
+      : []),
+    ...(!task
+      ? [
+          {
+            key: 'knowledgeBaseTitle',
+            label: 'Knowledge Base',
+            sortable: false,
+            value: (row) => row.knowledgeBaseTitle || 'Unassigned',
+            render: (row) => (
+              <ReferenceValue
+                type="knowledgeBases"
+                id={row.knowledgeBaseId}
+                label={row.knowledgeBaseTitle}
+              />
+            ),
+          },
         ]
       : []),
     {
@@ -527,131 +546,7 @@ export function WorkDetail({ kind = 'tasks' }) {
             ) : !task ? (
               <KnowledgeReader item={item} fields={visibleFields} />
             ) : (
-              <article className="record-details space-y-6">
-                {!task && (
-                  <Field label="Knowledge Base">
-                    <ReferenceValue
-                      type="knowledgeBases"
-                      id={item.knowledgeBaseId}
-                      label={item.knowledgeBaseTitle}
-                      empty="Unassigned legacy article"
-                    />
-                  </Field>
-                )}
-                <dl className="grid gap-4 sm:grid-cols-2">
-                  <div className="sm:col-span-2">
-                    <dt>Title</dt>
-                    <dd>{item.title}</dd>
-                  </div>
-                  <div>
-                    <dt>Status</dt>
-                    <dd>
-                      <StateBadge status={item.status} label={item.statusLabel} />
-                    </dd>
-                  </div>
-                  {task && (
-                    <div>
-                      <dt>Priority</dt>
-                      <dd>
-                        <StateBadge status={item.priority} label={item.priorityLabel} />
-                      </dd>
-                    </div>
-                  )}
-                </dl>
-                <dl className="grid gap-4 text-sm sm:grid-cols-2">
-                  <div>
-                    <dt className="font-medium">Service</dt>
-                    <dd>
-                      <ReferenceValue
-                        type="services"
-                        id={item.serviceId}
-                        label={item.serviceName}
-                      />
-                    </dd>
-                  </div>
-                  {task && (
-                    <>
-                      <div>
-                        <dt className="font-medium">Incident</dt>
-                        <dd>
-                          <ReferenceValue
-                            type="incidents"
-                            id={item.incidentId}
-                            label={item.incidentTitle}
-                          />
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="font-medium">Assignment group</dt>
-                        <dd>
-                          <ReferenceValue
-                            type="groups"
-                            id={item.assignmentGroupId}
-                            label={item.assignmentGroupName}
-                          />
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="font-medium">Assigned to</dt>
-                        <dd>
-                          <ReferenceValue
-                            type="members"
-                            id={item.assigneeId}
-                            label={item.assigneeName}
-                          />
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="font-medium">Due date</dt>
-                        <dd>{item.dueDate || 'No due date'}</dd>
-                      </div>
-                    </>
-                  )}
-                </dl>
-                {!task && (
-                  <dl>
-                    <div>
-                      <dt>Summary</dt>
-                      <dd className="whitespace-pre-wrap">{item.summary || '—'}</dd>
-                    </div>
-                  </dl>
-                )}
-                {task ? (
-                  <dl>
-                    <div>
-                      <dt>Description</dt>
-                      <dd className="whitespace-pre-wrap break-words">
-                        {item.description || 'No description.'}
-                      </dd>
-                    </div>
-                  </dl>
-                ) : (
-                  <section aria-label="Content">
-                    <h2 className="field-label">Content</h2>
-                    <Suspense
-                      fallback={
-                        <p role="status" className="sr-only">
-                          Loading article…
-                        </p>
-                      }
-                    >
-                      <ArticleContent document={item.contentDocument} text={item.content} />
-                    </Suspense>
-                  </section>
-                )}
-                {visibleFields.length > 0 && (
-                  <dl className="grid gap-4 sm:grid-cols-2">
-                    {visibleFields.map((field) => (
-                      <div key={field.id}>
-                        <dt className="text-sm font-medium">{field.label}</dt>
-                        <dd className="whitespace-pre-wrap break-words">
-                          {String(item.custom?.[field.id] ?? '—')}
-                        </dd>
-                      </div>
-                    ))}
-                  </dl>
-                )}
-              </article>
+              <TaskDetails item={item} visibleFields={visibleFields} />
             )}
             {task && (
               <RecordTabs
@@ -662,6 +557,7 @@ export function WorkDetail({ kind = 'tasks' }) {
                     label: 'Attachments',
                     content: <AttachmentPanel kind="tasks" recordId={item.id} />,
                   },
+                  { id: 'rcas', label: 'RCAs', content: <RcaList related taskId={item.id} /> },
                 ]}
               />
             )}
@@ -679,13 +575,17 @@ export function WorkEditPage({ kind = 'tasks' }) {
 }
 
 /** Load choices without replacing the form during background refreshes. */
-function WorkEditor({
+export function WorkEditor({
   page = false,
   kind,
   item,
   initialServiceId = '',
   initialIncidentId = '',
   onClose,
+  onSaved,
+  onBusyChange,
+  onDirtyChange,
+  focusTitle = false,
 }) {
   const services = useResource('/services'),
     members = useResource(kind === 'tasks' ? '/members' : null),
@@ -705,6 +605,10 @@ function WorkEditor({
           initialServiceId={initialServiceId}
           initialIncidentId={initialIncidentId}
           onClose={onClose}
+          onSaved={onSaved}
+          onBusyChange={onBusyChange}
+          onDirtyChange={onDirtyChange}
+          focusTitle={focusTitle}
         />
       ) : (
         <>
@@ -744,6 +648,10 @@ function WorkForm({
   initialServiceId,
   initialIncidentId,
   onClose,
+  onSaved,
+  onBusyChange,
+  onDirtyChange,
+  focusTitle = false,
   save,
   schema,
 }) {
@@ -798,6 +706,21 @@ function WorkForm({
           contentDocument: item?.contentDocument ?? textDocument(item?.content ?? ''),
         }),
   }));
+  const [initialValue] = useState(() => JSON.stringify(value));
+  const dirty = JSON.stringify(value) !== initialValue;
+  useLayoutEffect(() => {
+    onBusyChange?.(save.busy || draft.busy);
+  }, [save.busy, draft.busy, onBusyChange]);
+  useLayoutEffect(() => {
+    onDirtyChange?.(dirty);
+  }, [dirty, onDirtyChange]);
+  useEffect(
+    () => () => {
+      onBusyChange?.(false);
+      onDirtyChange?.(false);
+    },
+    [onBusyChange, onDirtyChange],
+  );
   const runbook =
     !task &&
     fieldChoices(
@@ -960,6 +883,7 @@ function WorkForm({
     else
       input = (
         <input
+          autoFocus={focusTitle && name === 'title'}
           type={name === 'dueDate' ? 'date' : 'text'}
           maxLength={160}
           value={value[name] ?? ''}
@@ -1028,7 +952,7 @@ function WorkForm({
             ...(item ? { revision } : {}),
           },
           (result) => {
-            if (item) onClose();
+            if (item) (onSaved ?? onClose)();
             else navigate(`/${kind}/${result.item.id}`, { state: { createdRecord: true } });
           },
         );
@@ -1172,7 +1096,7 @@ function WorkForm({
           className="btn-primary"
           disabled={save.busy || draft.busy || (task && !!value.incidentId && !incident)}
         >
-          {save.busy ? 'Saving…' : item ? 'Save' : `Create ${task ? 'Task' : 'Article'}`}
+          {item ? 'Save' : `Create ${task ? 'Task' : 'Article'}`}
         </button>
       </RecordActions>
     </ValidatedForm>

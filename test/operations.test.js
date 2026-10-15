@@ -7,6 +7,44 @@ import { serviceHealth } from '../shared/domain/service-health.js';
 import { seal, unseal } from '../shared/integrations/secrets.js';
 import { integrationUrl } from '../shared/integrations/provider-url.js';
 import { sendNotification } from '../workers/src/notifications/send.js';
+import { coverageTimeInput } from '../app/src/lib/coverage-time.js';
+
+test('editing coverage preserves exact UTC handoffs, including seconds and milliseconds', () => {
+  const user = id(),
+    service = id(),
+    handoff = '2026-10-14T12:34:56.789Z';
+  const shifts = [
+    {
+      id: id(),
+      userId: user,
+      serviceIds: [service],
+      start: '2026-10-14T00:00:00.000Z',
+      end: handoff,
+    },
+    {
+      id: id(),
+      userId: user,
+      serviceIds: [service],
+      start: handoff,
+      end: '2026-10-15T00:00:00.000Z',
+    },
+  ];
+  const edited = shifts.map((shift) => ({
+    ...shift,
+    start: new Date(`${coverageTimeInput(shift.start)}Z`).toISOString(),
+    end: new Date(`${coverageTimeInput(shift.end)}Z`).toISOString(),
+  }));
+  assert.deepEqual(validateShifts(edited, [user], [service]), shifts);
+  assert.throws(
+    () =>
+      validateShifts(
+        [shifts[0], { ...shifts[1], serviceIds: [], start: '2026-10-14T12:34:00.000Z' }],
+        [user],
+        [service],
+      ),
+    /2026-10-14T12:34:00.000Z.*All services/,
+  );
+});
 
 const id = () => new ObjectId().toHexString();
 test('System Field presentation and required policy are configurable while types remain stable', () => {

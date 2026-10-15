@@ -68,3 +68,5 @@ docker compose -f compose.yaml -f compose.test.yaml run --build --rm --no-deps -
 ```
 
 The PostgreSQL fixture uses an isolated database with a test-only password and temporary storage. These commands do not migrate or change the configured application backend.
+
+PostgreSQL migration 8 adds the `rcas` table for internal root cause analysis records; initialization adds workspace/update-time and incident/task reference indexes on both backends. RCA records use shared sequential numbering and revision-based optimistic concurrency. Rebuild API, workers, and scheduler when applying shared persistence changes.

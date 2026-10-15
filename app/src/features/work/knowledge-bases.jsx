@@ -1,3 +1,4 @@
+import { useInfiniteScroll } from '../../data/use-infinite-scroll.js';
 import { ValidatedForm } from '../../components/forms/validated-form.jsx';
 import { PageTitle } from '../../components/page-title.jsx';
 import { AutoTextarea } from '../../components/forms/auto-textarea.jsx';
@@ -27,6 +28,7 @@ export function KnowledgeBasesPage() {
   const resource = useInfiniteResource(
     `/knowledge-bases?${new URLSearchParams({ search, pageSize: 25, sortBy: 'title', order: 'asc' })}`,
   );
+  const sentinel = useInfiniteScroll(resource);
   const items = resource.data?.pages.flatMap((page) => page.items) ?? [];
   return (
     <div className="space-y-6 p-6" aria-busy={resource.pending}>
@@ -82,11 +84,22 @@ export function KnowledgeBasesPage() {
             : 'Create a knowledge base to organize your articles.'}
         </p>
       )}
-      {resource.hasMore && (
-        <button className="btn-secondary" disabled={resource.pending} onClick={resource.loadMore}>
-          Load More Knowledge Bases
+      {resource.data && resource.pending && (
+        <div aria-busy="true">
+          <Skeleton className="h-24 w-full" />
+        </div>
+      )}
+      {resource.error && (
+        <button
+          type="button"
+          className="btn-secondary"
+          disabled={resource.pending}
+          onClick={() => (resource.data ? resource.loadMore() : resource.refresh())}
+        >
+          Retry
         </button>
       )}
+      <div ref={sentinel} className="h-px" aria-hidden="true" />
     </div>
   );
 }
@@ -124,6 +137,17 @@ export function KnowledgeBasePage({ create = false }) {
             !editing && ['admin', 'responder'].includes(user?.role)
               ? () => setEditing(true)
               : undefined
+          }
+          actions={
+            !editing && ['admin', 'responder'].includes(user?.role) ? (
+              <Link
+                className="btn-primary"
+                to={`/knowledge/new?knowledgeBaseId=${encodeURIComponent(id)}`}
+              >
+                <PlusIcon className="h-5 w-5" aria-hidden="true" />
+                Create Article
+              </Link>
+            ) : undefined
           }
           secondaryActions={
             user?.role === 'admin' &&
@@ -302,7 +326,6 @@ function DeleteKnowledgeBase({ item, onClose, onDeleted, refresh }) {
 }
 
 function KnowledgeBaseArticles({ knowledgeBaseId }) {
-  const { user } = useContext(AuthContext);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
   const resource = useInfiniteResource(
@@ -311,18 +334,7 @@ function KnowledgeBaseArticles({ knowledgeBaseId }) {
   const articles = resource.data?.pages.flatMap((page) => page.items) ?? [];
   return (
     <section className="space-y-4" aria-label="Articles" aria-busy={resource.pending}>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold">Articles</h2>
-        {['admin', 'responder'].includes(user?.role) && (
-          <Link
-            className="btn-primary"
-            to={`/knowledge/new?knowledgeBaseId=${encodeURIComponent(knowledgeBaseId)}`}
-          >
-            <PlusIcon className="h-5 w-5" aria-hidden="true" />
-            Create
-          </Link>
-        )}
-      </div>
+      <h2 className="text-lg font-semibold">Articles</h2>
       <div className="flex flex-wrap items-end gap-3">
         <label className="field-label min-w-0 flex-1">
           <span className="sr-only">Search Articles</span>

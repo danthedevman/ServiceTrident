@@ -1,6 +1,7 @@
 const routes = {
   incidents: '/incidents',
   tasks: '/tasks',
+  rcas: '/rcas',
   knowledge: '/knowledge',
   services: '/services',
   collections: '/collections',

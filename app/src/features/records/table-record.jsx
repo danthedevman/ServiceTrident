@@ -72,6 +72,9 @@ export function TableRecordPage() {
   return (
     <RecordWorkspace
       label="Record Information"
+      item={item}
+      kind="tableRecord"
+      exportPath={`/table-records/${encodeURIComponent(kind)}/${encodeURIComponent(id)}${search}`}
       showToolbar={kind !== 'audit'}
       sidebar={<p className="text-sm">{title} · Read Only</p>}
       actions={

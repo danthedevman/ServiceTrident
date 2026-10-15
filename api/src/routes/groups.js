@@ -43,7 +43,21 @@ export function installGroupsRoutes(app, db, appOrigin) {
           name: text(req.body.name, 'name', 80),
           description: text(req.body.description ?? '', 'description', 1000, false),
           memberIds,
+          email: text(req.body.email ?? current?.email ?? '', 'email', 254, false),
+          slackChannel: text(
+            req.body.slackChannel ?? current?.slackChannel ?? '',
+            'slackChannel',
+            80,
+            false,
+          ),
         };
+        if (group.email && !/^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]+$/.test(group.email))
+          invalid('email', 'Enter one valid mailbox or distribution-list email address.');
+        if (
+          group.slackChannel &&
+          !/^(?:[CG][A-Z0-9]{8,31}|#[a-z0-9_-]{1,79})$/.test(group.slackChannel)
+        )
+          invalid('slackChannel', 'Enter a Slack channel ID or #channel-name.');
         if (
           groups.some((g) => g.id !== group.id && g.name.toLowerCase() === group.name.toLowerCase())
         )

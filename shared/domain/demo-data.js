@@ -8,6 +8,7 @@ export const DEMO_TYPES = Object.freeze([
   ['events', 'Check events'],
   ['incidents', 'Incidents'],
   ['tasks', 'Tasks'],
+  ['rcas', 'Root cause analyses'],
   ['knowledge', 'Knowledge articles and runbooks'],
   ['groups', 'Groups'],
   ['users', 'Users'],

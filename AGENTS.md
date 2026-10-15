@@ -10,6 +10,7 @@
 - Update the bundled Help guides in `app/src/features/help/topics.js` whenever user-facing behavior, workflows, permissions, or configuration changes. Update README and relevant deployment documentation when setup or operating requirements change; deliver documentation with the implementation.
 - Explain current behavior, prerequisites, and actionable steps. Keep documentation consistent with the actual UI and supported capabilities. Add concise code comments for non-obvious constraints and decisions, rather than restating code.
 - Add or refresh Help screenshots when a visual makes a workflow easier to follow. Capture the actual current app using an isolated browser with synthetic demo responses only. Never capture live workspace records, personal information, credentials, tokens, or integration secrets, even if later redacted. Do not seed or clean up a live workspace for screenshots.
+- Capture record-reading screenshots with Details and Field settings closed. Test information overlays separately without publishing an expanded-panel screenshot unless the user explicitly requests one.
 - Store screenshots under `app/public/help/`, with descriptive filenames, useful alternative text, and captions that explain the relevant controls. Keep the reproducible capture instructions and demo fixtures with the repository; refresh affected screenshots after UI changes. Omit screenshots for topics where prose is clearer.
 
 # Apply updates to the running app
@@ -58,3 +59,9 @@
 # Consistent navigation hierarchy
 
 - Expanded, collapsed, and mobile side navigation must use one shared authorized link order. Collapsed mode shows the leading links directly and the trailing links in More; preserve the combined order and never omit authorized links. Keep the rail scrollable when needed and verify the main links plus More match expanded order after navigation changes.
+
+# Keep demo mode aligned with tables and views
+
+- Whenever adding or changing a table, record type, list/detail/related view, dashboard report, or Form Builder schema, update demo mode in the same change. Extend supported demo types/counts, safe internally linked fixtures, schema-compatible field values, record numbers, and workspace/batch-scoped cleanup as applicable. Include realistic populated states and supported statuses so the new workflow can be explored.
+- Verify the new demo records appear through normal authorized list, detail, related-list, search and report APIs where supported. Test tenant/role boundaries, links and cleanup; preserve unrelated records. Keep demo users unable to sign in, monitors paused, integrations disabled and notifications suppressed. Never seed or clean up a live workspace for development or screenshots.
+- Update README, bundled Help and isolated screenshot/browser fixtures with the demo workflow. Document whether an existing demo batch must be deleted and re-added to receive newly supported sample types; never silently replace or duplicate a user's existing batch.

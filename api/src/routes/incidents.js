@@ -1,3 +1,6 @@
+import { collaborationOptions, selectedIds, mayReadIncident } from './collaboration.js';
+import { incidentSourceLabel } from '@servicetrident/shared/domain/incident-source';
+import { incidentOrigin } from '../repositories/incident-origin.js';
 import { assignmentGroup } from '../domain/assignment.js';
 import { claimAttachments } from './attachments.js';
 import { recordFields } from '@servicetrident/shared/forms/form-options';
@@ -73,7 +76,7 @@ export function installIncidentsRoutes(app, db, appOrigin, machine = null) {
             row.serviceName,
             row.severity,
             row.status,
-            row.source,
+            incidentSourceLabel(row.source),
             row.createdAt.toISOString(),
             row.updatedAt.toISOString(),
             row.assignmentGroupName,
@@ -105,26 +108,58 @@ export function installIncidentsRoutes(app, db, appOrigin, machine = null) {
     const kind = choice(req.body.kind, ['comment', 'work_note'], 'kind');
     if (kind === 'work_note' && !['admin', 'responder'].includes(req.role))
       throw new InputError('Only responders and admins can add work notes.', 403);
+    const directory = await collaborationOptions(db, req, incident);
+    const eligible = directory.filter(
+      (user) => kind === 'comment' || ['admin', 'responder'].includes(user.role ?? 'admin'),
+    );
+    const mentionIds = selectedIds(
+      req.body.mentionIds ?? [],
+      eligible.map((user) => String(user._id)),
+      'mentionIds',
+      20,
+    );
+    const body = text(req.body.body, 'body', 5000);
+    const mentions = eligible
+      .filter((user) => mentionIds.includes(String(user._id)))
+      .map((user) => ({ id: String(user._id), label: user.displayName || user.email }));
+    if (mentions.some((user) => !body.includes(`@${user.label}`)))
+      invalid('mentionIds', 'Include each selected mention in your message.');
+    const operations = await settings(db, req.workspaceId);
+    const watcherIds = [
+      ...(incident.watcherUserIds ?? []),
+      ...(operations.groups ?? [])
+        .filter((group) => (incident.watcherGroupIds ?? []).includes(group.id))
+        .flatMap((group) => group.memberIds),
+    ];
+    const candidates = new Set([
+      incident.createdById,
+      incident.openedForId,
+      incident.assigneeId,
+      ...watcherIds,
+      ...mentionIds,
+    ]);
+    const alertRecipientIds = (await members(db, req.workspaceId))
+      .filter(
+        (user) =>
+          candidates.has(String(user._id)) &&
+          String(user._id) !== String(req.user._id) &&
+          mayReadIncident(user, incident) &&
+          (kind === 'comment' || ['admin', 'responder'].includes(user.role ?? 'admin')),
+      )
+      .map((user) => String(user._id));
     const entry = {
       ...(incident.demoBatchId ? { demoBatchId: incident.demoBatchId } : {}),
       _id: new ObjectId(),
       workspaceId: req.workspaceId,
       incidentId: incident._id,
       kind,
-      body: text(req.body.body, 'body', 5000),
+      body,
+      mentions,
+      alertRecipientIds,
       authorId: String(req.user._id),
       author: req.user.displayName || req.user.email,
       createdAt: new Date(),
-      recipientIds:
-        kind === 'comment'
-          ? [
-              ...new Set(
-                [incident.createdById, incident.openedForId].filter(
-                  (value) => value && value !== String(req.user._id),
-                ),
-              ),
-            ]
-          : [],
+      recipientIds: kind === 'comment' ? alertRecipientIds : [],
       notificationsQueued: !!incident.demoBatchId || kind !== 'comment',
     };
     await db.collection('incidentComments').insertOne(entry);
@@ -144,7 +179,15 @@ export function installIncidentsRoutes(app, db, appOrigin, machine = null) {
           incidentId: incident._id,
           ...(!['admin', 'responder'].includes(req.role) ? { kind: 'comment' } : {}),
         },
-        { projection: { kind: 1, body: 1, author: 1, createdAt: 1 } },
+        {
+          projection: {
+            kind: 1,
+            body: 1,
+            author: 1,
+            createdAt: 1,
+            ...(req.role === 'admin' ? { authorId: 1 } : {}),
+          },
+        },
       )
       .sort({ createdAt: -1, _id: -1 })
       .limit(200)
@@ -153,6 +196,10 @@ export function installIncidentsRoutes(app, db, appOrigin, machine = null) {
       incident.timeline = incident.timeline.filter((entry) => entry.kind !== 'work_note');
     res.json({
       incident: incidentView(incident),
+      origin:
+        req.role !== 'user'
+          ? await incidentOrigin(db, req.workspaceId, incident, req.role)
+          : undefined,
       knowledge:
         req.role === 'user'
           ? []
@@ -280,13 +327,17 @@ export function installIncidentsRoutes(app, db, appOrigin, machine = null) {
               resolutionCycle: (current.resolutionCycle ?? 0) + 1,
               notifiedOpen: false,
               notifiedResolved: false,
-              ...(current.source === 'monitor' ? { activeAutomatic: false } : {}),
+              ...(['monitor', 'automation'].includes(current.source)
+                ? { activeAutomatic: false }
+                : {}),
             }
           : {}),
         ...(status === 'resolved'
           ? {
               resolvedAt: current?.resolvedAt ?? now,
-              ...(current?.source === 'monitor' ? { activeAutomatic: false } : {}),
+              ...(['monitor', 'automation'].includes(current?.source)
+                ? { activeAutomatic: false }
+                : {}),
             }
           : {}),
         statusOption: body.statusOption,
@@ -368,7 +419,17 @@ export function installIncidentsRoutes(app, db, appOrigin, machine = null) {
           createdByType: req.serviceAccount ? 'service_account' : 'user',
           fields,
           ...update,
-          source: req.serviceAccount ? 'integration' : 'manual',
+          source: req.serviceAccount
+            ? 'integration'
+            : req.incidentSource === 'ai'
+              ? 'ai'
+              : 'manual',
+          ...(req.serviceAccount
+            ? {
+                sourceAccountId: String(req.serviceAccount._id),
+                sourceAccountName: req.serviceAccount.name,
+              }
+            : {}),
           createdAt: now,
           revision: 0,
           timeline: [entry],

@@ -96,6 +96,7 @@ export function requireUser(db) {
           displayName: 1,
           timeZone: 1,
           uiPreferences: 1,
+          notificationsSeenAt: 1,
           workspaceId: 1,
           role: 1,
           disabled: 1,
