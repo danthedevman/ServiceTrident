@@ -76,3 +76,5 @@ For toolbar, incident mentions/watchers, notifications, task-card body clicks, t
 Use `HELP_CAPTURE_FOCUS=overview` for the dashboard’s My Assignments/My Team tiles and mobile scrolling. It refreshes `dashboard-overview.png` and `readme-dashboard-dark.png` with the same intercepted fixtures.
 
 Record-reading screenshots close Details/Field settings before capture and restore test state afterward. Do not publish the information-overlay test image. `HELP_CAPTURE_FOCUS=navigation` verifies knowledge-base automatic pagination, retry/search reset, full article/history breadcrumb paths and the independently scrollable sticky Help categories. `help-navigation.png` illustrates the Help layout.
+
+README record previews can be refreshed with `HELP_CAPTURE_FOCUS=readme`. Capture incident and RCA records with collapsed navigation and a service with expanded navigation; keep Details closed. Review the reading area and record labels at 1440×960.

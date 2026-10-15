@@ -1597,7 +1597,49 @@ async function captureLongReferences() {
   await page.setViewportSize({ width: 1440, height: 960 });
 }
 
+async function captureReadmeRecords() {
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await page.goto(`${base}/profile`);
+  await page.getByRole('radio', { name: 'Ocean', exact: true }).check();
+  if (await page.evaluate(() => document.documentElement.dataset.theme !== 'dark'))
+    await page.getByRole('button', { name: 'Dark mode', exact: true }).click();
+  await page.waitForFunction(() => document.documentElement.dataset.theme === 'dark');
+  await captureRecordExports();
+  demoIncident.title = 'Checkout availability restored';
+  demoIncident.description =
+    'Checkout requests failed after a dependency connection pool was exhausted. The team restored service and is tracking prevention work in the linked RCA.';
+  demoIncident.resolutionNotes =
+    'Restored the connection pool and confirmed healthy monitor checks.';
+  demoRcas[0].timeline =
+    '09:12 — Monitor detected failed requests.\n09:16 — Responders isolated the connection pool.\n09:24 — Recovery checks confirmed service restoration.';
+  await page.evaluate(() => sessionStorage.removeItem('servicetrident-record-tabs'));
+  await page.goto(`${base}/dashboard`);
+  const collapse = page.getByRole('button', { name: 'Collapse navigation', exact: true });
+  if (await collapse.count()) await collapse.click();
+  await page.waitForFunction(
+    () => document.querySelector('.desktop-sidebar').getBoundingClientRect().width === 64,
+  );
+  await page.goto(`${base}/incidents/${demoIncident.id}`);
+  await page.getByRole('button', { name: 'Edit Record', exact: true }).waitFor();
+  await page.screenshot({ path: `${output}/readme-incident-dark.png` });
+  await page.goto(`${base}/rcas/${demoRcas[0].id}`);
+  await page.locator('.knowledge-reader h1').waitFor();
+  await page.getByRole('button', { name: 'Edit Record', exact: true }).waitFor();
+  await page.screenshot({ path: `${output}/readme-rca-dark.png` });
+  await page.getByRole('button', { name: 'Expand Navigation', exact: true }).click();
+  await page.goto(`${base}/services/${services[0].id}`);
+  await page.getByRole('button', { name: 'Edit Record', exact: true }).waitFor();
+  await page.screenshot({ path: `${output}/readme-service-dark.png` });
+}
+
 try {
+  if (process.env.HELP_CAPTURE_FOCUS === 'readme') {
+    await captureReadmeRecords();
+    assert.deepEqual(faults, []);
+    console.log('Captured record previews with expanded and collapsed navigation.');
+    await browser.close();
+    process.exit(0);
+  }
   if (process.env.HELP_CAPTURE_FOCUS === 'navigation') {
     await captureNavigation();
     assert.deepEqual(faults, []);
@@ -3825,6 +3867,7 @@ try {
   await captureMonitorIntervals();
   await captureCollaboration();
   await captureNavigation();
+  await captureReadmeRecords();
   assert.deepEqual(faults, []);
   console.log(
     'Captured synthetic screenshots, including five dark-mode README images; verified task ordering and loading, knowledge base destination exclusion and runbooks, accessible labels, global lanes, AI gating and drafts, logo themes, textarea growth, incident monitor events, date formats, and navigation and record header alignment.',
