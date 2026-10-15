@@ -78,3 +78,7 @@ Use `HELP_CAPTURE_FOCUS=overview` for the dashboard’s My Assignments/My Team t
 Record-reading screenshots close Details/Field settings before capture and restore test state afterward. Do not publish the information-overlay test image. `HELP_CAPTURE_FOCUS=navigation` verifies knowledge-base automatic pagination, retry/search reset, full article/history breadcrumb paths and the independently scrollable sticky Help categories. `help-navigation.png` illustrates the Help layout.
 
 README record previews can be refreshed with `HELP_CAPTURE_FOCUS=readme`. Capture incident and RCA records with collapsed navigation and a service with expanded navigation; keep Details closed. Review the reading area and record labels at 1440×960.
+
+Navigation captures verify compact link rows and a 32px highlight around each 20px icon, with larger invisible touch targets. Check theme-aware full-link highlights in expanded/mobile navigation and icon highlights when collapsed without changing link order.
+
+Expanded navigation captures check that the logo and link icons share a center line and the collapse control reaches the content-side edge of the rail.

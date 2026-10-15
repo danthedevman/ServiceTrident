@@ -1629,6 +1629,66 @@ async function captureReadmeRecords() {
   await page.getByRole('button', { name: 'Expand Navigation', exact: true }).click();
   await page.goto(`${base}/services/${services[0].id}`);
   await page.getByRole('button', { name: 'Edit Record', exact: true }).waitFor();
+  const navigationSizing = await page
+    .locator('.desktop-sidebar .sidenav-link')
+    .first()
+    .evaluate((link) => {
+      const icon = link.querySelector('.sidenav-link-icon').getBoundingClientRect();
+      return {
+        width: icon.width,
+        height: icon.height,
+        row: link.getBoundingClientRect().height,
+        background: getComputedStyle(link).backgroundColor,
+      };
+    });
+  const profileAlignment = await page.evaluate(() => {
+    const icon = document
+      .querySelector('.desktop-sidebar .sidenav-link-icon')
+      .getBoundingClientRect();
+    const avatar = document
+      .querySelector('.desktop-sidebar .profile-avatar')
+      .getBoundingClientRect();
+    return Math.abs(icon.left + icon.width / 2 - avatar.left - avatar.width / 2);
+  });
+  assert.ok(profileAlignment < 1, 'Profile aligns with navigation icons');
+  const brandAlignment = await page.evaluate(() => {
+    const rail = document.querySelector('.desktop-sidebar');
+    const icon = rail.querySelector('.sidenav-link-icon').getBoundingClientRect();
+    const logo = rail.querySelector('[data-brand-mark]').getBoundingClientRect();
+    const toggle = rail
+      .querySelector('button[aria-label="Collapse navigation"]')
+      .getBoundingClientRect();
+    return {
+      delta: Math.abs(icon.left + icon.width / 2 - logo.left - logo.width / 2),
+      edge: Math.abs(rail.getBoundingClientRect().right - toggle.right),
+    };
+  });
+  assert.ok(brandAlignment.delta < 1, 'Expanded logo aligns with navigation icons');
+  assert.ok(brandAlignment.edge < 1, 'Collapse toggle reaches the content-side edge');
+
+  assert.equal(navigationSizing.width, 32);
+  assert.equal(navigationSizing.height, 32);
+  assert.equal(navigationSizing.row, 36);
+  assert.equal(navigationSizing.background, 'rgba(0, 0, 0, 0)');
+  const activeLink = page.locator('.desktop-sidebar .sidenav-link.active');
+  assert.notEqual(
+    await activeLink.evaluate((link) => getComputedStyle(link).backgroundColor),
+    'rgba(0, 0, 0, 0)',
+  );
+  assert.equal(
+    await activeLink
+      .locator('.sidenav-link-icon')
+      .evaluate((icon) => getComputedStyle(icon).backgroundColor),
+    'rgba(0, 0, 0, 0)',
+  );
+  const firstLink = page.locator('.desktop-sidebar .sidenav-link').first();
+  await firstLink.hover();
+  assert.notEqual(
+    await firstLink.evaluate((link) => getComputedStyle(link).backgroundColor),
+    'rgba(0, 0, 0, 0)',
+  );
+  await page.mouse.move(800, 100);
+
   await page.screenshot({ path: `${output}/readme-service-dark.png` });
 }
 

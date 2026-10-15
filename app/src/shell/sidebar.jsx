@@ -77,11 +77,11 @@ function ProfileMenu({ user, compact, logout, busy, onNavigate, dropdown = false
     >
       <Tooltip label={compact && !dropdown ? 'Profile and appearance settings' : null}>
         <summary
-          className={`flex cursor-pointer list-none items-center gap-3 rounded-xl p-2 hover:bg-slate-100 dark:hover:bg-slate-800 [&::-webkit-details-marker]:hidden ${compact ? 'mx-auto h-11 w-11 justify-center !gap-0 !p-0' : ''}`}
+          className={`profile-trigger flex cursor-pointer list-none items-center gap-3 rounded-xl p-2 hover:bg-slate-100 dark:hover:bg-slate-800 [&::-webkit-details-marker]:hidden ${compact ? 'mx-auto h-9 w-9 justify-center !gap-0 !p-0' : ''}`}
           aria-label="Profile and appearance settings"
           title={compact ? 'Profile and appearance settings' : undefined}
         >
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-blue-100 font-semibold text-blue-800 dark:bg-blue-950 dark:text-blue-300">
+          <span className="profile-avatar grid h-8 w-8 shrink-0 place-items-center rounded-full bg-blue-100 font-semibold text-blue-800 dark:bg-blue-950 dark:text-blue-300">
             {(user.displayName || user.email).slice(0, 1).toUpperCase()}
           </span>
           {!compact && (
@@ -212,7 +212,7 @@ export function Sidebar({
   const content = (compact, mobile = false) => (
     <>
       <div
-        className={`sidebar-brand-row flex h-12 shrink-0 items-center gap-2 px-3 ${compact ? 'justify-center' : 'justify-between'}`}
+        className={`sidebar-brand-row flex h-12 shrink-0 items-center gap-2 ${compact ? 'justify-center px-3' : 'justify-between pl-5 pr-0'}`}
       >
         {compact ? (
           <div className="group relative grid h-10 w-10 shrink-0 place-items-center">
@@ -275,7 +275,7 @@ export function Sidebar({
       </div>
       <nav
         aria-label="Main navigation"
-        className={`min-h-0 flex-1 space-y-2 ${compact ? 'px-2 pb-2' : 'px-3 pb-3'} pt-0 overflow-y-auto overflow-x-hidden`}
+        className={`min-h-0 flex-1 space-y-1 ${compact ? 'px-2 pb-2' : 'px-3 pb-3'} pt-0 overflow-y-auto overflow-x-hidden`}
       >
         {(compact ? visibleLinks.slice(0, 5) : visibleLinks).map(([to, label, Icon]) => (
           <Tooltip key={to} label={compact ? label : null}>
@@ -286,9 +286,11 @@ export function Sidebar({
               end={to === '/'}
               onClick={close}
               title={compact ? label : undefined}
-              className={`nav-link ${to === '/settings' && /^\/(groups|workspace)(\/|$)/.test(pathname) ? 'active' : ''} flex items-center gap-3 ${compact ? 'mx-auto h-11 w-11 justify-center !gap-0 !p-0' : ''}`}
+              className={`nav-link sidenav-link ${compact ? '' : 'sidenav-link-expanded'} ${to === '/settings' && /^\/(groups|workspace)(\/|$)/.test(pathname) ? 'active' : ''} flex items-center gap-3 ${compact ? 'mx-auto h-9 w-9 justify-center !gap-0 !p-0' : ''}`}
             >
-              <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
+              <span className="sidenav-link-icon" aria-hidden="true">
+                <Icon className="h-5 w-5" />
+              </span>
               <span className={compact ? 'sr-only' : ''}>
                 {user?.role === 'user' && to === '/incidents' ? 'My incidents' : label}
               </span>

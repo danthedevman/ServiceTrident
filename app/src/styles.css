@@ -2507,3 +2507,52 @@ body:has([data-app-shell]) {
 .sidebar-brand-row > a > span {
   font-size: 14px;
 }
+
+/* Keep the visible navigation highlight compact without shrinking the hit target. */
+.sidenav-link,
+.sidenav-link:hover,
+.sidenav-link.active {
+  min-height: 36px;
+  padding: 2px 6px;
+  background: transparent;
+}
+.sidenav-link-icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+}
+.sidenav-link:hover .sidenav-link-icon {
+  background: light-dark(var(--color-slate-200), var(--color-slate-800));
+}
+.sidenav-link.active .sidenav-link-icon {
+  background: light-dark(var(--color-blue-100), var(--color-blue-950));
+}
+@media (pointer: coarse) {
+  .sidenav-link {
+    min-height: 44px;
+  }
+}
+
+.sidebar-profile .profile-trigger {
+  min-height: 36px;
+  padding: 2px 6px;
+}
+@media (pointer: coarse) {
+  .sidebar-profile .profile-trigger {
+    min-height: 44px;
+  }
+}
+
+.sidenav-link-expanded:hover {
+  background: light-dark(var(--color-slate-200), var(--color-slate-800));
+}
+.sidenav-link-expanded.active {
+  background: light-dark(var(--color-blue-100), var(--color-blue-950));
+}
+.sidenav-link-expanded:hover .sidenav-link-icon,
+.sidenav-link-expanded.active .sidenav-link-icon {
+  background: transparent;
+}
