@@ -47,6 +47,14 @@ test('public subscriptions confirm, deliver, isolate, and unsubscribe while priv
     ],
   });
   const base = `http://127.0.0.1:${server.address().port}/api/public/status/${token}`;
+  for (const theme of ['light', 'dark']) {
+    await db.collection('catalogs').updateOne({ _id: workspace }, { $set: { statusTheme: theme } });
+    const style = await fetch(base + '/appearance.css');
+    assert.equal(style.status, 200);
+    assert.match(style.headers.get('content-type'), /text\/css/);
+    assert.match(style.headers.get('cache-control'), /no-store/);
+    assert.ok((await style.text()).includes(theme === 'dark' ? '#000000' : '#ffffff'));
+  }
   const post = (path, body, origin = 'https://status.example.com') =>
     fetch(base + path, {
       method: 'POST',
@@ -181,6 +189,7 @@ test('public subscriptions confirm, deliver, isolate, and unsubscribe while priv
   await db
     .collection('catalogs')
     .updateOne({ _id: workspace }, { $set: { visibility: 'private' } });
+  assert.equal((await fetch(base + '/appearance.css')).status, 404);
   assert.equal((await fetch(base + '/feed.xml')).status, 404);
   await db
     .collection('statusMail')

@@ -1,10 +1,16 @@
 import React, { createContext, useId, useRef, useState } from 'react';
-import { EllipsisVerticalIcon } from '@heroicons/react/24/outline';
+import { EllipsisVerticalIcon, EllipsisHorizontalIcon } from '@heroicons/react/24/outline';
 
 export const ActionMenuContext = createContext(false);
 
 /** Native top-layer popover avoids clipping inside scrollable tables and modal dialogs. */
-export function ActionMenu({ children, label = 'More actions', borderless = false }) {
+export function ActionMenu({
+  children,
+  label = 'More actions',
+  borderless = false,
+  horizontal = false,
+}) {
+  const MenuIcon = horizontal ? EllipsisHorizontalIcon : EllipsisVerticalIcon;
   const id = useId(),
     panel = useRef(null),
     trigger = useRef(null),
@@ -35,7 +41,7 @@ export function ActionMenu({ children, label = 'More actions', borderless = fals
         aria-haspopup="true"
         onClick={show}
       >
-        <EllipsisVerticalIcon className="h-5 w-5" aria-hidden="true" />
+        <MenuIcon className="h-5 w-5" aria-hidden="true" />
       </button>
       <div
         ref={panel}

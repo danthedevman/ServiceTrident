@@ -1,10 +1,15 @@
-import React, { useContext, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import React, { useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
   ChatBubbleLeftRightIcon,
   XMarkIcon,
   PaperAirplaneIcon,
   ArrowPathIcon,
+  PlusIcon,
+  ClockIcon,
+  ArrowsPointingOutIcon,
+  ArrowsPointingInIcon,
 } from '@heroicons/react/24/outline';
 import { RecordLink } from '../../components/record-navigation.jsx';
 import { AuthContext } from '../../auth/auth-context.js';
@@ -82,8 +87,10 @@ export function AIChatSettings({ data, refresh }) {
   );
 }
 function contextFor(path) {
-  const match = path.match(/^\/(incidents|tasks|knowledge)\/([a-f\d]{24})\/?$/i);
+  const match = path.match(/^\/(incidents|tasks|knowledge|rcas)\/([a-f\d]{24})\/?$/i);
   if (match) return { kind: match[1], id: match[2] };
+  const directEvent = path.match(/^\/events\/([a-f\d]{24})\/?$/i);
+  if (directEvent) return { kind: 'events', id: directEvent[1] };
   const event = path.match(/^\/monitors\/[a-f\d]{24}\/events\/([a-f\d]{24})\/?$/i);
   return event ? { kind: 'events', id: event[1] } : undefined;
 }
@@ -116,6 +123,17 @@ export function FloatingAIChat() {
   const [open, setOpen] = useState(false),
     [mode, setMode] = useState('live');
   const [phase, setPhase] = useState(null);
+  const [fullView, setFullView] = useState(false),
+    [historyOpen, setHistoryOpen] = useState(false),
+    [conversations, setConversations] = useState([]),
+    [scrollRequest, setScrollRequest] = useState(0);
+  const savedScroll = useRef(0),
+    retainedContext = useRef(null);
+  useEffect(() => setFullView(false), [location.key]);
+  const previousFullView = useRef(false);
+  const conversationId = useRef(1),
+    nextConversationId = useRef(2);
+
   const [prompt, setPrompt] = useState(''),
     [messages, setMessages] = useState([]);
   const [busy, setBusy] = useState(false),
@@ -127,11 +145,92 @@ export function FloatingAIChat() {
   const enabled = preferences.aiChat && (available?.chatEnabled || available?.demoEnabled);
   const demo = mode === 'demo' || !available?.chatEnabled;
   useEffect(() => {
-    if (open) input.current?.focus();
-  }, [open]);
+    if (open && !historyOpen) input.current?.focus({ preventScroll: true });
+  }, [open, historyOpen]);
+  useLayoutEffect(() => {
+    if (open && previousFullView.current !== fullView)
+      document
+        .getElementById('ai-chat-panel')
+        ?.querySelector(fullView ? '[aria-label="Exit Full View"]' : '[aria-label="Full View"]')
+        ?.focus({ preventScroll: true });
+    previousFullView.current = fullView;
+  }, [fullView, open]);
+  useLayoutEffect(() => {
+    if (transcript.current) transcript.current.scrollTop = savedScroll.current;
+  }, [fullView, open, historyOpen]);
+  useLayoutEffect(() => {
+    if (!scrollRequest) return;
+    const root = transcript.current;
+    const latest = root?.querySelector('[data-message-role="user"]:last-of-type');
+    if (root && latest)
+      root.scrollTop += latest.getBoundingClientRect().top - root.getBoundingClientRect().top;
+  }, [scrollRequest]);
   useEffect(() => {
-    if (open && transcript.current) transcript.current.scrollTop = transcript.current.scrollHeight;
-  }, [messages, busy, open]);
+    if (!open || !fullView || !enabled) return;
+    const main = document.getElementById('main');
+    const nodes = [...main.children].filter((node) => node.id !== 'ai-chat-panel');
+    const previous = nodes.map((node) => node.inert);
+    nodes.forEach((node) => {
+      node.inert = true;
+    });
+    return () =>
+      nodes.forEach((node, index) => {
+        node.inert = previous[index];
+      });
+  }, [open, fullView, enabled, location.pathname]);
+  function archiveCurrent() {
+    if (!messages.length) return;
+    // History keeps outputs in memory, never reusable action tokens.
+    const entry = {
+      id: conversationId.current,
+      title: messages.find((row) => row.role === 'user')?.text.slice(0, 100) || 'Conversation',
+      mode: demo ? 'demo' : 'live',
+      context: retainedContext.current,
+      messages: messages.slice(-20).map(({ action, demoAction, ...row }) => ({
+        ...row,
+        ...(action
+          ? {
+              action: {
+                kind: action.kind,
+                operation: action.operation,
+                title: action.title,
+                changes: action.changes,
+              },
+            }
+          : {}),
+        ...(demoAction
+          ? { demoAction: { label: demoAction.label, changes: demoAction.changes } }
+          : {}),
+        previousProposal: !!(action || demoAction) || row.previousProposal,
+      })),
+    };
+    setConversations((rows) => [entry, ...rows.filter((row) => row.id !== entry.id)].slice(0, 20));
+  }
+  function newConversation(nextMode = mode) {
+    if (busy) return;
+    archiveCurrent();
+    conversationId.current = nextConversationId.current++;
+    setMessages([]);
+    retainedContext.current = null;
+    setPrompt('');
+    setError('');
+    setMode(nextMode);
+    setHistoryOpen(false);
+    savedScroll.current = 0;
+    if (transcript.current) transcript.current.scrollTop = 0;
+  }
+  function selectConversation(entry) {
+    if (busy) return;
+    archiveCurrent();
+    conversationId.current = entry.id;
+    setMessages(entry.messages);
+    retainedContext.current = entry.context ?? null;
+    setMode(entry.mode);
+    setPrompt('');
+    setError('');
+    savedScroll.current = 0;
+    setHistoryOpen(false);
+  }
   if (!enabled || user?.role === 'user') return null;
   async function send(message, exampleId) {
     if (busy || !message.trim()) return;
@@ -139,8 +238,23 @@ export function FloatingAIChat() {
     setError('');
     setPrompt('');
     setPhase(demo ? 'thinking' : 'working');
+    setScrollRequest((value) => value + 1);
     setMessages((rows) => [...rows.slice(-18), { role: 'user', text: message }]);
     try {
+      const context = contextFor(location.pathname) || retainedContext.current;
+      retainedContext.current = context;
+      const references = [
+        ...new Map(
+          messages
+            .flatMap((row) => row.records ?? [])
+            .filter(
+              (row) =>
+                ['incidents', 'tasks', 'knowledge', 'events', 'rcas'].includes(row.kind) &&
+                /^[a-f\d]{24}$/i.test(row.id || ''),
+            )
+            .map((row) => [`${row.kind}:${row.id}`, { kind: row.kind, id: row.id }]),
+        ).values(),
+      ].slice(-8);
       const reply = await api('/ai/chat', {
         method: 'POST',
         toast: false,
@@ -148,10 +262,17 @@ export function FloatingAIChat() {
           message,
           demo,
           exampleId,
-          context: demo ? undefined : contextFor(location.pathname),
+          context: demo ? undefined : context,
+          references: demo ? undefined : references,
           history: demo
             ? undefined
-            : messages.slice(-6).map((row) => ({ role: row.role, text: row.text.slice(0, 2000) })),
+            : messages.slice(-20).map((row) => ({
+                role: row.role,
+                text: `${row.applied ? (row.demo ? 'Action result: simulation only. ' : 'Action result: changes saved after user confirmation. ') : ''}${row.text}`.slice(
+                  0,
+                  2000,
+                ),
+              })),
         },
       });
       if (demo) {
@@ -166,93 +287,134 @@ export function FloatingAIChat() {
     } finally {
       setBusy(false);
       setPhase(null);
-      input.current?.focus();
     }
   }
   function updateMessage(index, patch) {
     setMessages((rows) => rows.map((row, i) => (i === index ? { ...row, ...patch } : row)));
   }
-  return (
-    <>
-      <button
-        ref={trigger}
-        type="button"
-        className="ai-chat-launch btn-primary"
-        aria-label={open ? 'Close AI Chat' : 'Open AI Chat'}
-        aria-expanded={open}
-        aria-controls="ai-chat-panel"
-        onClick={() => setOpen(!open)}
-      >
-        {open ? (
-          <XMarkIcon className="h-7 w-7" aria-hidden="true" />
-        ) : (
-          <ChatBubbleLeftRightIcon className="h-7 w-7" aria-hidden="true" />
-        )}
-      </button>
-      {open && (
-        <section
-          id="ai-chat-panel"
-          className="ai-chat-panel panel"
-          aria-label="AI Chat"
-          onKeyDown={(event) => {
-            if (event.key === 'Escape') {
+  const chatPanel = (
+    <section
+      id="ai-chat-panel"
+      className={`ai-chat-panel panel${fullView ? ' ai-chat-full-view' : ''}`}
+      aria-label="AI Chat"
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') {
+          setOpen(false);
+          trigger.current?.focus();
+        }
+      }}
+    >
+      <header className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 p-4 dark:border-slate-700">
+        <h2 className="font-semibold">AI Chat</h2>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            className="icon-action"
+            aria-label="New Conversation"
+            title="New Conversation"
+            disabled={busy}
+            onClick={() => newConversation()}
+          >
+            <PlusIcon className="h-5 w-5" aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="icon-action"
+            aria-label="Conversation History"
+            title="Conversation History"
+            aria-expanded={historyOpen}
+            disabled={busy}
+            onClick={() => setHistoryOpen(!historyOpen)}
+          >
+            <ClockIcon className="h-5 w-5" aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="icon-action"
+            aria-label={fullView ? 'Exit Full View' : 'Full View'}
+            title={fullView ? 'Exit Full View' : 'Full View'}
+            onClick={() => setFullView(!fullView)}
+          >
+            {fullView ? (
+              <ArrowsPointingInIcon className="h-5 w-5" aria-hidden="true" />
+            ) : (
+              <ArrowsPointingOutIcon className="h-5 w-5" aria-hidden="true" />
+            )}
+          </button>
+          <button
+            type="button"
+            className="icon-action"
+            aria-label="Close AI Chat"
+            onClick={() => {
               setOpen(false);
               trigger.current?.focus();
-            }
-          }}
-        >
-          <header className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 p-4 dark:border-slate-700">
-            <h2 className="font-semibold">AI Chat</h2>
-            <button
-              type="button"
-              className="icon-action"
-              aria-label="Close AI Chat"
-              onClick={() => {
-                setOpen(false);
-                trigger.current?.focus();
-              }}
-            >
-              <XMarkIcon className="h-5 w-5" />
-            </button>
-          </header>
-          <div className="shrink-0 space-y-2 border-b border-slate-200 p-3 dark:border-slate-700">
-            {available.chatEnabled && available.demoEnabled && (
-              <label className="field-label">
-                Mode
-                <Select
-                  aria-label="Mode"
-                  value={mode}
-                  disabled={busy}
-                  onChange={(event) => {
-                    setMode(event.target.value);
-                    setMessages([]);
-                    setError('');
-                  }}
-                >
-                  <option value="live">Workspace AI</option>
-                  <option value="demo">Demo AI</option>
-                </Select>
-              </label>
-            )}
-            <p className="text-xs text-slate-500">
-              {demo
-                ? 'Demo AI · fictional output and simulated actions.'
-                : 'Uses authorized workspace context. Review cited evidence and confirm any record changes.'}
-            </p>
-            <button
-              type="button"
-              className="text-sm underline"
+            }}
+          >
+            <XMarkIcon className="h-5 w-5" />
+          </button>
+        </div>
+      </header>
+      <div className="shrink-0 space-y-2 border-b border-slate-200 p-3 dark:border-slate-700">
+        {available.chatEnabled && available.demoEnabled && (
+          <label className="field-label">
+            Mode
+            <Select
+              aria-label="Mode"
+              value={mode}
               disabled={busy}
-              onClick={() => {
-                setMessages([]);
-                setError('');
+              onChange={(event) => {
+                newConversation(event.target.value);
               }}
             >
-              New Conversation
-            </button>
-          </div>
+              <option value="live">Workspace AI</option>
+              <option value="demo">Demo AI</option>
+            </Select>
+          </label>
+        )}
+        <p className="text-xs text-slate-500">
+          {demo
+            ? 'Demo AI · fictional output and simulated actions.'
+            : 'Uses authorized workspace context. Review cited evidence and confirm any record changes.'}
+        </p>
+      </div>
+      {historyOpen ? (
+        <div className="ai-chat-transcript space-y-2 p-4" aria-label="Previous Conversations">
+          <h3 className="font-semibold">Previous Conversations</h3>
+          <p className="text-xs text-slate-500">
+            Up to 20 conversations are kept during this session. Reloading or signing out clears
+            them. Previous action proposals cannot be applied.
+          </p>
+          {!conversations.some((entry) => entry.id !== conversationId.current) && (
+            <p className="text-sm">
+              No previous conversations yet. Use the plus button to start another.
+            </p>
+          )}
+          {conversations
+            .filter((entry) => entry.id !== conversationId.current)
+            .map((entry) => (
+              <button
+                type="button"
+                key={entry.id}
+                className="ai-conversation-entry"
+                onClick={() => selectConversation(entry)}
+              >
+                <span className="block truncate font-medium" title={entry.title}>
+                  {entry.title}
+                </span>
+                <span className="text-xs text-slate-500">
+                  {entry.mode === 'demo' ? 'Demo AI' : 'Workspace AI'} · {entry.messages.length}{' '}
+                  messages
+                </span>
+              </button>
+            ))}
+        </div>
+      ) : (
+        <>
           <div
             ref={transcript}
+            onScroll={(event) => {
+              savedScroll.current = event.currentTarget.scrollTop;
+            }}
             className="ai-chat-transcript space-y-4 p-4"
             aria-live="polite"
             aria-busy={busy}
@@ -267,6 +429,7 @@ export function FloatingAIChat() {
             {messages.map((message, index) => (
               <article
                 key={index}
+                data-message-role={message.role}
                 className="space-y-2 rounded-lg border border-slate-200 p-3 dark:border-slate-700"
               >
                 <h3 className="text-sm font-semibold">
@@ -306,6 +469,11 @@ export function FloatingAIChat() {
                     ))}
                   </ol>
                 )}
+                {message.previousProposal && !message.applied && (
+                  <p className="text-xs text-slate-500">
+                    Previous action proposal. Ask again to review a fresh action.
+                  </p>
+                )}
                 {(message.action || message.demoAction) && !message.applied && (
                   <div className="space-y-2 border-t border-slate-200 pt-2 dark:border-slate-700">
                     <h4 className="text-sm font-semibold">Proposed Changes</h4>
@@ -323,6 +491,14 @@ export function FloatingAIChat() {
                                 title: 'Title',
                                 description: 'Description',
                                 summary: 'Summary',
+                                impact: 'Impact',
+                                timeline: 'Timeline',
+                                rootCause: 'Root Cause',
+                                contributingFactors: 'Contributing Factors',
+                                correctiveActions: 'Corrective Actions',
+                                lessonsLearned: 'Lessons Learned',
+                                incidentIds: 'Related Incidents',
+                                taskIds: 'Related Tasks',
                                 content: 'Content',
                                 status: 'Status',
                                 priority: 'Priority',
@@ -333,7 +509,22 @@ export function FloatingAIChat() {
                               }[key] ?? key}
                             </dt>
                             <dd className="whitespace-pre-wrap break-words">
-                              {key === 'assigneeId' ? (
+                              {Array.isArray(value) ? (
+                                value.map((id, index) => (
+                                  <React.Fragment key={id}>
+                                    {index > 0 && ', '}
+                                    <RecordLink
+                                      className="underline"
+                                      to={`/${key === 'incidentIds' ? 'incidents' : 'tasks'}/${id}`}
+                                    >
+                                      {messages
+                                        .flatMap((row) => row.records ?? [])
+                                        .find((row) => row.id === id)?.title ||
+                                        (key === 'incidentIds' ? 'Incident' : 'Task')}
+                                    </RecordLink>
+                                  </React.Fragment>
+                                ))
+                              ) : key === 'assigneeId' ? (
                                 user.displayName || 'Your account'
                               ) : key === 'serviceId' ? (
                                 <RecordLink className="underline" to={`/services/${value}`}>
@@ -347,58 +538,60 @@ export function FloatingAIChat() {
                         ),
                       )}
                     </dl>
-                    <ConfirmDeleteButton
-                      className="btn-primary"
-                      title="Confirm AI Action"
-                      busyLabel="Applying…"
-                      confirmLabel={message.demo ? 'Simulate Action' : 'Apply Changes'}
-                      confirmClassName="btn-primary"
-                      confirmation={
-                        message.demo
-                          ? 'Simulate this action? No workspace record will be changed.'
-                          : `Apply these reviewed changes to “${message.action.title}”? This may trigger configured notifications. Unsaved edits in your form are preserved and may need reconciliation.`
-                      }
-                      onConfirm={async () => {
-                        let result;
-                        if (!message.demo)
-                          result = await writeApi('/ai/actions', {
-                            method: 'POST',
-                            body: { token: message.action.token, confirm: true },
+                    {!message.previousProposal && (
+                      <ConfirmDeleteButton
+                        className="btn-primary"
+                        title="Confirm AI Action"
+                        busyLabel="Applying…"
+                        confirmLabel={message.demo ? 'Simulate Action' : 'Apply Changes'}
+                        confirmClassName="btn-primary"
+                        confirmation={
+                          message.demo
+                            ? 'Simulate this action? No workspace record will be changed.'
+                            : `Apply these reviewed changes to “${message.action.title}”? This may trigger configured notifications. Unsaved edits in your form are preserved and may need reconciliation.`
+                        }
+                        onConfirm={async () => {
+                          let result;
+                          if (!message.demo)
+                            result = await writeApi('/ai/actions', {
+                              method: 'POST',
+                              body: { token: message.action.token, confirm: true },
+                            });
+                          const record = result?.item ?? result?.incident;
+                          updateMessage(index, {
+                            applied: true,
+                            action: null,
+                            demoAction: null,
+                            ...(message.demo
+                              ? {
+                                  records: message.records.map((row) =>
+                                    row.type === 'Incident'
+                                      ? {
+                                          ...row,
+                                          status: 'Resolved',
+                                          detail: 'Recovery verified by successful checks',
+                                        }
+                                      : row,
+                                  ),
+                                }
+                              : {}),
+                            ...(record
+                              ? {
+                                  records: [
+                                    {
+                                      ...record,
+                                      kind: message.action.kind,
+                                      href: `/${message.action.kind}/${record.id}`,
+                                    },
+                                  ],
+                                }
+                              : {}),
                           });
-                        const record = result?.item ?? result?.incident;
-                        updateMessage(index, {
-                          applied: true,
-                          action: null,
-                          demoAction: null,
-                          ...(message.demo
-                            ? {
-                                records: message.records.map((row) =>
-                                  row.type === 'Incident'
-                                    ? {
-                                        ...row,
-                                        status: 'Resolved',
-                                        detail: 'Recovery verified by successful checks',
-                                      }
-                                    : row,
-                                ),
-                              }
-                            : {}),
-                          ...(record
-                            ? {
-                                records: [
-                                  {
-                                    ...record,
-                                    kind: message.action.kind,
-                                    href: `/${message.action.kind}/${record.id}`,
-                                  },
-                                ],
-                              }
-                            : {}),
-                        });
-                      }}
-                    >
-                      {message.demo ? 'Simulate Action' : 'Review and Apply'}
-                    </ConfirmDeleteButton>
+                        }}
+                      >
+                        {message.demo ? 'Simulate Action' : 'Review and Apply'}
+                      </ConfirmDeleteButton>
+                    )}
                   </div>
                 )}
                 {message.applied && (
@@ -439,7 +632,7 @@ export function FloatingAIChat() {
           </div>
           {demo ? (
             <div className="ai-chat-examples shrink-0 border-t border-slate-200 p-3 dark:border-slate-700">
-              <h3 className="mb-2 text-sm font-semibold">Six Common Searches</h3>
+              <h3 className="mb-2 text-sm font-semibold">Common Searches</h3>
               <div className="grid grid-cols-2 gap-2">
                 {AI_DEMO_EXAMPLES.map((example) => (
                   <button
@@ -479,8 +672,28 @@ export function FloatingAIChat() {
               </button>
             </ValidatedForm>
           )}
-        </section>
+        </>
       )}
+    </section>
+  );
+  return (
+    <>
+      <button
+        ref={trigger}
+        type="button"
+        className="ai-chat-launch btn-primary"
+        aria-label={open ? 'Close AI Chat' : 'Open AI Chat'}
+        aria-expanded={open}
+        aria-controls="ai-chat-panel"
+        onClick={() => setOpen(!open)}
+      >
+        {open ? (
+          <XMarkIcon className="h-7 w-7" aria-hidden="true" />
+        ) : (
+          <ChatBubbleLeftRightIcon className="h-7 w-7" aria-hidden="true" />
+        )}
+      </button>
+      {open && (fullView ? createPortal(chatPanel, document.getElementById('main')) : chatPanel)}
     </>
   );
 }

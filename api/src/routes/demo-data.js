@@ -16,6 +16,7 @@ const collections = [
   'invitations',
   'monitors',
   'events',
+  'eventAlerts',
   'incidents',
   'tasks',
   'rcas',

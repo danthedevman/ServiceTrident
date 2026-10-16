@@ -159,6 +159,7 @@ export function installMonitorRoutes(app, db) {
       'serviceId',
       'component',
       'authentication',
+      'keyword',
     ];
     if (
       !body ||
@@ -212,6 +213,7 @@ export function installMonitorRoutes(app, db) {
     );
     if ('paused' in body) updates.paused = body.paused;
     const requestChanged =
+      JSON.stringify(input.keyword) !== JSON.stringify(current.keyword ?? null) ||
       input.url !== current.url ||
       input.method !== (current.method ?? 'GET') ||
       input.followRedirects !== (current.followRedirects === true) ||
@@ -265,6 +267,11 @@ export function installMonitorRoutes(app, db) {
         ? Promise.resolve()
         : db.collection('users').updateOne({ _id: current.userId }, { $inc: { monitorCount: -1 } }),
       db.collection('events').deleteMany({ monitorId: _id }),
+      db.collection('eventAlerts').deleteMany({
+        workspaceId: req.workspaceId,
+        monitorId: String(_id),
+        sourceType: 'monitor',
+      }),
     ]);
     res.status(204).end();
   });

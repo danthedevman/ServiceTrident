@@ -18,6 +18,7 @@ export const tables = [
   'operations',
   'monitors',
   'events',
+  'eventAlerts',
   'statusDaily',
   'statusIcons',
   'incidents',
@@ -113,6 +114,10 @@ export async function migrate(pool, schema) {
       'CREATE TABLE IF NOT EXISTS "rcas" (id text PRIMARY KEY, data jsonb NOT NULL)',
     );
     await client.query('INSERT INTO sk_migrations(version) VALUES (8) ON CONFLICT DO NOTHING');
+    await client.query(
+      'CREATE TABLE IF NOT EXISTS "eventAlerts" (id text PRIMARY KEY, data jsonb NOT NULL)',
+    );
+    await client.query('INSERT INTO sk_migrations(version) VALUES (9) ON CONFLICT DO NOTHING');
     await client.query('COMMIT');
   } catch (error) {
     await client.query('ROLLBACK');

@@ -1,3 +1,4 @@
+import { monitorKeyword, evaluateKeyword } from '@servicetrident/shared/domain/monitor-keyword';
 import { monitorAuthorization } from './auth.js';
 import { monitorAuthErrors } from '@servicetrident/shared/domain/monitor-auth';
 import http from 'node:http';
@@ -138,6 +139,7 @@ export async function checkWebsite(
     method = 'GET',
     userAgent = userAgentForCheck(),
     authentication = null,
+    keyword = null,
     tokenRequest,
   } = {},
 ) {
@@ -164,6 +166,7 @@ export async function checkWebsite(
       throw new InputError(
         'Invalid authenticated monitor configuration. Use HTTPS without redirects and valid credentials.',
       );
+    const keywordRule = monitorKeyword(keyword, { method, authenticated });
     const authorization = authenticated
       ? await abortable(monitorAuthorization(auth, { request: tokenRequest }), controller.signal)
       : null;
@@ -210,16 +213,21 @@ export async function checkWebsite(
         url = parseTarget(new URL(response.location, url).href);
         continue;
       }
-      const successful = statusCode >= 200 && statusCode < (authenticated ? 300 : 400);
+      const keywordResult = evaluateKeyword(keywordRule, response.body);
+      if (keywordResult) details.keyword = { ...keywordRule, ...keywordResult };
+      const successful =
+        statusCode >= 200 && statusCode < (authenticated ? 300 : 400) && !keywordResult?.triggered;
       return {
         status: successful ? 'up' : 'down',
         statusCode,
         durationMs: Math.round(performance.now() - start),
         error: successful
           ? null
-          : authenticated && statusCode >= 300 && statusCode < 400
-            ? `HTTP ${statusCode}: authenticated checks do not accept login or other redirects.`
-            : `HTTP ${statusCode}`,
+          : keywordResult?.triggered
+            ? keywordResult.error
+            : authenticated && statusCode >= 300 && statusCode < 400
+              ? `HTTP ${statusCode}: authenticated checks do not accept login or other redirects.`
+              : `HTTP ${statusCode}`,
         details,
       };
     }

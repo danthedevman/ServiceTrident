@@ -1,3 +1,4 @@
+import { useListFilter } from '../../data/use-list-filter.js';
 import { RecordExportActions } from '../../components/record-export-actions.jsx';
 import { useBoardDragScroll } from './use-board-drag-scroll.js';
 import { PageTitle } from '../../components/page-title.jsx';
@@ -55,7 +56,7 @@ export function TaskBoard({ serviceId, incidentId }) {
       .filter(Boolean),
     ...available.filter((lane) => !(boardSettings.data?.order ?? []).includes(lane.id)),
   ];
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useListFilter('search', '', 'task-board');
   const [openedTask, setOpenedTask] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');

@@ -86,6 +86,23 @@ test('authenticated monitors enforce admin writes, encrypted storage, origin bin
     followRedirects: false,
     authentication: { mode: 'basic', username: 'health-agent', password },
   };
+  assert.equal(
+    (
+      await request('/monitors', owner.cookie, {
+        ...body,
+        keyword: { text: 'ready', condition: 'missing', caseSensitive: false },
+      })
+    ).status,
+    400,
+  );
+  const keywordMonitor = await request('/monitors', owner.cookie, {
+    ...body,
+    name: 'Keyword check',
+    authentication: { mode: 'none' },
+    keyword: { text: 'ready', condition: 'missing', caseSensitive: false },
+  });
+  assert.equal(keywordMonitor.status, 201);
+  assert.equal(keywordMonitor.data.monitor.keyword.text, 'ready');
   const created = await request('/monitors', owner.cookie, body);
   assert.equal(created.status, 201);
   const monitorId = created.data.monitor.id;

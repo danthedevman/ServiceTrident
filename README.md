@@ -1,7 +1,5 @@
 # ServiceTrident
 
-**Detect, Respond, Resolve**
-
 ServiceTrident is a free, open source application for service monitoring and incident response. It brings services, health checks, incidents, tasks, knowledge, and on-call coverage into one place that developers and small teams can run themselves.
 
 > **Status: Alpha** — ServiceTrident is under active development and intended for evaluation, development environments, and small-team pilots. Expect changing features and occasional bugs. Back up your data before upgrading, and do not rely on it as your only system for critical monitoring or incident response.
@@ -14,14 +12,14 @@ I built ServiceTrident to bring that experience together in something useful tha
 
 ## What you can do
 
-- Monitor HTTP/HTTPS services, inspect check events, and group related alerts into incidents.
+- Monitor HTTP/HTTPS services and keyword conditions, receive external events, triage correlated alerts, and investigate linked incidents through related lists.
 - Coordinate incident response with assignments, comments, work notes, mentions, watchers, and notifications.
 - Plan tasks on a Kanban board, schedule on-call coverage, and track root cause analyses.
 - Maintain knowledge articles and runbooks, and share service health through a public status page.
 - Connect communication and ticketing tools, configure identity providers, and give external systems scoped record-creation access.
 - Use optional AI assistance with your own provider account for authorized search, drafts, and confirmed record actions.
 
-Workspaces include role-based access, configurable forms, audit history, dashboards, and record exports. Open **Help** from the profile menu for detailed workflows and configuration guidance.
+Workspaces include role-based access, configurable forms, audit history, dashboards, and record exports. Open **Help** from the profile menu for essential workflows and configuration guidance.
 
 ## App preview
 
@@ -90,7 +88,7 @@ docker compose down
 
 ### Try the app
 
-Create your first service and monitor, or open **Settings → Add demo data** to explore sample records and notifications. Existing demo batches must be deleted and recreated to receive newly added examples. Demo monitors are paused and sample alerts do not send external messages. Enable Demo AI separately to try simulated chat examples without a provider account.
+Create your first service and monitor, or open **Settings → Demo Data → Add Demo Data** to explore sample records and notifications. Existing demo batches must be deleted and recreated to receive newly added examples. Demo monitors are paused and sample alerts do not send external messages. Enable Demo AI separately to try simulated chat examples without a provider account.
 
 Use bundled **Help** for monitor authentication, integration setup, record workflows, permissions, and demo cleanup.
 
@@ -100,7 +98,7 @@ Supported connections include SMTP email, Slack, Microsoft Teams, Discord, Pager
 
 Optional OpenAI and Claude integrations use your own API credentials. AI respects workspace permissions; proposed changes require confirmation. Review generated content before saving, and account for provider usage costs. Demo AI uses fixed examples and simulated actions.
 
-External systems can create incidents, tasks, and knowledge through scoped service accounts using API keys or OAuth client credentials. See the [External API guide](docs/external-api.md).
+External systems can submit deduplicated operational events and create incidents, tasks, and knowledge through scoped service accounts using API keys or OAuth client credentials. See the [External API guide](docs/external-api.md).
 
 ## Hosting and operations
 

@@ -1,3 +1,5 @@
+import { EventAlertDetail } from './features/monitors/alert-detail.jsx';
+import { NotificationsPage } from './shell/notifications.jsx';
 import { RcaList, RcaPage } from './features/work/rcas.jsx';
 import { TableRecordPage } from './features/records/table-record.jsx';
 import { IdentityProvidersPage } from './features/settings/identity-providers.jsx';
@@ -46,7 +48,7 @@ import { Layout } from './shell/layout.jsx';
 import { MonitorList } from './features/monitors/list.jsx';
 import { EditMonitor } from './features/monitors/form.jsx';
 import { MonitorForm } from './features/monitors/form.jsx';
-import { EventsPage } from './features/monitors/events.jsx';
+import { EventsPage, AlertsPage } from './features/monitors/events.jsx';
 import { MonitorDetail } from './features/monitors/detail.jsx';
 
 import { EventDetail } from './features/monitors/event-detail.jsx';
@@ -83,7 +85,11 @@ export function App() {
               <Route path="/join/:token" element={<JoinPage />} />
               <Route element={<Layout />}>
                 <Route index element={<HomePage />} />
+                <Route path="notifications" element={<NotificationsPage />} />
                 <Route path="events" element={<EventsPage />} />
+                <Route path="alerts" element={<AlertsPage />} />
+                <Route path="events/:eventId" element={<EventDetail />} />
+                <Route path="alerts/:id" element={<EventAlertDetail />} />
                 <Route path="dashboard/reports" element={<DashboardReport />} />
                 <Route path="help" element={<HelpPage />} />
                 <Route path="tasks" element={<WorkPage key="tasks" />} />

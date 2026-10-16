@@ -11,6 +11,7 @@ test('layout preferences accept only boolean changes and exclude unrelated user 
     filtersOpen: false,
     compactTables: false,
     tableLayouts: {},
+    listFilters: {},
     dashboardTab: 'overview',
     dashboardGreeting: 'Welcome, {firstName}',
     colorScheme: 'black',

@@ -3,6 +3,7 @@ import { ObjectId } from 'mongodb';
 export const RECORD_PREFIXES = {
   incidents: 'INC',
   events: 'EVT',
+  eventAlerts: 'ALT',
   tasks: 'TASK',
   rcas: 'RCA',
   articles: 'KB',
@@ -19,6 +20,7 @@ export const RECORD_PREFIXES = {
 const direct = new Set([
   'incidents',
   'events',
+  'eventAlerts',
   'tasks',
   'rcas',
   'articles',
@@ -64,23 +66,21 @@ export function numberedDatabase(raw) {
       saved = { _id: identity, workspaceId, kind, recordId: String(recordId), number: assigned };
       try {
         await identities.insertOne(saved);
-        await raw
-          .collection('auditEvents')
-          .insertOne({
-            workspaceId,
-            createdAt: new Date(),
-            actor: 'System',
-            actualRole: 'system',
-            effectiveRole: 'system',
-            source: 'worker',
-            action: 'number_assigned',
-            recordType: kind,
-            recordId: String(recordId),
-            operation: 'Assign sequential record number',
-            fields: 'number',
-            outcome: 'success',
-            statusCode: 200,
-          });
+        await raw.collection('auditEvents').insertOne({
+          workspaceId,
+          createdAt: new Date(),
+          actor: 'System',
+          actualRole: 'system',
+          effectiveRole: 'system',
+          source: 'worker',
+          action: 'number_assigned',
+          recordType: kind,
+          recordId: String(recordId),
+          operation: 'Assign sequential record number',
+          fields: 'number',
+          outcome: 'success',
+          statusCode: 200,
+        });
       } catch (error) {
         if (error.code !== 11000) throw error;
         saved = await identities.findOne({ _id: identity });

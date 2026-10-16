@@ -17,6 +17,8 @@ The script uses installed Google Chrome on macOS by default. Set `CHROME_PATH` t
 
 The fixture definitions and browser assertions live in the capture script. Add bounded synthetic responses when a workflow changes; never copy live responses. Current checks cover theme/contrast changes, record tab session restoration and draft preservation, keyboard navigation, tab limits, task ordering and compact icons, on-call labels, dashboard control spacing, custom validation, ServiceNow errors, and permission-sensitive references. These checks do not prove real identity-provider or ticketing credentials work.
 
+Keep bundled Help focused on essential tasks rather than a screenshot inventory. Select only images that clarify an action or decision; retain other synthetic captures for verification. Avoid styling commentary in captions. Help categories align with the search field on desktop, and both remain available while scrolling.
+
 ## Deliver a visual change
 
 Review affected screenshots at their intended size. Update `app/src/features/help/topics.js` with accurate paths, useful alt text, and workflow captions; update README images or prose where needed. Help captions describe the controls without “Demo data only” or “Demo workspace” notices. Keep the fixture safety requirements in this guide and AGENTS.md.
@@ -84,3 +86,21 @@ Navigation captures verify compact link rows and a 32px highlight around each 20
 Expanded navigation captures check that the logo and link icons share a center line and the collapse control reaches the content-side edge of the rail.
 
 On mobile, verify Search Workspace, Create, and Notifications share the top navigation row immediately before Profile; record tabs occupy a separate row only when present. Open each control and confirm menus stay inside the viewport.
+
+`HELP_CAPTURE_FOCUS=chat-workspace` checks session history, removal of archived action tokens, disabled past proposals, scroll preservation during replies, and full-view bounds and scrollability on desktop/mobile. Refresh `ai-chat-history.png`, `ai-chat-full-view.png`, and `ai-chat-conversation.png`; wait for navigation resize animations before screenshots.
+
+Monitor detail check history has an explicitly sized Check Number column; verify the heading and adjacent Checked At heading do not overlap at desktop and mobile widths, with horizontal scrolling available.
+
+Notification captures cover Unread/Read dropdown tabs, View All Notifications, page filters, bounded pagination, and mark-as-read behavior. Mobile content is edge-to-edge with square corners; verify desktop corners and spacing remain intact. Help captures check that search stays aligned and sticky, and category navigation resets the guide scroll position.
+
+The collapsed rail exposes Services directly along with Dashboard, Incidents, Events, Monitors, and Tasks. Verify the remaining links retain expanded order in More and its icon is a horizontal ellipsis. Capture `sidenav-more.png` with the dropdown open.
+
+Use `HELP_CAPTURE_FOCUS=form-heading` to verify incident, task, and article create pages omit empty heading rows when their actions move into the shell toolbar. Check admin/responder access and bottom-of-form scrolling at desktop and mobile widths.
+
+Use `HELP_CAPTURE_FOCUS=tab-frame` to verify active tabs meet the content edge without a gap, for first/later tabs in light/dark desktop/mobile views.
+
+Use `HELP_CAPTURE_FOCUS=event-management` for independent Alerts/Events lists, correlated alert records, explicit state confirmation, incident-form prefill, external event details, and desktop/mobile scrolling. New screenshots use synthetic source names and event identifiers; no intake call reaches a live workspace.
+
+Use `HELP_CAPTURE_FOCUS=event-filters` for Events filter grid alignment, full-width column conditions, saved filters on reload, and mobile scrolling; `HELP_CAPTURE_FOCUS=settings-keyword` covers vertical Settings, keyword controls, and saved public appearance on reload. New captures are `settings-navigation.png` and `monitor-keyword.png`.
+
+`HELP_CAPTURE_FOCUS=event-related-bottom` verifies monitor events opened from Events keep Incidents and Alerts after all diagnostics, including mobile scrolling. The public appearance check records canvas colors on animation frames, including the hidden-content bootstrap, to catch a neutral background flash.

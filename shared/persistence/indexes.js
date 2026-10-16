@@ -3,7 +3,7 @@ export async function initializeDatabase(db) {
   await Promise.all([
     db
       .collection('incidentComments')
-      .createIndex({ workspaceId: 1, alertRecipientIds: 1, createdAt: -1 }),
+      .createIndex({ workspaceId: 1, alertRecipientIds: 1, createdAt: -1, _id: -1 }),
     db.collection('rcas').createIndex({ workspaceId: 1, updatedAt: -1 }),
     db.collection('rcas').createIndex({ workspaceId: 1, incidentIds: 1, updatedAt: -1 }),
     db.collection('rcas').createIndex({ workspaceId: 1, taskIds: 1, updatedAt: -1 }),
@@ -84,6 +84,11 @@ export async function initializeDatabase(db) {
       db.collection('events').createIndex({ monitorId: 1, userId: 1, [field]: -1, _id: -1 }),
     ),
     db.collection('events').createIndex({ userId: 1, checkedAt: -1 }),
+    db.collection('events').createIndex({ userId: 1, alertId: 1, checkedAt: -1 }),
+    db.collection('events').createIndex({ userId: 1, sourceType: 1, checkedAt: -1 }),
+    db.collection('eventAlerts').createIndex({ workspaceId: 1, status: 1, lastOccurredAt: -1 }),
+    db.collection('eventAlerts').createIndex({ workspaceId: 1, serviceId: 1, lastOccurredAt: -1 }),
+    db.collection('incidents').createIndex({ workspaceId: 1, eventAlertId: 1 }),
     db.collection('events').createIndex({ checkedAt: 1 }, { expireAfterSeconds: 30 * 86400 }),
   ]);
   await Promise.all([

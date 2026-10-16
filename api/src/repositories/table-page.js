@@ -9,6 +9,9 @@ export function tableQuery(query, columns, dateColumn) {
     pageSize = Number(query.pageSize ?? 10);
   if (!Number.isSafeInteger(page) || page < 1 || page > 100000 || ![10, 25, 50].includes(pageSize))
     throw new InputError('Choose a valid page and 10, 25, or 50 rows.');
+  const columnSearch = String(query.columnSearch ?? '').trim();
+  if (columnSearch.length > 100)
+    throw new InputError('Use at most 100 characters for a column filter.');
   const search = String(query.search ?? '').trim(),
     searchColumn = String(query.searchColumn ?? '');
   if (search.length > 100 || (searchColumn && !columns.includes(searchColumn)))
@@ -21,7 +24,18 @@ export function tableQuery(query, columns, dateColumn) {
     to = String(query.to ?? '');
   if ((from || to) && (!dateColumn || Object.keys(dateRangeErrors(from, to)).length))
     throw new InputError('Choose a valid date range.');
-  return { page, pageSize, search, searchColumn, sortBy, order, from, to, dateColumn };
+  return {
+    page,
+    pageSize,
+    search,
+    searchColumn,
+    ...(query.columnSearch !== undefined ? { columnSearch } : {}),
+    sortBy,
+    order,
+    from,
+    to,
+    dateColumn,
+  };
 }
 
 /** SQL/Mongo filtering precedes pagination. Export uses this exact same predicate and ordering. */
@@ -81,17 +95,26 @@ export function embeddedTable(rows, fields, dateColumn) {
     },
     async read(query, all = false) {
       const needle = query.search.toLocaleLowerCase();
+      const columnNeedle = (query.columnSearch || '').toLocaleLowerCase();
       const matches = rows.filter((row) => {
         const day = String(row[dateColumn] ?? '').slice(0, 10);
         return (
           (!query.from || day >= query.from) &&
           (!query.to || day <= query.to) &&
           (!needle ||
-            (query.searchColumn ? [query.searchColumn] : fields).some((f) =>
+            (query.columnSearch === undefined && query.searchColumn
+              ? [query.searchColumn]
+              : fields
+            ).some((f) =>
               String(row[f] ?? '')
                 .toLocaleLowerCase()
                 .includes(needle),
-            ))
+            )) &&
+          (!columnNeedle ||
+            !query.searchColumn ||
+            String(row[query.searchColumn] ?? '')
+              .toLocaleLowerCase()
+              .includes(columnNeedle))
         );
       });
       matches.sort((a, b) => {

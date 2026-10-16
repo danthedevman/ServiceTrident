@@ -3,6 +3,12 @@ import { ObjectId } from 'mongodb';
 /** Bounded indexed lookups: origin never fetches bodies, response headers or integration secrets. */
 export async function incidentOrigin(db, workspaceId, incident, role) {
   const result = [];
+  if (incident.eventAlertId)
+    result.push({
+      key: 'event-alert',
+      label: 'Originating alert',
+      href: `/alerts/${incident.eventAlertId}`,
+    });
   if (incident.source === 'integration') {
     const account = /^[a-f\d]{24}$/i.test(incident.sourceAccountId || '')
       ? await db

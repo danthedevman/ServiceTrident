@@ -31,13 +31,20 @@ export function StatusPage({ publicView = false, appearanceOverride }) {
     `${publicView ? `/public/status/${token}` : '/status'}?range=${range}`,
     30000,
   );
-  const appearance = appearanceOverride || (data?.statusTheme === 'dark' ? 'dark' : 'light');
+  const appearance =
+    appearanceOverride ||
+    (data ? (data.statusTheme === 'dark' ? 'dark' : 'light') : error ? 'light' : null);
   const { setPageAppearance } = useTheme();
   useLayoutEffect(() => {
-    if (!publicView) return;
+    if (!publicView || !appearance) return;
     const previous = document.body.style.backgroundColor;
     setPageAppearance(appearance);
+    document.documentElement.dataset.theme = appearance;
+    document.documentElement.style.colorScheme = appearance;
+    document.documentElement.style.backgroundColor = appearance === 'dark' ? '#000000' : '#ffffff';
     document.body.style.backgroundColor = appearance === 'dark' ? '#000000' : '#ffffff';
+    document.documentElement.dataset.publicStatusReady = 'true';
+    document.documentElement.style.visibility = '';
     return () => {
       setPageAppearance(null);
       document.body.style.backgroundColor = previous;

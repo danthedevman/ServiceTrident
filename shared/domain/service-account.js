@@ -2,6 +2,7 @@ import { invalid, text, identifier } from '../validation/fields.js';
 import { InputError } from '../validation/input-error.js';
 
 export const SERVICE_ACCOUNT_SCOPES = [
+  { value: 'events:create', label: 'Receive events' },
   { value: 'incidents:create', label: 'Create incidents' },
   { value: 'tasks:create', label: 'Create tasks' },
   { value: 'knowledge:create', label: 'Create knowledge articles and runbooks' },
@@ -12,7 +13,7 @@ export function scopeList(value) {
   if (
     !Array.isArray(value) ||
     !value.length ||
-    value.length > 4 ||
+    value.length > SERVICE_ACCOUNT_SCOPES.length ||
     new Set(value).size !== value.length ||
     value.some((scope) => !SERVICE_ACCOUNT_SCOPES.some((item) => item.value === scope))
   )

@@ -20,7 +20,8 @@ export function ThemeProvider({ children }) {
   });
   const [pageAppearance, setPageAppearance] = useState(null);
   useLayoutEffect(() => {
-    const appearance = publicStatus ? pageAppearance || 'light' : theme;
+    if (publicStatus && !pageAppearance) return;
+    const appearance = publicStatus ? pageAppearance : theme;
     document.documentElement.dataset.theme = appearance;
     document.documentElement.style.backgroundColor = 'var(--app-background)';
     document.documentElement.style.colorScheme = appearance;

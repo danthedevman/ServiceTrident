@@ -1,3 +1,4 @@
+import { normalizedMonitorEvent, reconcileEventAlert } from '@servicetrident/shared/domain/events';
 import { unseal } from '@servicetrident/shared/integrations/secrets';
 import { InputError } from '@servicetrident/shared/validation/input-error';
 import { ObjectId } from 'mongodb';
@@ -80,6 +81,7 @@ export async function processMonitor(db, monitorId, check = checkWebsite, { queu
   const result = await check(monitor.url, {
     method,
     followRedirects,
+    keyword: monitor.keyword ?? null,
     userAgent: userAgentForCheck(),
     authentication: monitor.authSecret
       ? () => {
@@ -94,13 +96,13 @@ export async function processMonitor(db, monitorId, check = checkWebsite, { queu
       : null,
   });
   const timing = checkTiming(monitor.lastScheduledAt, monitor.lastStartedAt, queuedAt);
-  const event = {
+  const event = normalizedMonitorEvent(monitor, {
     timing,
     monitorId: _id,
     userId: monitor.userId,
     checkedAt: monitor.lastStartedAt,
     ...result,
-  };
+  });
   const { details, ...summary } = result;
   // A long gap or a successful response breaks the consecutive-failure sequence.
   const previous = monitor.lastCheck;
@@ -123,6 +125,7 @@ export async function processMonitor(db, monitorId, check = checkWebsite, { queu
       lastStartedAt: monitor.lastStartedAt,
       $expr: {
         $and: [
+          { $eq: [{ $ifNull: ['$keyword', null] }, { $literal: monitor.keyword ?? null }] },
           { $eq: [{ $ifNull: ['$method', 'GET'] }, method] },
           { $eq: [{ $ifNull: ['$followRedirects', false] }, followRedirects] },
           { $eq: [{ $ifNull: ['$authSecret', null] }, monitor.authSecret ?? null] },
@@ -133,8 +136,17 @@ export async function processMonitor(db, monitorId, check = checkWebsite, { queu
       $set: { lastCheck: { checkedAt: event.checkedAt, timing, ...summary, consecutiveFailures } },
     },
   );
-  if (await db.collection('monitors').findOne({ _id }, { projection: { _id: 1 } }))
+  if (await db.collection('monitors').findOne({ _id }, { projection: { _id: 1 } })) {
+    event._id = new ObjectId();
     await db.collection('events').insertOne(event);
+    await reconcileEventAlert(db, event);
+    if (!(await db.collection('monitors').findOne({ _id }, { projection: { _id: 1 } }))) {
+      await db.collection('events').deleteMany({ monitorId: _id, userId: monitor.userId });
+      await db
+        .collection('eventAlerts')
+        .deleteMany({ workspaceId: monitor.userId, monitorId: String(_id), sourceType: 'monitor' });
+    }
+  }
   return true;
 }
 

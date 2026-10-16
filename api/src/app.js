@@ -1,3 +1,4 @@
+import { publicAppearanceCss } from '@servicetrident/shared/status/appearance';
 import { installCollaborationRoutes } from './routes/collaboration.js';
 import { validateInputShape } from './middleware/input-shape.js';
 import { installRcaRoutes } from './routes/rcas.js';
@@ -109,6 +110,20 @@ export function createApp(db, { aiFetch, oidcFetch, integrationRequest } = {}) {
   installPublicAuthRoutes(app, db, authLimit);
   installPublicIdentityRoutes(app, db, authLimit, appOrigin, oidcFetch);
 
+  app.get('/api/public/status/:token/appearance.css', async (req, res) => {
+    if (!/^[a-f\d]{48}$/.test(req.params.token))
+      throw new InputError('Status page not found.', 404);
+    const page = await db
+      .collection('catalogs')
+      .findOne(
+        { publicToken: req.params.token, visibility: 'public' },
+        { projection: { statusTheme: 1 } },
+      );
+    if (!page) throw new InputError('Status page not found.', 404);
+    req.workspaceId = page._id;
+    res.type('text/css').send(publicAppearanceCss(page.statusTheme));
+  });
+
   app.get('/api/public/status/:token/icon', async (req, res) => {
     if (!/^[a-f\d]{48}$/.test(req.params.token))
       throw new InputError('Status page not found.', 404);
@@ -195,7 +210,22 @@ export function createApp(db, { aiFetch, oidcFetch, integrationRequest } = {}) {
       return res.status(400).json({ error: 'Invalid JSON body.' });
     if (error.type === 'entity.too.large')
       return res.status(413).json({ error: 'Request body is too large.' });
-    console.error('API request failed:', error.name, error.code ?? 'unknown');
+    // Stack frames identify code locations without logging error messages or request data.
+    const frames =
+      typeof error.stack === 'string'
+        ? error.stack
+            .split('\n')
+            .slice(1, 5)
+            .filter((line) => /^\s+at /.test(line))
+            .map((line) => line.slice(0, 240))
+        : [];
+    console.error(
+      'API request failed:',
+      error.name,
+      error.code ?? 'unknown',
+      typeof req.route?.path === 'string' ? req.route.path : '/api/unknown',
+      frames.join(' | '),
+    );
     res.status(500).json({ error: 'Something went wrong. Please try again.' });
   });
   return app;

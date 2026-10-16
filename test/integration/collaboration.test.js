@@ -8,6 +8,7 @@ import { createApp } from '../../api/src/app.js';
 test('mentions, watchers and notification reads preserve tenant and internal-note access', async (t) => {
   process.env.DATABASE_SCHEMA =
     process.env.MONGODB_DB = `collaboration_test_${randomUUID().replaceAll('-', '')}`;
+  process.env.INTEGRATION_ENCRYPTION_KEY = randomBytes(32).toString('hex');
   const { db, client } = await connectDatabase();
   const server = createApp(db).listen(0, '0.0.0.0');
   await new Promise((resolve) => server.once('listening', resolve));
@@ -213,6 +214,37 @@ test('mentions, watchers and notification reads preserve tenant and internal-not
   assert.equal(alerts.status, 200);
   assert.equal(alerts.data.notifications.length, 2);
   assert.ok(alerts.data.notifications.every((entry) => entry.unread && !('body' in entry)));
+  const first = await call('/notifications?pageSize=1&state=all', staff.cookie);
+  assert.equal(first.status, 200, first.data.error);
+  assert.equal(first.data.notifications.length, 1);
+  assert.ok(first.data.nextCursor);
+  const next = await call(
+    `/notifications?pageSize=1&state=all&cursor=${encodeURIComponent(first.data.nextCursor)}`,
+    staff.cookie,
+  );
+  assert.equal(next.data.notifications.length, 1);
+  assert.notEqual(next.data.notifications[0].id, first.data.notifications[0].id);
+  assert.equal(next.data.nextCursor, null);
+  assert.equal(
+    (
+      await call(
+        `/notifications?pageSize=1&state=all&cursor=${encodeURIComponent(first.data.nextCursor)}`,
+        foreign.cookie,
+      )
+    ).status,
+    400,
+  );
+  assert.equal(
+    (await call('/notifications?state=read', staff.cookie)).data.notifications.length,
+    0,
+  );
+  assert.equal(
+    (await call('/notifications?state=unread', staff.cookie)).data.notifications.length,
+    2,
+  );
+  assert.equal((await call('/notifications?pageSize=1000', staff.cookie)).status, 400);
+  assert.equal((await call('/notifications?cursor=bad', staff.cookie)).status, 400);
+
   assert.equal((await call('/notifications', portal.cookie)).data.notifications.length, 1);
   assert.equal((await call('/notifications', foreign.cookie)).data.notifications.length, 0);
   assert.equal(
@@ -222,7 +254,29 @@ test('mentions, watchers and notification reads preserve tenant and internal-not
   assert.ok(
     (await call('/notifications', staff.cookie)).data.notifications.every((entry) => !entry.unread),
   );
+  assert.equal(
+    (await call('/notifications?state=read', staff.cookie)).data.notifications.length,
+    2,
+  );
+  assert.equal(
+    (await call('/notifications?state=unread', staff.cookie)).data.notifications.length,
+    0,
+  );
+  assert.equal(
+    (
+      await call(
+        `/notifications?pageSize=1&state=all&cursor=${encodeURIComponent(first.data.nextCursor)}`,
+        staff.cookie,
+      )
+    ).status,
+    400,
+  );
+
   await db.collection('users').updateOne({ _id: staffDoc._id }, { $set: { role: 'user' } });
+  assert.equal(
+    (await call('/notifications?state=unread', staff.cookie)).data.notifications.length,
+    0,
+  );
   assert.equal((await call('/notifications', staff.cookie)).data.notifications.length, 0);
   assert.equal(
     (await call('/notifications/read', staff.cookie, { checkedAt: 'invalid' })).status,

@@ -48,6 +48,7 @@ export function Layout() {
   const recordPage =
     location.pathname === '/profile' ||
     location.pathname.startsWith('/records/') ||
+    /^\/(events|alerts)\/[a-f0-9]{24}\/?$/.test(location.pathname) ||
     /^\/monitors\/[a-f0-9]{24}\/events\/[a-f0-9]{24}\/?$/.test(location.pathname) ||
     /^\/(incidents|tasks|rcas|knowledge)\/fields\/?$/.test(location.pathname) ||
     /^\/knowledge\/bases\/[a-f0-9]{24}\/?$/.test(location.pathname) ||
@@ -59,6 +60,7 @@ export function Layout() {
   const listPage = [
     '/dashboard/reports',
     '/events',
+    '/alerts',
     '/settings/audit',
     '/services',
     '/collections',

@@ -1,6 +1,7 @@
 import { ObjectId } from 'mongodb';
 import { InputError } from '@servicetrident/shared/validation/validation';
-import { invalid } from '@servicetrident/shared/validation/fields';
+import { seal, unseal } from '@servicetrident/shared/integrations/secrets';
+import { invalid, choice } from '@servicetrident/shared/validation/fields';
 import { incidentAccess } from '../domain/incidents.js';
 import { members } from '../repositories/members.js';
 import { settings } from '../repositories/settings.js';
@@ -107,16 +108,71 @@ export function installCollaborationRoutes(app, db) {
     res.json({ ok: true });
   });
   app.get('/api/notifications', async (req, res) => {
-    const entries = await db
+    const state = choice(req.query.state ?? 'all', ['all', 'unread', 'read'], 'state');
+    const pageSize = Number(req.query.pageSize ?? 100);
+    if (!Number.isSafeInteger(pageSize) || pageSize < 1 || pageSize > 100)
+      invalid('pageSize', 'Choose a page size between 1 and 100.');
+    const seen = req.user.notificationsSeenAt
+      ? new Date(req.user.notificationsSeenAt).getTime()
+      : 0;
+    const filter = {
+      workspaceId: req.workspaceId,
+      alertRecipientIds: String(req.user._id),
+      ...(!['admin', 'responder'].includes(req.role) ? { kind: 'comment' } : {}),
+      ...(state !== 'all'
+        ? { createdAt: { [state === 'unread' ? '$gt' : '$lte']: new Date(seen) } }
+        : {}),
+    };
+    if (req.query.cursor) {
+      let cursor;
+      try {
+        if (typeof req.query.cursor !== 'string' || req.query.cursor.length > 2000)
+          throw new Error();
+        cursor = unseal(req.query.cursor);
+      } catch {
+        invalid('cursor', 'Refresh notifications and try again.');
+      }
+      if (
+        cursor.actor !== String(req.user._id) ||
+        cursor.workspace !== String(req.workspaceId) ||
+        cursor.state !== state ||
+        cursor.seen !== seen ||
+        !Number.isFinite(cursor.expires) ||
+        cursor.expires <= Date.now() ||
+        !/^[a-f\d]{24}$/i.test(cursor.id ?? '') ||
+        !Number.isFinite(new Date(cursor.at).getTime())
+      )
+        invalid('cursor', 'Notifications changed. Refresh this view.');
+      filter.$and = [
+        {
+          $or: [
+            { createdAt: { $lt: new Date(cursor.at) } },
+            { createdAt: new Date(cursor.at), _id: { $lt: new ObjectId(cursor.id) } },
+          ],
+        },
+      ];
+    }
+    const candidates = await db
       .collection('incidentComments')
-      .find({
-        workspaceId: req.workspaceId,
-        alertRecipientIds: String(req.user._id),
-        ...(!['admin', 'responder'].includes(req.role) ? { kind: 'comment' } : {}),
-      })
-      .sort({ createdAt: -1 })
-      .limit(100)
+      .find(filter, { maxTimeMS: 3000 })
+      .sort({ createdAt: -1, _id: -1 })
+      .limit(pageSize + 1)
       .toArray();
+    const entries = candidates.slice(0, pageSize);
+    const more = candidates.length > pageSize;
+    const last = entries.at(-1);
+    const nextCursor =
+      more && last
+        ? seal({
+            actor: String(req.user._id),
+            workspace: String(req.workspaceId),
+            state,
+            seen,
+            id: String(last._id),
+            at: new Date(last.createdAt).toISOString(),
+            expires: Date.now() + 3600000,
+          })
+        : null;
     const ids = [...new Set(entries.map((entry) => String(entry.incidentId)))].map(
       (id) => new ObjectId(id),
     );
@@ -130,9 +186,6 @@ export function installCollaborationRoutes(app, db) {
           .toArray()
       : [];
     const available = new Map(incidents.map((item) => [String(item._id), item]));
-    const seen = req.user.notificationsSeenAt
-      ? new Date(req.user.notificationsSeenAt).getTime()
-      : 0;
     res.json({
       notifications: entries
         .filter((entry) => available.has(String(entry.incidentId)))
@@ -147,6 +200,8 @@ export function installCollaborationRoutes(app, db) {
           unread: new Date(entry.createdAt).getTime() > seen,
         })),
       checkedAt: new Date().toISOString(),
+      hasMore: more,
+      nextCursor,
     });
   });
   app.post('/api/notifications/read', async (req, res) => {
@@ -157,18 +212,13 @@ export function installCollaborationRoutes(app, db) {
       date.getTime() < Date.now() - 86400000
     )
       invalid('checkedAt', 'Refresh notifications and try again.');
-    await db
-      .collection('users')
-      .updateOne(
-        {
-          _id: req.user._id,
-          $or: [
-            { notificationsSeenAt: { $exists: false } },
-            { notificationsSeenAt: { $lt: date } },
-          ],
-        },
-        { $set: { notificationsSeenAt: date } },
-      );
+    await db.collection('users').updateOne(
+      {
+        _id: req.user._id,
+        $or: [{ notificationsSeenAt: { $exists: false } }, { notificationsSeenAt: { $lt: date } }],
+      },
+      { $set: { notificationsSeenAt: date } },
+    );
     res.json({ ok: true });
   });
 }

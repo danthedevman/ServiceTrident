@@ -23,6 +23,7 @@ import {
   ServerStackIcon,
   SignalIcon,
   BoltIcon,
+  BellAlertIcon,
   BookOpenIcon,
   FolderOpenIcon,
   CalendarDaysIcon,
@@ -56,6 +57,7 @@ const names = {
   collections: 'Collection',
   monitors: 'Monitor',
   events: 'Event',
+  alerts: 'Alert',
   groups: 'Group',
   integrations: 'Integration',
   workspace: 'User',
@@ -65,6 +67,7 @@ const names = {
 
 export function recordTabKey(location) {
   const path = location.pathname;
+  if (/^\/(events|alerts)\/[a-f\d]{24}\/?$/i.test(path)) return path;
   if (/^\/records\/[^/]+\/[^/]+\/?$/.test(path)) return path + location.search;
   if (/^\/settings\/service-accounts\/[a-f\d]{24}\/?$/i.test(path)) return path;
   if (/^\/monitors\/[a-f\d]{24}\/events\/[a-f\d]{24}\/?$/i.test(path)) return path;
@@ -617,6 +620,7 @@ function TabIcon({ to }) {
     Service: ServerStackIcon,
     Collection: Square3Stack3DIcon,
     Monitor: SignalIcon,
+    Alert: BellAlertIcon,
     Group: UserGroupIcon,
     Integration: PuzzlePieceIcon,
     User: UserCircleIcon,

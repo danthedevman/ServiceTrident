@@ -17,7 +17,9 @@ export function TableFilterPanel({ title, anchorRef, onClose, children }) {
     }
     element.showPopover();
     position();
-    element.querySelector('input[type="search"]')?.focus({ preventScroll: true });
+    element
+      .querySelector('button:not(:disabled), input:not(:disabled), select:not(:disabled)')
+      ?.focus({ preventScroll: true });
     const observer = new ResizeObserver(position);
     observer.observe(element);
     window.addEventListener('resize', position);

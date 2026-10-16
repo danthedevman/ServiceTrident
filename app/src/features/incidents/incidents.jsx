@@ -1,3 +1,6 @@
+import { EventsTable } from '../monitors/events.jsx';
+import { ColumnFilter } from '../../components/column-filter.jsx';
+import { useListFilter } from '../../data/use-list-filter.js';
 import {
   INCIDENT_SOURCES,
   incidentSourceLabel,
@@ -6,7 +9,7 @@ import { RecordLink } from '../../components/record-navigation.jsx';
 import { RcaList } from '../work/rcas.jsx';
 import { Modal } from '../../components/modal.jsx';
 import { ValidatedForm } from '../../components/forms/validated-form.jsx';
-import { PageTitle } from '../../components/page-title.jsx';
+import { PageTitleRow } from '../../components/page-title.jsx';
 import { notify } from '../../data/toast.js';
 import { AIAssistant } from '../ai/ai.jsx';
 import { writeApi } from '../../data/query-client.js';
@@ -17,7 +20,7 @@ import { Select } from '../../components/forms/select.jsx';
 import { TableSearch } from '../../components/table-search.jsx';
 import { StateBadge } from '../../components/state-badge.jsx';
 import { mandatoryErrors } from '../../../../shared/forms/schema.js';
-import { RecordActions, RecordHeader } from '../../components/record-actions.jsx';
+import { RecordActions } from '../../components/record-actions.jsx';
 import { IncidentDiscussion } from './discussion.jsx';
 import { CancelButton } from '../../components/forms/cancel-button.jsx';
 import { RecordWorkspace, RecordMetadata } from '../../components/record-workspace.jsx';
@@ -48,17 +51,19 @@ import { DateTime } from '../../preferences/date-time.jsx';
 /** Paginated incident reporting with identical server filters for CSV exports. */
 export function IncidentsPage({ initialServiceId = '', related = false }) {
   const { user } = useContext(AuthContext);
-  const [searchColumn, setSearchColumn] = useState('');
-  const [search, setSearch] = useState(''),
-    [status, setStatus] = useState(''),
-    [source, setSource] = useState(''),
-    [serviceId, setService] = useState(initialServiceId),
+  const [columnSearch, setColumnSearch] = useListFilter('columnSearch', '', 'incidents');
+  const [searchColumn, setSearchColumn] = useListFilter('searchColumn', '', 'incidents');
+  const [search, setSearch] = useListFilter('search', '', 'incidents'),
+    [status, setStatus] = useListFilter('status', '', 'incidents'),
+    [source, setSource] = useListFilter('source', '', 'incidents'),
+    [serviceId, setService] = useListFilter('serviceId', initialServiceId, 'incidents'),
     [page, setPage] = useState(1),
-    [pageSize, setSize] = useState(10),
-    [sort, setSort] = useState('createdAt:desc');
+    [pageSize, setSize] = useListFilter('pageSize', 10, 'incidents'),
+    [sort, setSort] = useListFilter('sort', 'createdAt:desc', 'incidents');
   const [sortBy, order] = sort.split(':');
   const query = new URLSearchParams({
     searchColumn,
+    columnSearch,
     search,
     status,
     serviceId,
@@ -149,7 +154,9 @@ export function IncidentsPage({ initialServiceId = '', related = false }) {
         rows={resource.data?.incidents ?? []}
         rowKey={(r) => r.id}
         remote={{
-          filtersActive: Boolean(search || status || source || serviceId !== initialServiceId),
+          filtersActive: Boolean(
+            search || columnSearch || status || source || serviceId !== initialServiceId,
+          ),
           page,
           pageSize,
           total: resource.data?.total ?? 0,
@@ -168,8 +175,8 @@ export function IncidentsPage({ initialServiceId = '', related = false }) {
           onRefresh: resource.refresh,
           onExport: (signal) => downloadCsv(`/incidents/export?${query}`, 'incidents.csv', signal),
         }}
-        filters={
-          <div className="flex flex-wrap items-end gap-4">
+        toolbar={
+          <div className="table-search-toolbar shrink-0 px-4 py-3">
             <TableSearch
               columns={columns}
               search={search}
@@ -180,6 +187,20 @@ export function IncidentsPage({ initialServiceId = '', related = false }) {
               }}
               onColumn={(value) => {
                 setSearchColumn(value);
+                setPage(1);
+              }}
+            />
+          </div>
+        }
+        filters={
+          <div className="table-filter-fields">
+            <ColumnFilter
+              columns={columns}
+              column={searchColumn}
+              value={columnSearch}
+              onColumn={setSearchColumn}
+              onValue={(value) => {
+                setColumnSearch(value);
                 setPage(1);
               }}
             />
@@ -219,6 +240,7 @@ export function IncidentsPage({ initialServiceId = '', related = false }) {
               </label>
             )}
             {(search ||
+              columnSearch ||
               status ||
               source ||
               serviceId !== initialServiceId ||
@@ -227,6 +249,7 @@ export function IncidentsPage({ initialServiceId = '', related = false }) {
                 className="btn-secondary"
                 onClick={() => {
                   setSearch('');
+                  setColumnSearch('');
                   setSearchColumn('');
                   setStatus('');
                   setSource('');
@@ -258,7 +281,13 @@ export function IncidentPage({ edit = false }) {
     services = useResource('/services'),
     members = useResource('/members');
   const loading = schema.loading || services.loading || members.loading || (id && incident.loading);
-  const error = incident.error || schema.error || services.error || members.error;
+  const alertSource = useResource(
+    !id && /^[a-f\d]{24}$/.test(params.get('alertId') || '')
+      ? `/event-alerts/${params.get('alertId')}`
+      : null,
+  );
+  const error =
+    incident.error || schema.error || services.error || members.error || alertSource.error;
   const item = incident.data?.incident,
     canEdit = ['admin', 'responder'].includes(user?.role);
   const memberName = (memberId) =>
@@ -277,21 +306,21 @@ export function IncidentPage({ edit = false }) {
         />
       )}
       {!id && (
-        <div className="flex items-center justify-between gap-3">
-          {!id && <PageTitle>Create Incident</PageTitle>}
-          {!id && user?.role === 'admin' && (
-            <RecordHeader>
+        <PageTitleRow
+          title="Create Incident"
+          actions={
+            user?.role === 'admin' ? (
               <ActionMenu label="Form actions">
                 <Link className="btn-secondary" to="/incidents/fields">
                   Form builder
                 </Link>
               </ActionMenu>
-            </RecordHeader>
-          )}
-        </div>
+            ) : null
+          }
+        />
       )}
       <Notice error={error} />
-      {loading ? (
+      {loading || alertSource.loading ? (
         <FormSkeleton
           fields={(
             schema.data?.fields ?? [
@@ -311,7 +340,8 @@ export function IncidentPage({ edit = false }) {
         !error &&
         (!id ? (
           <IncidentEditor
-            initialServiceId={params.get('serviceId') ?? ''}
+            initialServiceId={alertSource.data?.item?.serviceId || params.get('serviceId') || ''}
+            sourceAlert={alertSource.data?.item}
             schema={schema.data.fields}
             services={services.data.services}
             members={members.data.members}
@@ -574,6 +604,20 @@ export function IncidentPage({ edit = false }) {
                     ...(user?.role !== 'user'
                       ? [
                           {
+                            id: 'events',
+                            label: 'Events',
+                            content: <EventsTable related relatedIncidentId={item.id} />,
+                          },
+                          {
+                            id: 'alerts',
+                            label: 'Alerts',
+                            content: <EventsTable related alertsView relatedIncidentId={item.id} />,
+                          },
+                        ]
+                      : []),
+                    ...(user?.role !== 'user'
+                      ? [
+                          {
                             id: 'rcas',
                             label: 'RCAs',
                             content: <RcaList related incidentId={item.id} />,
@@ -787,6 +831,7 @@ function IncidentEditor({
   onClose,
   resolving = false,
   initialServiceId = '',
+  sourceAlert,
   linkedArticles = [],
 }) {
   const navigate = useNavigate(),
@@ -817,8 +862,8 @@ function IncidentEditor({
     base;
   const [value, setValue] = useState({
     ...incident,
-    title: incident?.title ?? '',
-    description: incident?.description ?? '',
+    title: incident?.title ?? sourceAlert?.title ?? '',
+    description: incident?.description ?? sourceAlert?.description ?? '',
     resolutionNotes: incident?.resolutionNotes ?? '',
     knowledgeIds: incident?.knowledgeIds ?? [],
     serviceId: incident?.serviceId ?? initialServiceId,
@@ -975,7 +1020,13 @@ function IncidentEditor({
     return save.run(
       current ? `/incidents/${current.id}` : '/incidents',
       current ? 'PATCH' : 'POST',
-      { ...value, attachmentIds: draft.ids, revision: current?.revision, note },
+      {
+        ...value,
+        ...(sourceAlert && !current ? { eventAlertId: sourceAlert.id } : {}),
+        attachmentIds: draft.ids,
+        revision: current?.revision,
+        note,
+      },
       (result) => {
         if (current) onClose();
         else navigate(`/incidents/${result.incident.id}`, { state: { createdRecord: true } });

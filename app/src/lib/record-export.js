@@ -46,8 +46,24 @@ const fields = {
   ],
   services: ['owners', 'contact', 'dependencies', 'healthPolicy'],
   collections: ['serviceIds'],
-  monitors: ['type', 'url', 'method', 'intervalMinutes', 'paused', 'lastCheck'],
-  events: ['checkedAt', 'statusCode', 'durationMs', 'error'],
+  monitors: ['type', 'url', 'method', 'intervalMinutes', 'paused', 'keyword', 'lastCheck'],
+  events: [
+    'sourceType',
+    'sourceName',
+    'eventType',
+    'signal',
+    'occurredAt',
+    'receivedAt',
+    'externalId',
+    'correlationKey',
+    'payload',
+    'serviceName',
+    'checkedAt',
+    'statusCode',
+    'durationMs',
+    'error',
+  ],
+  eventAlerts: ['sourceType', 'sourceName', 'serviceName', 'lastOccurredAt'],
   groups: ['memberIds'],
   workspace: [
     'email',
@@ -101,6 +117,8 @@ export function documentText(node, depth = 0) {
 }
 function textValue(key, value, format) {
   if (value == null) return '';
+  if (['payload', 'keyword'].includes(key) && typeof value === 'object')
+    return JSON.stringify(value, null, 2);
   if (typeof value === 'boolean') return value ? 'Yes' : 'No';
   if (isTimestampField(key) || ['start', 'end'].includes(key)) return format(value);
   if (key === 'url' || key === 'instanceUrl') {

@@ -1,3 +1,4 @@
+import { useListFilter } from '../../data/use-list-filter.js';
 import { useInfiniteScroll } from '../../data/use-infinite-scroll.js';
 import { ValidatedForm } from '../../components/forms/validated-form.jsx';
 import { PageTitle } from '../../components/page-title.jsx';
@@ -24,7 +25,7 @@ import { RecordLink } from '../../components/record-navigation.jsx';
 /** Search stays server-side while cards present each base as a home for its articles. */
 export function KnowledgeBasesPage() {
   const { user } = useContext(AuthContext);
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useListFilter('search', '', 'knowledge-bases');
   const resource = useInfiniteResource(
     `/knowledge-bases?${new URLSearchParams({ search, pageSize: 25, sortBy: 'title', order: 'asc' })}`,
   );
@@ -326,8 +327,8 @@ function DeleteKnowledgeBase({ item, onClose, onDeleted, refresh }) {
 }
 
 function KnowledgeBaseArticles({ knowledgeBaseId }) {
-  const [search, setSearch] = useState('');
-  const [status, setStatus] = useState('');
+  const [search, setSearch] = useListFilter('search', '', 'base-articles');
+  const [status, setStatus] = useListFilter('status', '', 'base-articles');
   const resource = useInfiniteResource(
     `/knowledge?${new URLSearchParams({ knowledgeBaseId, search, status, pageSize: 25, sortBy: 'updatedAt', order: 'desc' })}`,
   );

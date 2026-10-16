@@ -52,58 +52,57 @@ export function installRcaRoutes(app, db) {
     ]);
     res.json({ item: view(item), incidents, tasks });
   });
-  for (const method of ['post', 'patch'])
-    app[method](
-      `/api/rcas${method === 'patch' ? '/:id' : ''}`,
-      requireResponder,
-      async (req, res) => {
-        const current =
-          method === 'patch'
-            ? await records.findOne({ _id: id(req.params.id), workspaceId: req.workspaceId })
-            : null;
-        if (method === 'patch' && !current) throw new InputError('RCA not found.', 404);
-        const input = validateRca(req.body);
-        const schema = (await settings(db, req.workspaceId)).rcaFields ?? RCA_FIELDS;
-        validateMandatory(schema, input);
-        input.fields = recordFields(schema, current?.fields);
-        input.custom = validateValues(
-          req.body.custom ?? current?.custom ?? {},
-          input.fields,
-          current?.custom,
+  for (const method of ['post', 'patch']) {
+    const saveRecord = async (req, res) => {
+      const current =
+        method === 'patch'
+          ? await records.findOne({ _id: id(req.params.id), workspaceId: req.workspaceId })
+          : null;
+      if (method === 'patch' && !current) throw new InputError('RCA not found.', 404);
+      const input = validateRca(req.body);
+      const schema = (await settings(db, req.workspaceId)).rcaFields ?? RCA_FIELDS;
+      validateMandatory(schema, input);
+      input.fields = recordFields(schema, current?.fields);
+      input.custom = validateValues(
+        req.body.custom ?? current?.custom ?? {},
+        input.fields,
+        current?.custom,
+      );
+      if (
+        current &&
+        (!Number.isSafeInteger(req.body.revision) || req.body.revision !== current.revision)
+      )
+        throw new InputError('RCA changed. Reload before saving.', 409);
+      for (const [key, name] of [
+        ['incidentIds', 'incidents'],
+        ['taskIds', 'tasks'],
+      ]) {
+        const found = await db
+          .collection(name)
+          .countDocuments({ workspaceId: req.workspaceId, _id: { $in: input[key].map(id) } });
+        if (found !== input[key].length) invalid(key, 'Choose existing records in this workspace.');
+      }
+      const item = {
+        ...input,
+        statusLabel: RCA_STATUSES[input.status],
+        ...auditStamp(current, req.user),
+      };
+      if (current) {
+        const result = await records.updateOne(
+          { _id: current._id, workspaceId: req.workspaceId, revision: current.revision },
+          { $set: item },
         );
-        if (
-          current &&
-          (!Number.isSafeInteger(req.body.revision) || req.body.revision !== current.revision)
-        )
-          throw new InputError('RCA changed. Reload before saving.', 409);
-        for (const [key, name] of [
-          ['incidentIds', 'incidents'],
-          ['taskIds', 'tasks'],
-        ]) {
-          const found = await db
-            .collection(name)
-            .countDocuments({ workspaceId: req.workspaceId, _id: { $in: input[key].map(id) } });
-          if (found !== input[key].length)
-            invalid(key, 'Choose existing records in this workspace.');
-        }
-        const item = {
-          ...input,
-          statusLabel: RCA_STATUSES[input.status],
-          ...auditStamp(current, req.user),
-        };
-        if (current) {
-          const result = await records.updateOne(
-            { _id: current._id, workspaceId: req.workspaceId, revision: current.revision },
-            { $set: item },
-          );
-          if (!result.matchedCount) throw new InputError('RCA changed. Reload before saving.', 409);
-          res.json({ item: view({ ...current, ...item }) });
-        } else {
-          const created = { ...item, _id: new ObjectId(), workspaceId: req.workspaceId };
-          await records.insertOne(created);
-          res.locals.auditRecordId = created._id;
-          res.status(201).json({ item: view(created) });
-        }
-      },
-    );
+        if (!result.matchedCount) throw new InputError('RCA changed. Reload before saving.', 409);
+        res.json({ item: view({ ...current, ...item }) });
+      } else {
+        const created = { ...item, _id: new ObjectId(), workspaceId: req.workspaceId };
+        await records.insertOne(created);
+        res.locals.auditRecordId = created._id;
+        res.status(201).json({ item: view(created) });
+      }
+    };
+    app.locals.aiRecordWriters ??= {};
+    app.locals.aiRecordWriters[`rcas:${method}`] = saveRecord;
+    app[method](`/api/rcas${method === 'patch' ? '/:id' : ''}`, requireResponder, saveRecord);
+  }
 }

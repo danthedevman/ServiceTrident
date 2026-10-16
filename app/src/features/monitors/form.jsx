@@ -105,6 +105,13 @@ function MonitorEditor({ monitor, onReset, defaults }) {
         method: monitor ? 'PATCH' : 'POST',
         body: {
           authentication: auth,
+          keyword: form.get('keywordText')?.trim()
+            ? {
+                text: form.get('keywordText'),
+                condition: form.get('keywordCondition'),
+                caseSensitive: form.get('keywordCaseSensitive') === 'true',
+              }
+            : null,
           serviceId: serviceId || null,
           component: serviceId ? form.get('component') : '',
           name: form.get('name'),
@@ -196,6 +203,43 @@ function MonitorEditor({ monitor, onReset, defaults }) {
             body preview (up to 16 KiB). Some endpoints do not support HEAD.
           </span>
         </label>
+        <fieldset className="space-y-4">
+          <legend className="font-semibold">Keyword trigger</legend>
+          <label className="field-label">
+            Keyword
+            <input
+              className="input"
+              name="keywordText"
+              maxLength={200}
+              defaultValue={monitor?.keyword?.text ?? ''}
+            />
+          </label>
+          <label className="field-label">
+            Trigger when
+            <Select
+              aria-label="Trigger when"
+              name="keywordCondition"
+              defaultValue={monitor?.keyword?.condition ?? 'missing'}
+            >
+              <option value="missing">Keyword is missing</option>
+              <option value="contains">Keyword is found</option>
+            </Select>
+          </label>
+          <label className="field-label">
+            Case sensitive
+            <Toggle
+              name="keywordCaseSensitive"
+              value="true"
+              defaultChecked={monitor?.keyword?.caseSensitive === true}
+            />
+          </label>
+          <p className="field-hint">
+            Optional literal text match in the first 16 KiB of an unauthenticated GET response. A
+            triggered condition counts as a failed check and follows the existing alert and incident
+            policy. Leave Keyword empty to disable. Unreadable or inconclusive bodies fail the
+            check.
+          </p>
+        </fieldset>
         <label className="field-label">
           Follow redirects
           <Toggle

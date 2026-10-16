@@ -1,3 +1,4 @@
+import { validListFilters } from './list-filters.js';
 import { colorSchemeIds } from './color-schemes.js';
 import { InputError } from '../validation/input-error.js';
 
@@ -8,6 +9,7 @@ export const DEFAULT_UI_PREFERENCES = Object.freeze({
   filtersOpen: false,
   compactTables: false,
   tableLayouts: {},
+  listFilters: {},
   dashboardTab: 'overview',
   dashboardGreeting: 'Welcome, {firstName}',
   colorScheme: 'black',
@@ -66,13 +68,14 @@ function validPreference(key, value) {
   if (key === 'dateFormat') return ['locale', 'iso', 'dmy', 'mdy', 'long'].includes(value);
   if (key === 'colorScheme') return colorSchemeIds.includes(value);
   if (key === 'textScale') return ['standard', 'large', 'larger'].includes(value);
+  if (key === 'listFilters') return validListFilters(value);
   if (key === 'tableLayouts') return validTableLayouts(value);
   if (key === 'dashboardTab')
     return ['overview', 'incidents', 'tasks', 'services', 'events'].includes(value);
   return typeof value === 'boolean';
 }
 
-/** Cache only non-sensitive, validated layout preferences for the first paint. */
+/** Normalize validated account preferences; shared first-paint caches must omit list filters. */
 export function uiPreferences(value) {
   return Object.fromEntries(
     Object.entries(DEFAULT_UI_PREFERENCES).map(([key, fallback]) => [

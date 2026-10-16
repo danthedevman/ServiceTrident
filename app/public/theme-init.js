@@ -1,9 +1,13 @@
 /** Apply the saved appearance before the page paints; storage may be disabled. */
 (() => {
   if (window.location.pathname.startsWith('/status/public/')) {
-    document.documentElement.dataset.theme = 'light';
-    document.documentElement.style.backgroundColor = '#f7f9fa';
-    document.documentElement.style.colorScheme = 'light';
+    // The public appearance comes from the server, never the signed-in profile.
+    document.documentElement.style.visibility = 'hidden';
+    const token = window.location.pathname.match(/^\/status\/public\/([a-f\d]{48})\/?$/)?.[1];
+    if (token) {
+      // Parser-inserted CSS blocks the first paint until the saved public canvas is known.
+      document.write(`<link rel="stylesheet" href="/api/public/status/${token}/appearance.css">`);
+    }
     return;
   }
   let theme;

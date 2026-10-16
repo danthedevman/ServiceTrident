@@ -34,6 +34,7 @@ export function serializeMonitor(monitor, { includeAuthenticationConfig = false 
     intervalMinutes,
     method: monitor.method ?? 'GET',
     followRedirects: monitor.followRedirects === true,
+    keyword: monitor.keyword ?? null,
     authentication,
     authenticationConfigured: !!monitor.authSecret,
     paused,

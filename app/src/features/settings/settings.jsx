@@ -1,11 +1,10 @@
 import { AlertGroupingSettings } from './alert-grouping.jsx';
 import { PageTitle } from '../../components/page-title.jsx';
-import { UsersIcon, UserGroupIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 import { AuthContext } from '../../auth/auth-context.js';
 import { ConfirmDeleteButton } from '../../components/confirm-delete-button.jsx';
 import { DateTime } from '../../preferences/date-time.jsx';
 import React, { useContext, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useResource } from '../../data/use-resource.js';
 import { Notice } from '../../components/forms/fields.jsx';
 import { useSave } from '../../data/use-save.js';
@@ -14,10 +13,10 @@ import { Modal } from '../../components/modal.jsx';
 import { validateDemoAction } from '../../../../shared/domain/demo-data.js';
 
 /** Admin-only dataset lifecycle. The API independently validates access, batch identity, and single-add state. */
-function AdminSettings() {
-  const resource = useResource('/settings/demo-data', 3000),
+function AdminSettings({ section }) {
+  const resource = useResource(section === 'demo-data' ? '/settings/demo-data' : null, 3000),
     save = useSave();
-  const marketing = useResource('/settings/marketing');
+  const marketing = useResource(section === 'hosting' ? '/settings/marketing' : null);
   const inbox = useResource(null);
   const [confirm, setConfirm] = useState(false),
     [message, setMessage] = useState(''),
@@ -52,96 +51,106 @@ function AdminSettings() {
   }
   return (
     <div className="space-y-6">
-      <AlertGroupingSettings />
-      <section className="panel space-y-4 p-6">
-        <h2 className="text-lg font-semibold">Audit Log</h2>
-        <p>
-          Review record activity, including who performed an action and when. Search, filter by
-          date, and export matching entries.
-        </p>
-        <Link className="btn-primary" to="/settings/audit">
-          View audit log
-        </Link>
-      </section>
-      <section className="panel space-y-4 p-6">
-        <h2 className="text-lg font-semibold">Integrations</h2>
-        <p>
-          Connect email, Slack, Microsoft Teams, or ServiceNow and choose where service-impact
-          notifications go.
-        </p>
-        <Link className="btn-primary" to="/integrations">
-          Manage integrations
-        </Link>
-      </section>
-      <section className="panel space-y-4 p-6">
-        <h2 className="text-lg font-semibold">Identity Providers</h2>
-        <p>
-          Connect Auth0, Okta, Microsoft Entra ID, Google, and other OpenID Connect providers for
-          workspace sign-in.
-        </p>
-        <Link className="btn-primary" to="/settings/identity-providers">
-          Manage Identity Providers
-        </Link>
-      </section>
-      <section className="panel space-y-4 p-6">
-        <h2 className="text-lg font-semibold">Service Accounts</h2>
-        <p>
-          Allow external integrations to create records with scoped API keys or OAuth client
-          credentials.
-        </p>
-        <Link className="btn-primary" to="/settings/service-accounts">
-          Manage Service Accounts
-        </Link>
-      </section>
-      <section id="demo-data" className="panel space-y-4 p-6">
-        <h2 className="text-lg font-semibold">Demo Data</h2>
-        <p className="text-sm text-slate-500">
-          New batches include 50 linked RCAs alongside incidents, tasks, knowledge articles and
-          runbooks, plus six sample alerts in Notifications. Existing batches stay unchanged; delete
-          and re-add demo data to include newly supported types.
-        </p>
-        <Notice error={resource.error || save.error || clientError} />
-        {message && <p role="status">{message}</p>}
-        {!resource.data ? (
-          <p role="status" className="sr-only">
-            Loading demo-data settings…
+      {section === 'alert-grouping' && <AlertGroupingSettings />}
+      {section === 'audit' && (
+        <section className="panel space-y-4 p-6">
+          <h2 className="text-lg font-semibold">Audit Log</h2>
+          <p>
+            Review record activity, including who performed an action and when. Search, filter by
+            date, and export matching entries.
           </p>
-        ) : (
-          <>
-            {!working && (
-              <p role="status">
-                {batch?.status === 'failed' || batch?.recoverable
-                  ? 'An interrupted operation needs cleanup. Use Delete demo data before adding again.'
-                  : batch
-                    ? 'Demo data is installed.'
-                    : 'No demo data installed.'}
-              </p>
-            )}
-            {batch && (
-              <p className="text-sm text-slate-500">
-                Added by {batch.createdBy} · {<DateTime value={batch.createdAt} />}
-              </p>
-            )}
-            <div className="flex flex-wrap gap-3">
-              <button
-                className="btn-primary"
-                disabled={save.busy || working || !!batch}
-                onClick={() => run('add')}
-              >
-                Add Demo Data
-              </button>
-              <button
-                className="btn-danger"
-                disabled={save.busy || working || !batch}
-                onClick={() => setConfirm(true)}
-              >
-                Delete demo data
-              </button>
-            </div>
-          </>
-        )}
-      </section>
-      {marketing.data?.available && (
+          <Link className="btn-primary" to="/settings/audit">
+            View audit log
+          </Link>
+        </section>
+      )}
+      {section === 'integrations' && (
+        <section className="panel space-y-4 p-6">
+          <h2 className="text-lg font-semibold">Integrations</h2>
+          <p>
+            Connect email, Slack, Microsoft Teams, or ServiceNow and choose where service-impact
+            notifications go.
+          </p>
+          <Link className="btn-primary" to="/integrations">
+            Manage integrations
+          </Link>
+        </section>
+      )}
+      {section === 'identity-providers' && (
+        <section className="panel space-y-4 p-6">
+          <h2 className="text-lg font-semibold">Identity Providers</h2>
+          <p>
+            Connect Auth0, Okta, Microsoft Entra ID, Google, and other OpenID Connect providers for
+            workspace sign-in.
+          </p>
+          <Link className="btn-primary" to="/settings/identity-providers">
+            Manage Identity Providers
+          </Link>
+        </section>
+      )}
+      {section === 'service-accounts' && (
+        <section className="panel space-y-4 p-6">
+          <h2 className="text-lg font-semibold">Service Accounts</h2>
+          <p>
+            Allow external integrations to create records with scoped API keys or OAuth client
+            credentials.
+          </p>
+          <Link className="btn-primary" to="/settings/service-accounts">
+            Manage Service Accounts
+          </Link>
+        </section>
+      )}
+      {section === 'demo-data' && (
+        <section id="demo-data" className="panel space-y-4 p-6">
+          <h2 className="text-lg font-semibold">Demo Data</h2>
+          <p className="text-sm text-slate-500">
+            New batches include 50 linked RCAs alongside incidents, tasks, knowledge articles and
+            runbooks, plus six sample alerts in Notifications. Existing batches stay unchanged;
+            delete and re-add demo data to include newly supported types.
+          </p>
+          <Notice error={resource.error || save.error || clientError} />
+          {message && <p role="status">{message}</p>}
+          {!resource.data ? (
+            <p role="status" className="sr-only">
+              Loading demo-data settings…
+            </p>
+          ) : (
+            <>
+              {!working && (
+                <p role="status">
+                  {batch?.status === 'failed' || batch?.recoverable
+                    ? 'An interrupted operation needs cleanup. Use Delete demo data before adding again.'
+                    : batch
+                      ? 'Demo data is installed.'
+                      : 'No demo data installed.'}
+                </p>
+              )}
+              {batch && (
+                <p className="text-sm text-slate-500">
+                  Added by {batch.createdBy} · {<DateTime value={batch.createdAt} />}
+                </p>
+              )}
+              <div className="flex flex-wrap gap-3">
+                <button
+                  className="btn-primary"
+                  disabled={save.busy || working || !!batch}
+                  onClick={() => run('add')}
+                >
+                  Add Demo Data
+                </button>
+                <button
+                  className="btn-danger"
+                  disabled={save.busy || working || !batch}
+                  onClick={() => setConfirm(true)}
+                >
+                  Delete demo data
+                </button>
+              </div>
+            </>
+          )}
+        </section>
+      )}
+      {section === 'hosting' && marketing.data?.available && (
         <>
           <Notice error={inbox.error} />
           <DataTable
@@ -229,52 +238,58 @@ function AdminSettings() {
 /** Directory entry points retain existing role permissions while sharing Settings navigation. */
 export function SettingsPage() {
   const { user, loading } = useContext(AuthContext);
+  const [params, setParams] = useSearchParams();
+  const marketing = useResource(user?.role === 'admin' ? '/settings/marketing' : null);
   if (loading) return null;
   if (!user || user.role === 'user') return <p>Workspace access is required.</p>;
   const admin = user.role === 'admin';
-  const panels = [
+  const entries = [
+    ['groups', 'Groups', '/groups', 'View groups and their members.'],
     ...(admin
       ? [
-          {
-            title: 'Users',
-            to: '/workspace',
-            Icon: UsersIcon,
-            description: 'Manage user profiles, roles, and account access.',
-          },
+          ['users', 'Users', '/workspace', 'Manage user profiles, roles, and account access.'],
+          ['alert-grouping', 'Alert Grouping'],
+          ['integrations', 'Integrations'],
+          ['identity-providers', 'Identity Providers'],
+          ['service-accounts', 'Service Accounts'],
+          ['audit', 'Audit Log'],
+          ['demo-data', 'Demo Data'],
+          ...(marketing.data?.available ? [['hosting', 'Hosting Inquiries']] : []),
         ]
       : []),
-    {
-      title: 'Groups',
-      to: '/groups',
-      Icon: UserGroupIcon,
-      description: admin
-        ? 'Organize members into groups for ownership and assignments.'
-        : 'View groups and their members.',
-    },
   ];
+  const selected = entries.find(([id]) => id === params.get('section')) || entries[0];
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <PageTitle>Settings</PageTitle>
-      <div className="grid gap-4 sm:grid-cols-2">
-        {panels.map(({ title, to, Icon, description }) => (
-          <Link
-            key={to}
-            to={to}
-            className="panel flex items-start gap-4 p-6 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500 dark:hover:bg-slate-800"
-          >
-            <Icon
-              className="h-6 w-6 shrink-0 text-blue-700 dark:text-blue-400"
-              aria-hidden="true"
-            />
-            <div className="min-w-0 flex-1 space-y-2">
-              <h2 className="text-lg font-semibold">{title}</h2>
-              <p className="text-sm text-slate-600 dark:text-slate-400">{description}</p>
-            </div>
-            <ChevronRightIcon className="h-5 w-5 shrink-0 text-slate-500" aria-hidden="true" />
-          </Link>
-        ))}
+      <div className="settings-layout">
+        <nav aria-label="Settings categories" className="settings-categories">
+          {entries.map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              aria-current={id === selected[0] ? 'page' : undefined}
+              className="settings-category"
+              onClick={() => setParams({ section: id }, { replace: true })}
+            >
+              {label}
+            </button>
+          ))}
+        </nav>
+        <div className="min-w-0" key={selected[0]}>
+          {selected[2] ? (
+            <section className="panel space-y-4 p-6">
+              <h2 className="text-lg font-semibold">{selected[1]}</h2>
+              <p>{selected[3]}</p>
+              <Link className="btn-primary" to={selected[2]}>
+                Manage {selected[1]}
+              </Link>
+            </section>
+          ) : (
+            <AdminSettings section={selected[0]} />
+          )}
+        </div>
       </div>
-      {admin && <AdminSettings />}
     </div>
   );
 }

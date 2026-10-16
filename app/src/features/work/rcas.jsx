@@ -1,3 +1,4 @@
+import { useListFilter } from '../../data/use-list-filter.js';
 import { recordFields } from '../../../../shared/forms/form-options.js';
 import { PlusIcon, AdjustmentsHorizontalIcon } from '@heroicons/react/24/outline';
 import React, { useContext, useEffect, useId, useState } from 'react';
@@ -32,7 +33,7 @@ const editable = (item = {}) =>
 export function RcaList({ incidentId = '', taskId = '', related = false }) {
   const { user } = useContext(AuthContext);
   const canEdit = ['admin', 'responder'].includes(user?.role);
-  const [status, setStatus] = useState('');
+  const [status, setStatus] = useListFilter('status', '', 'rcas');
   if (!user || user.role === 'user') return null;
   const scope = new URLSearchParams({ incidentId, taskId, status });
   return (

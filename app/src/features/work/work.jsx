@@ -1,7 +1,9 @@
+import { ColumnFilter } from '../../components/column-filter.jsx';
+import { useListFilter } from '../../data/use-list-filter.js';
 import { RcaList } from './rcas.jsx';
 import { TaskDetails } from './task-details.jsx';
 import { ValidatedForm } from '../../components/forms/validated-form.jsx';
-import { PageTitle } from '../../components/page-title.jsx';
+import { PageTitleRow } from '../../components/page-title.jsx';
 import { ConfirmDeleteButton } from '../../components/confirm-delete-button.jsx';
 import { DateTime } from '../../preferences/date-time.jsx';
 import { notify } from '../../data/toast.js';
@@ -10,7 +12,7 @@ import { Select } from '../../components/forms/select.jsx';
 import { TableSearch } from '../../components/table-search.jsx';
 import { StateBadge } from '../../components/state-badge.jsx';
 import { mandatoryErrors } from '../../../../shared/forms/schema.js';
-import { RecordActions, RecordHeader } from '../../components/record-actions.jsx';
+import { RecordActions } from '../../components/record-actions.jsx';
 import { RecordTabs } from '../../components/record-tabs.jsx';
 import { CancelButton } from '../../components/forms/cancel-button.jsx';
 import {
@@ -97,18 +99,18 @@ export function WorkCreatePage({ kind = 'tasks' }) {
     { user } = useContext(AuthContext);
   return (
     <div className="form-page">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <PageTitle>Create {kind === 'tasks' ? 'Task' : 'Knowledge Article'}</PageTitle>
-        {user?.role === 'admin' && (
-          <RecordHeader>
+      <PageTitleRow
+        title={`Create ${kind === 'tasks' ? 'Task' : 'Knowledge Article'}`}
+        actions={
+          user?.role === 'admin' ? (
             <ActionMenu label="Form actions">
               <Link className="btn-secondary" to={`/${kind}/fields`}>
                 Form builder
               </Link>
             </ActionMenu>
-          </RecordHeader>
-        )}
-      </div>
+          ) : null
+        }
+      />
       <WorkEditor
         page
         kind={kind}
@@ -137,20 +139,21 @@ export function WorkTable({
   const { user } = useContext(AuthContext),
     canEdit = ['admin', 'responder'].includes(user?.role);
   const task = kind === 'tasks';
-  const [searchColumn, setSearchColumn] = useState('');
-  const [search, setSearch] = useState(''),
-    [status, setStatus] = useState('');
-  const [serviceId, setService] = useState(initialServiceId),
+  const [columnSearch, setColumnSearch] = useListFilter('columnSearch', '', kind);
+  const [searchColumn, setSearchColumn] = useListFilter('searchColumn', '', kind);
+  const [search, setSearch] = useListFilter('search', '', kind),
+    [status, setStatus] = useListFilter('status', '', kind);
+  const [serviceId, setService] = useListFilter('serviceId', initialServiceId, kind),
     [page, setPage] = useState(1),
-    [pageSize, setSize] = useState(10),
-    [sort, setSort] = useState('updatedAt:desc');
+    [pageSize, setSize] = useListFilter('pageSize', 10, kind),
+    [sort, setSort] = useListFilter('sort', 'updatedAt:desc', kind);
   useEffect(() => {
-    setService(initialServiceId);
     setPage(1);
   }, [initialServiceId, initialIncidentId]);
   const [sortBy, order] = sort.split(':');
   const query = new URLSearchParams({
     searchColumn,
+    columnSearch,
     search,
     status: archived ? 'archived' : status,
     serviceId,
@@ -303,7 +306,9 @@ export function WorkTable({
         columns={displayedColumns}
         rowKey={(r) => r.id}
         remote={{
-          filtersActive: Boolean(search || status || serviceId !== initialServiceId),
+          filtersActive: Boolean(
+            search || columnSearch || status || serviceId !== initialServiceId,
+          ),
           page,
           pageSize,
           total: resource.data?.total ?? 0,
@@ -323,7 +328,7 @@ export function WorkTable({
           onExport: (signal) => downloadCsv(`/${kind}/export?${query}`, `${kind}.csv`, signal),
         }}
         toolbar={
-          simpleArticles && (
+          simpleArticles ? (
             <label className="field-label block px-3 pb-3">
               <span className="sr-only">Search Articles</span>
               <input
@@ -337,11 +342,8 @@ export function WorkTable({
                 }}
               />
             </label>
-          )
-        }
-        filters={
-          <div className="flex flex-wrap items-end gap-4">
-            {!simpleArticles && (
+          ) : (
+            <div className="table-search-toolbar shrink-0 px-4 py-3">
               <TableSearch
                 columns={columns}
                 search={search}
@@ -352,6 +354,22 @@ export function WorkTable({
                 }}
                 onColumn={(value) => {
                   setSearchColumn(value);
+                  setPage(1);
+                }}
+              />
+            </div>
+          )
+        }
+        filters={
+          <div className="table-filter-fields">
+            {!simpleArticles && (
+              <ColumnFilter
+                columns={columns}
+                column={searchColumn}
+                value={columnSearch}
+                onColumn={setSearchColumn}
+                onValue={(value) => {
+                  setColumnSearch(value);
                   setPage(1);
                 }}
               />
@@ -387,11 +405,16 @@ export function WorkTable({
                 </Select>
               </label>
             )}
-            {(search || status || serviceId !== initialServiceId || sort !== 'updatedAt:desc') && (
+            {(search ||
+              columnSearch ||
+              status ||
+              serviceId !== initialServiceId ||
+              sort !== 'updatedAt:desc') && (
               <button
                 className="btn-secondary"
                 onClick={() => {
                   setSearch('');
+                  setColumnSearch('');
                   setSearchColumn('');
                   setStatus('');
                   setService(initialServiceId);

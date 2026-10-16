@@ -769,7 +769,7 @@ function Overview({ data, chart, services, reportHref }) {
 }
 
 function EventDashboard({ state, serviceId, setService }) {
-  const eventsHref = `/events?${new URLSearchParams({ serviceId })}`;
+  const eventsHref = `/events?${new URLSearchParams({ serviceId, view: 'events', sourceType: 'monitor' })}`;
   const data = state.data;
   const outcomes = data?.outcomes || [];
   const total = outcomes.reduce((sum, row) => sum + row.count, 0);
@@ -787,11 +787,33 @@ function EventDashboard({ state, serviceId, setService }) {
         onChange={setService}
       />
       <p className="text-sm text-slate-500">
-        Monitor checks from the last 30 days. Successful checks do not imply current service health.
+        Monitor and external events from the last 30 days. Check success metrics cover monitors
+        only.
       </p>
       {state.error && <p role="alert">{state.error}</p>}
       {data && (
         <>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Score
+              compact
+              label="Active Alerts"
+              value={data.activeAlerts ?? 0}
+              tone="amber"
+              href={`/alerts?${new URLSearchParams({ serviceId })}`}
+            />
+            <Score
+              compact
+              label="External Events"
+              value={data.sources?.find((row) => row.sourceType === 'external')?.count || 0}
+              href={`/events?${new URLSearchParams({ serviceId, view: 'events', sourceType: 'external' })}`}
+            />
+            <Score
+              compact
+              label="All Events"
+              value={data.sources?.reduce((sum, row) => sum + row.count, 0) ?? total}
+              href={`/events?${new URLSearchParams({ serviceId, view: 'events' })}`}
+            />
+          </div>
           <div className="grid gap-4 sm:grid-cols-3">
             <Score compact label="Checks" value={total} href={eventsHref} />
             <Score

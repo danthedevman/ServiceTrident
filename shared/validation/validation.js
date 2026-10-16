@@ -1,3 +1,4 @@
+import { monitorKeyword } from '../domain/monitor-keyword.js';
 import { fieldErrors } from './form-validation.js';
 import ipaddr from 'ipaddr.js';
 import { InputError } from './input-error.js';
@@ -77,6 +78,12 @@ export function validateMonitor(body, { requireService = false } = {}) {
   if (typeof followRedirects !== 'boolean')
     throw new InputError('followRedirects must be a boolean.');
   return {
+    keyword: monitorKeyword(body.keyword, {
+      method: method ?? 'GET',
+      authenticated: body.authentication?.mode
+        ? body.authentication.mode !== 'none'
+        : !!body.authSecret,
+    }),
     followRedirects,
     name: name.trim(),
     url: parseTarget(url).href,

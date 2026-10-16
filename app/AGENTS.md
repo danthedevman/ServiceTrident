@@ -55,7 +55,7 @@
 
 - Open table filters in the shared non-modal TableFilterPanel from the Filters icon. Keep panel visibility local to each table; do not restore it across routes or refreshes. Apply filter changes immediately and preserve active values after Done, Close, or Escape. Keep sort controls in column headers.
 - The status page is a flat service-only list. Do not expose individual monitor details there.
-- Use the tagline “Detect, Respond, Resolve” and ServiceTrident branding.
+- Use ServiceTrident branding.
 
 - Read-only record details use `record-details`: muted labels, readable values, subtle dividers, and a subtle theme-aware background on values. Use background styling for non-editable fields; do not add “Read only” badges or labels.
 

@@ -15,7 +15,7 @@ import { uiPreferences, preferencePatch } from '../../../shared/domain/ui-prefer
 const PreferencesContext = createContext(null);
 const previewKey = 'servicetrident-layout';
 const accountKey = (id) => `servicetrident-layout:${id}`;
-/** Cache only non-sensitive layout preferences; blocked storage falls back to memory. */
+/** Account-scoped preferences may contain saved search text; never copy filters to the shared appearance cache. */
 function read(key) {
   try {
     const value = localStorage.getItem(key);
@@ -33,7 +33,14 @@ function pending(key) {
 }
 function persist(key, values, pending = false) {
   try {
-    localStorage.setItem(key, JSON.stringify({ ...uiPreferences(values), pending }));
+    localStorage.setItem(
+      key,
+      JSON.stringify({
+        ...uiPreferences(values),
+        ...(key === previewKey ? { listFilters: {} } : {}),
+        pending,
+      }),
+    );
   } catch {
     /* Layout still works without browser storage. */
   }
@@ -111,9 +118,11 @@ export function PreferencesProvider({ children }) {
     identity = useRef(user?.id),
     queue = useRef(Promise.resolve());
   const controller = useRef(null);
+  const filterTimer = useRef(null);
   identity.current = user?.id;
   useLayoutEffect(() => {
     controller.current?.abort();
+    clearTimeout(filterTimer.current);
     controller.current = new AbortController();
     if (!user) {
       setResolvedAccount(null);
@@ -131,7 +140,10 @@ export function PreferencesProvider({ children }) {
     setError('');
     persist(accountKey(user.id), next, unsynced);
     persist(previewKey, next);
-    return () => controller.current?.abort();
+    return () => {
+      clearTimeout(filterTimer.current);
+      controller.current?.abort();
+    };
   }, [user?.id]);
   useEffect(() => {
     const sync = (event) => {
@@ -190,6 +202,35 @@ export function PreferencesProvider({ children }) {
         typeof update === 'function' ? update(layouts[key] ?? { order: [], hidden: [] }) : update;
     setPreference('tableLayouts', layouts);
   }
+  /** Keep controls immediate while coalescing typing into a single account preference write. */
+  function setListFilter(key, field, value, fallback) {
+    if (!user) return;
+    const all = { ...current.current.listFilters };
+    const fields = { ...all[key] };
+    if (Object.is(value, fallback)) delete fields[field];
+    else fields[field] = value;
+    if (Object.keys(fields).length) {
+      delete all[key];
+      all[key] = fields;
+    } else delete all[key];
+    while (Object.keys(all).length > 100) delete all[Object.keys(all)[0]];
+    if (JSON.stringify(all) === JSON.stringify(current.current.listFilters)) return;
+    try {
+      preferencePatch({ listFilters: all });
+    } catch {
+      return;
+    }
+    const next = { ...current.current, listFilters: all };
+    current.current = next;
+    setValues(next);
+    persist(accountKey(user.id), next, true);
+    persist(previewKey, next);
+    clearTimeout(filterTimer.current);
+    filterTimer.current = setTimeout(
+      () => setPreference('listFilters', current.current.listFilters),
+      500,
+    );
+  }
   return (
     <PreferencesContext.Provider
       value={{
@@ -197,6 +238,7 @@ export function PreferencesProvider({ children }) {
         ready: !!user && resolvedAccount === user.id,
         setPreference,
         setTableLayout,
+        setListFilter,
         error,
       }}
     >

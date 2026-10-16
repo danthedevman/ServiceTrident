@@ -2,7 +2,6 @@ import { WorkspaceSignIn } from './workspace-sign-in.jsx';
 import { writeApi } from '../data/query-client.js';
 
 import { AuthContext } from './auth-context.js';
-import { ArrowRightIcon, ServerStackIcon, BoltIcon } from '@heroicons/react/24/outline';
 import React, { useContext, useState } from 'react';
 
 import { Link, Navigate } from 'react-router-dom';
@@ -47,32 +46,14 @@ export function AuthPage({ register = false }) {
   return (
     <main
       id="main"
-      className="mx-auto grid min-h-screen max-w-5xl items-center gap-14 px-6 pb-14 pt-20 md:grid-cols-2"
+      className="flex min-h-dvh items-center justify-center px-5 py-16"
     >
       <div className="absolute right-[max(1rem,env(safe-area-inset-right))] top-[max(1rem,env(safe-area-inset-top))]">
         <ThemeToggle />
       </div>
-      <section>
-        <Logo />
-        <h1 className="mt-14 text-5xl font-semibold leading-[1.12] tracking-tight text-slate-900 dark:text-slate-100">
-          Detect, Respond,
-          <br />
-          <span className="text-blue-700 dark:text-blue-400">Resolve</span>
-        </h1>
-
-        <div className="mt-10 flex gap-6 text-sm text-slate-500 dark:text-slate-400">
-          <span>
-            <ServerStackIcon className="inline h-4 w-4" aria-hidden="true" /> Service health
-          </span>
-          <span>
-            <BoltIcon className="inline h-4 w-4" aria-hidden="true" /> Incident response
-          </span>
-        </div>
-      </section>
-      <section className="panel p-7 sm:p-10">
-        <h2 className="text-2xl font-semibold tracking-tight">
-          {register ? 'Create Your Account' : 'Sign in'}
-        </h2>
+      <section className="panel w-full max-w-[400px] p-7 sm:p-9">
+        <div className="mb-8 flex justify-center"><Logo /></div>
+        <h1 className="text-center text-xl font-semibold">{register ? 'Create account' : 'Sign in'}</h1>
 
         <ValidatedForm
           key={register ? 'register' : 'login'}
@@ -106,12 +87,11 @@ export function AuthPage({ register = false }) {
               minLength={12}
               maxLength={128}
               required
-              placeholder="At least 12 characters"
+              placeholder={register ? "At least 12 characters" : undefined}
             />
           </label>
-          <button className="btn-primary w-full" disabled={busy}>
-            {busy ? 'Please wait…' : register ? 'Create Account' : 'Sign in'}
-            <ArrowRightIcon className="h-5 w-5" aria-hidden="true" />
+          <button className="btn-primary w-full" disabled={busy} aria-busy={busy}>
+            {register ? 'Create Account' : 'Sign in'}
           </button>
         </ValidatedForm>
         {!register && <WorkspaceSignIn />}

@@ -1,5 +1,4 @@
-import { PageTitle } from '../../components/page-title.jsx';
-import React, { useState } from 'react';
+import React, { useState, useRef, useLayoutEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeftIcon,
@@ -27,8 +26,13 @@ const guides = {
   services: [ServerStackIcon, 'Services', 'Organize ownership, collections, and dependencies'],
   rcas: [
     BookOpenIcon,
-    'Root Cause Analyses and Alert Grouping',
+    "RCA's and Alert Grouping",
     'Analyze incidents, track corrective work, and group related alerts',
+  ],
+  events: [
+    SignalIcon,
+    'Events and Alerts',
+    'Receive signals, triage alerts, and inspect event history',
   ],
   monitoring: [SignalIcon, 'Monitoring', 'Configure Endpoint Checks and Understand Results'],
   incidents: [
@@ -61,6 +65,12 @@ const guides = {
 export function HelpPage() {
   const [params] = useSearchParams();
   const [search, setSearch] = useState('');
+  const root = useRef(null),
+    selectedTopic = params.get('topic');
+  useLayoutEffect(() => {
+    setSearch('');
+    root.current?.closest('.page-scroll-area')?.scrollTo({ top: 0, behavior: 'instant' });
+  }, [selectedTopic]);
   const topic = helpTopics.find((item) => item.id === params.get('topic'));
   const faq = params.get('topic') === 'questions';
   const query = search.trim().toLocaleLowerCase();
@@ -71,12 +81,17 @@ export function HelpPage() {
     item.join(' ').toLocaleLowerCase().includes(query),
   );
   const index = topic ? helpTopics.indexOf(topic) : -1;
-  const clear = () => setSearch('');
+  const clear = () => {
+    setSearch('');
+    root.current?.closest('.page-scroll-area')?.scrollTo({ top: 0, behavior: 'instant' });
+  };
   return (
-    <div className="space-y-6">
-      <header className="flex flex-wrap items-center justify-between gap-4">
-        <PageTitle>Help</PageTitle>
-        <label className="relative w-full sm:w-80">
+    <div
+      ref={root}
+      className="grid items-start gap-6 lg:grid-cols-[13rem_minmax(0,1fr)] lg:gap-x-8"
+    >
+      <header className="help-search-header lg:col-start-2 lg:row-start-1">
+        <label className="relative block w-full">
           <span className="sr-only">Search documentation</span>
           <MagnifyingGlassIcon
             className="pointer-events-none absolute left-3 top-3 h-5 w-5 text-slate-400"
@@ -91,158 +106,153 @@ export function HelpPage() {
           />
         </label>
       </header>
-      <div className="grid items-start gap-6 lg:grid-cols-[13rem_minmax(0,1fr)] lg:gap-8">
-        <nav
-          aria-label="Help topics"
-          className="help-topic-nav flex gap-1 overflow-x-auto pb-2 lg:sticky lg:top-4 lg:flex-col"
+      <nav
+        aria-label="Help topics"
+        className="help-topic-nav flex gap-1 overflow-x-auto pb-2 lg:sticky lg:col-start-1 lg:row-start-1 lg:row-span-2 lg:flex-col"
+      >
+        <Link
+          to="/help"
+          onClick={clear}
+          aria-current={!topic && !faq ? 'page' : undefined}
+          className={`nav-link flex shrink-0 items-center gap-3 ${!topic && !faq ? 'active' : ''}`}
         >
-          <Link
-            to="/help"
-            onClick={clear}
-            aria-current={!topic && !faq ? 'page' : undefined}
-            className={`nav-link flex shrink-0 items-center gap-3 ${!topic && !faq ? 'active' : ''}`}
-          >
-            <BookOpenIcon className="h-5 w-5 shrink-0" aria-hidden="true" />
-            Overview
-          </Link>
-          {helpTopics.map((item) => {
-            const [Icon, title] = guides[item.id];
-            return (
-              <Link
-                key={item.id}
-                to={`/help?topic=${item.id}`}
-                onClick={clear}
-                aria-current={topic?.id === item.id ? 'page' : undefined}
-                className={`nav-link flex shrink-0 items-center gap-3 ${topic?.id === item.id ? 'active' : ''}`}
-              >
-                <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
-                {title}
-              </Link>
-            );
-          })}
-          <Link
-            to="/help?topic=questions"
-            onClick={clear}
-            aria-current={faq ? 'page' : undefined}
-            className={`nav-link flex shrink-0 items-center gap-3 ${faq ? 'active' : ''}`}
-          >
-            <QuestionMarkCircleIcon className="h-5 w-5 shrink-0" aria-hidden="true" />
-            Common questions
-          </Link>
-        </nav>
-        <div className="min-w-0 space-y-6">
-          {query ? (
-            <>
-              <h2 className="text-xl font-semibold">Search Results</h2>
-              <p role="status" className="text-sm text-slate-500">
-                {matches.length} guides and {questions.length} answers
-              </p>
-              <GuideCards topics={matches} onSelect={clear} />
-              <Questions questions={questions} />
-              {!matches.length && !questions.length && (
-                <div className="panel p-6">
-                  <p>No matching documentation</p>
-                  <p className="mt-2 text-sm text-slate-500">
-                    Try a topic such as monitors, email, roles, or status pages.
-                  </p>
-                  <button className="btn-secondary mt-4" onClick={clear}>
-                    Clear search
-                  </button>
-                </div>
-              )}
-            </>
-          ) : topic ? (
-            <article className="panel space-y-6 p-5 sm:p-8">
-              <h2 className="text-2xl font-semibold leading-tight">{topic.title}</h2>
-              <div className="max-w-prose space-y-5">
-                {topic.paragraphs.map((paragraph) => (
-                  <p
-                    key={paragraph}
-                    className="text-sm leading-7 text-slate-600 dark:text-slate-300"
-                  >
-                    {paragraph}
-                  </p>
-                ))}
+          <BookOpenIcon className="h-5 w-5 shrink-0" aria-hidden="true" />
+          Overview
+        </Link>
+        {helpTopics.map((item) => {
+          const [Icon, title] = guides[item.id];
+          return (
+            <Link
+              key={item.id}
+              to={`/help?topic=${item.id}`}
+              onClick={clear}
+              aria-current={topic?.id === item.id ? 'page' : undefined}
+              className={`nav-link flex shrink-0 items-center gap-3 ${topic?.id === item.id ? 'active' : ''}`}
+            >
+              <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
+              {title}
+            </Link>
+          );
+        })}
+        <Link
+          to="/help?topic=questions"
+          onClick={clear}
+          aria-current={faq ? 'page' : undefined}
+          className={`nav-link flex shrink-0 items-center gap-3 ${faq ? 'active' : ''}`}
+        >
+          <QuestionMarkCircleIcon className="h-5 w-5 shrink-0" aria-hidden="true" />
+          Common questions
+        </Link>
+      </nav>
+      <div className="min-w-0 space-y-6 lg:col-start-2 lg:row-start-2">
+        {query ? (
+          <>
+            <h2 className="text-xl font-semibold">Search Results</h2>
+            <p role="status" className="text-sm text-slate-500">
+              {matches.length} guides and {questions.length} answers
+            </p>
+            <GuideCards topics={matches} onSelect={clear} />
+            <Questions questions={questions} />
+            {!matches.length && !questions.length && (
+              <div className="panel p-6">
+                <p>No matching documentation</p>
+                <p className="mt-2 text-sm text-slate-500">
+                  Try a topic such as monitors, email, roles, or status pages.
+                </p>
+                <button className="btn-secondary mt-4" onClick={clear}>
+                  Clear search
+                </button>
               </div>
-              {topic.screenshots?.map((screenshot) => (
-                <figure key={screenshot.src} className="space-y-3">
-                  <a
-                    href={screenshot.src}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label={`Open screenshot: ${screenshot.alt} (opens in a new tab)`}
-                    className="block rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600"
-                  >
-                    <img
-                      src={screenshot.src}
-                      alt={screenshot.alt}
-                      width="1440"
-                      height="960"
-                      loading="lazy"
-                      className="h-auto w-full rounded border border-slate-200 dark:border-slate-700"
-                    />
-                  </a>
-                  {screenshot.caption && (
-                    <figcaption className="text-sm leading-6 text-slate-600 dark:text-slate-300">
-                      {screenshot.caption}
-                    </figcaption>
-                  )}
-                </figure>
+            )}
+          </>
+        ) : topic ? (
+          <article className="panel space-y-6 p-5 sm:p-8">
+            <h2 className="text-2xl font-semibold leading-tight">{topic.title}</h2>
+            <div className="max-w-prose space-y-5">
+              {topic.paragraphs.map((paragraph) => (
+                <p key={paragraph} className="text-sm leading-7 text-slate-600 dark:text-slate-300">
+                  {paragraph}
+                </p>
               ))}
-              <nav
-                aria-label="Adjacent guides"
-                className="flex flex-wrap justify-between gap-4 border-t border-slate-200 pt-5 dark:border-slate-700"
-              >
-                <Link
-                  className="inline-flex items-center gap-2 text-sm text-blue-700 dark:text-blue-300"
-                  to={index > 0 ? `/help?topic=${helpTopics[index - 1].id}` : '/help'}
+            </div>
+            {topic.screenshots?.map((screenshot) => (
+              <figure key={screenshot.src} className="space-y-3">
+                <a
+                  href={screenshot.src}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={`Open screenshot: ${screenshot.alt} (opens in a new tab)`}
+                  className="block rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600"
                 >
-                  <ArrowLeftIcon className="h-4 w-4" aria-hidden="true" />
-                  {index > 0 ? guides[helpTopics[index - 1].id][1] : 'Overview'}
-                </Link>
-                <Link
-                  className="inline-flex items-center gap-2 text-sm text-blue-700 dark:text-blue-300"
-                  to={
-                    index < helpTopics.length - 1
-                      ? `/help?topic=${helpTopics[index + 1].id}`
-                      : '/help?topic=questions'
-                  }
-                >
-                  {index < helpTopics.length - 1
-                    ? guides[helpTopics[index + 1].id][1]
-                    : 'Common Questions'}
-                  <ArrowRightIcon className="h-4 w-4" aria-hidden="true" />
-                </Link>
-              </nav>
-            </article>
-          ) : faq ? (
-            <>
-              <h2 className="text-xl font-semibold">Common Questions</h2>
-              <Questions questions={helpQuestions} />
-            </>
-          ) : (
-            <>
-              <h2 className="text-xl font-semibold">Browse Documentation</h2>
-              <GuideCards topics={helpTopics} onSelect={clear} />
+                  <img
+                    src={screenshot.src}
+                    alt={screenshot.alt}
+                    width="1440"
+                    height="960"
+                    loading="lazy"
+                    className="h-auto w-full rounded border border-slate-200 dark:border-slate-700"
+                  />
+                </a>
+                {screenshot.caption && (
+                  <figcaption className="text-sm leading-6 text-slate-600 dark:text-slate-300">
+                    {screenshot.caption}
+                  </figcaption>
+                )}
+              </figure>
+            ))}
+            <nav
+              aria-label="Adjacent guides"
+              className="flex flex-wrap justify-between gap-4 border-t border-slate-200 pt-5 dark:border-slate-700"
+            >
               <Link
-                to="/help?topic=questions"
-                className="panel flex items-center gap-4 p-5 hover:bg-blue-50 dark:hover:bg-slate-800"
+                className="inline-flex items-center gap-2 text-sm text-blue-700 dark:text-blue-300"
+                to={index > 0 ? `/help?topic=${helpTopics[index - 1].id}` : '/help'}
               >
-                <QuestionMarkCircleIcon
-                  className="h-6 w-6 shrink-0 text-blue-700 dark:text-blue-300"
-                  aria-hidden="true"
-                />
-                <span className="flex-1">
-                  <span className="block font-semibold">Need a quick answer?</span>
-                  <span className="mt-1 block text-sm text-slate-500 dark:text-slate-400">
-                    Troubleshoot checks, access, and notifications
-                  </span>
-                </span>
-                <ArrowRightIcon className="h-5 w-5" aria-hidden="true" />
+                <ArrowLeftIcon className="h-4 w-4" aria-hidden="true" />
+                {index > 0 ? guides[helpTopics[index - 1].id][1] : 'Overview'}
               </Link>
-            </>
-          )}
-        </div>
+              <Link
+                className="inline-flex items-center gap-2 text-sm text-blue-700 dark:text-blue-300"
+                to={
+                  index < helpTopics.length - 1
+                    ? `/help?topic=${helpTopics[index + 1].id}`
+                    : '/help?topic=questions'
+                }
+              >
+                {index < helpTopics.length - 1
+                  ? guides[helpTopics[index + 1].id][1]
+                  : 'Common Questions'}
+                <ArrowRightIcon className="h-4 w-4" aria-hidden="true" />
+              </Link>
+            </nav>
+          </article>
+        ) : faq ? (
+          <>
+            <h2 className="text-xl font-semibold">Common Questions</h2>
+            <Questions questions={helpQuestions} />
+          </>
+        ) : (
+          <>
+            <h2 className="text-xl font-semibold">Browse Documentation</h2>
+            <GuideCards topics={helpTopics} onSelect={clear} />
+            <Link
+              to="/help?topic=questions"
+              className="panel flex items-center gap-4 p-5 hover:bg-blue-50 dark:hover:bg-slate-800"
+            >
+              <QuestionMarkCircleIcon
+                className="h-6 w-6 shrink-0 text-blue-700 dark:text-blue-300"
+                aria-hidden="true"
+              />
+              <span className="flex-1">
+                <span className="block font-semibold">Need a quick answer?</span>
+                <span className="mt-1 block text-sm text-slate-500 dark:text-slate-400">
+                  Troubleshoot checks, access, and notifications
+                </span>
+              </span>
+              <ArrowRightIcon className="h-5 w-5" aria-hidden="true" />
+            </Link>
+          </>
+        )}
       </div>
     </div>
   );

@@ -19,7 +19,14 @@ export async function statusData(db, userId, serializeMonitor, publicView = fals
     db
       .collection('events')
       .aggregate([
-        { $match: { userId, checkedAt: { $gte: since, $lt: until } } },
+        {
+          $match: {
+            userId,
+            monitorId: { $exists: true, $ne: null },
+            sourceType: { $ne: 'external' },
+            checkedAt: { $gte: since, $lt: until },
+          },
+        },
         {
           $group: {
             _id: {
@@ -49,7 +56,7 @@ export async function statusData(db, userId, serializeMonitor, publicView = fals
   const days = [...daily.values()];
   const monitors = raw.map((monitor) => {
     const history = days
-      .filter((day) => day._id.monitorId.equals(monitor._id))
+      .filter((day) => String(day._id?.monitorId) === String(monitor._id))
       .map((day) => ({ day: day._id.day, total: day.total, up: day.up }));
     const total = history.reduce((sum, day) => sum + day.total, 0);
     const up = history.reduce((sum, day) => sum + day.up, 0);

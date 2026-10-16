@@ -5,6 +5,14 @@
 - Refresh affected Help/README screenshots after visual changes using scripts/capture-help-screenshots.mjs and docs/help-screenshots.md. Use only the isolated synthetic fixtures; never seed, capture, or clean up a live workspace for screenshots, and never use live records or credentials even if later redacted. Keep demo-data requirements in developer capture instructions, not user-facing Help notices.
 - Validate changed documentation links, labels, screenshots, and examples alongside the affected lint, tests, and browser checks. Rebuild/restart affected local services after implementation changes and again after bundled Help/screenshots change; verify health and the normal local URL before reporting completion. Preserve data volumes and encryption keys.
 
+# Keep Help focused on essential tasks
+
+- Review Help around the essential information users need to complete common tasks: purpose, prerequisites, key actions, permissions, and important limitations.
+- Remove descriptions of styling, spacing, icon appearance, obvious controls, minor implementation details, repeated explanations, and long feature inventories.
+- Use short actionable steps and exact control names. Explain exceptions, risks, and troubleshooting only where users need them; preserve consequential policies such as required fields, draft loss, permissions, and confirmation.
+- Include screenshots only when they clarify a workflow, with concise task-focused captions. Keep deployment and implementation detail in developer or operating guides and point readers there.
+- Verify every guide against current UI/API behavior. Replace outdated or excessive content rather than appending. Keep guidance concise and scannable; completeness means covering essential workflows, not describing every control.
+
 # Keep the app self-documenting
 
 - Update the bundled Help guides in `app/src/features/help/topics.js` whenever user-facing behavior, workflows, permissions, or configuration changes. Update README and relevant deployment documentation when setup or operating requirements change; deliver documentation with the implementation.
@@ -34,6 +42,8 @@
 # Render conditional UI explicitly
 
 - Prefer render conditions over CSS visibility workarounds for feature flags, duplicate headings, and conditional content. When content should not appear, omit it from the rendered tree so it cannot leave margins or parent spacing behind. Use CSS for presentation and responsive layout, rather than selectors such as `:has(...)` to suppress conditional content.
+
+- Routed form headings must omit their spacing row when breadcrumbs own the title and actions are portaled into the shell header. Use PageTitleRow for heading/action rows rather than leaving an empty flex wrapper beneath form-page.
 
 - When conditional content is omitted, also omit its parent wrapper if it has no other rendered content or purpose. Apply the render condition around the whole heading/filter section, not just its child, so empty wrappers cannot create flex/grid gaps, margins, or padding. Preserve parents that contain other visible controls or required structure.
 

@@ -11,7 +11,7 @@ Approximate busy check slots = checks per second × average check duration in se
 
 For example, 500 monitors checked every minute generate about **8.3 checks per second**, **720,000 events per day**, and **21.6 million events over 30 days** before expiration catches up. At an average of 2 seconds per check, that is about 17 busy check slots before allowing for bursts, database work, and slower requests. If many endpoints time out, the required capacity increases substantially.
 
-Detailed events expire after 30 days. Daily summaries retain 400 days of status history; they do not preserve full response details. Attachments and audit activity also consume space, and audit records do not have automatic expiration. Monitor actual database growth instead of sizing only for the application containers.
+Detailed events expire after 30 days. Daily summaries retain 400 days of status history; they do not preserve full response details. External intake adds its own event volume. Alert summaries persist separately; healthy and failed checks update one summary per monitor, and external keys create one summary per workspace/account/service/key. Attachments and audit activity also consume space, and audit records do not have automatic expiration. Monitor actual database growth instead of sizing only for the application containers.
 
 ### Add worker capacity gradually
 

@@ -231,6 +231,15 @@ export function installIncidentsRoutes(app, db, appOrigin, machine = null) {
         (!Number.isInteger(req.body?.revision) || req.body.revision !== current.revision)
       )
         throw new InputError('This incident changed. Refresh and try again.', 409);
+      let eventAlert = null;
+      if (!current && req.body.eventAlertId) {
+        if (!['admin', 'responder'].includes(req.role) || req.serviceAccount)
+          throw new InputError('Your role cannot create an incident from an alert.', 403);
+        eventAlert = await db
+          .collection('eventAlerts')
+          .findOne({ _id: id(req.body.eventAlertId), workspaceId: req.workspaceId });
+        if (!eventAlert) throw new InputError('Alert not found.', 404);
+      }
       const schema = (await settings(db, req.workspaceId)).fields;
       const body = resolveChoices({ ...current, ...req.body }, schema, 'incidents', current);
       const services = (await catalog(db, req.workspaceId)).services;
@@ -241,6 +250,8 @@ export function installIncidentsRoutes(app, db, appOrigin, machine = null) {
           : null;
       const service = services.find((s) => s.id === serviceId);
       if (serviceId && !service && !current) invalid('serviceId', 'Choose an available service.');
+      if (eventAlert && serviceId !== eventAlert.serviceId)
+        invalid('serviceId', 'Use the alert’s service when creating its incident.');
       const fields = recordFields(schema, current?.fields);
       const status = choice(
         body.status ?? current?.status ?? 'open',
@@ -419,11 +430,18 @@ export function installIncidentsRoutes(app, db, appOrigin, machine = null) {
           createdByType: req.serviceAccount ? 'service_account' : 'user',
           fields,
           ...update,
-          source: req.serviceAccount
-            ? 'integration'
-            : req.incidentSource === 'ai'
-              ? 'ai'
-              : 'manual',
+          ...(eventAlert
+            ? { eventAlertId: String(eventAlert._id), originEventId: eventAlert.latestEventId }
+            : {}),
+          source: eventAlert
+            ? eventAlert.sourceType === 'external'
+              ? 'integration'
+              : 'manual'
+            : req.serviceAccount
+              ? 'integration'
+              : req.incidentSource === 'ai'
+                ? 'ai'
+                : 'manual',
           ...(req.serviceAccount
             ? {
                 sourceAccountId: String(req.serviceAccount._id),

@@ -1,3 +1,5 @@
+import { useListFilter } from '../data/use-list-filter.js';
+import { ColumnFilter } from './column-filter.jsx';
 import React, { useEffect, useState } from 'react';
 import { useResource } from '../data/use-resource.js';
 import { downloadCsv } from '../lib/csv-download.js';
@@ -6,20 +8,25 @@ import { dateRangeErrors } from '../../../shared/validation/form-validation.js';
 
 /** Keep only query controls in the browser; the server owns filtering, ordering, totals and exports. */
 export function ServerTable({ source, render: View, ...props }) {
-  const [search, setSearch] = useState('');
-  const [sort, setSort] = useState(
+  const [kind, scope = ''] = source.split('?');
+  const [search, setSearch] = useListFilter('search', '', kind);
+  const [searchColumn, setSearchColumn] = useListFilter('searchColumn', '', kind);
+  const [columnSearch, setColumnSearch] = useListFilter('columnSearch', '', kind);
+  const [sort, setSort] = useListFilter(
+    'sort',
     props.defaultSort || `${props.columns.find((c) => c.sortable !== false).key}:asc`,
+    kind,
   );
   const [page, setPage] = useState(1),
-    [pageSize, setSize] = useState(10);
-  const [from, setFrom] = useState(''),
-    [to, setTo] = useState('');
+    [pageSize, setSize] = useListFilter('pageSize', 10, kind);
+  const [from, setFrom] = useListFilter('from', '', kind),
+    [to, setTo] = useListFilter('to', '', kind);
   const [sortBy, order] = sort.split(':');
-  const [kind, scope = ''] = source.split('?');
   const params = new URLSearchParams(scope);
   for (const [key, value] of Object.entries({
     search,
-    searchColumn: '',
+    searchColumn,
+    columnSearch,
     sortBy,
     order,
     page,
@@ -55,11 +62,23 @@ export function ServerTable({ source, render: View, ...props }) {
           ...column,
           value: (row) => (Object.hasOwn(row, column.key) ? row[column.key] : column.value(row)),
         }))}
-        filters={
-          <div className="flex flex-wrap items-end gap-4">
+        toolbar={
+          <div className="table-search-toolbar shrink-0 px-4 py-3">
             <TableSearch search={search} onSearch={change(setSearch)} />
+            {props.toolbar}
+          </div>
+        }
+        filters={
+          <div className="table-filter-fields">
+            <ColumnFilter
+              columns={props.columns}
+              column={searchColumn}
+              value={columnSearch}
+              onColumn={change(setSearchColumn)}
+              onValue={change(setColumnSearch)}
+            />
             {props.dateColumn && (
-              <>
+              <fieldset className="table-filter-dates">
                 <label className="field-label">
                   From
                   <input
@@ -73,16 +92,18 @@ export function ServerTable({ source, render: View, ...props }) {
                   <input type="date" value={to} onChange={(e) => change(setTo)(e.target.value)} />
                 </label>
                 {invalid && <p role="alert">Choose a valid date range.</p>}
-              </>
+              </fieldset>
             )}
             {props.filters}
-            {(search || from || to || props.filtersActive) && (
+            {(search || columnSearch || from || to || props.filtersActive) && (
               <button
                 type="button"
                 className="text-xs text-blue-700 dark:text-blue-400"
                 onClick={() => {
                   props.onResetFilters?.();
                   setSearch('');
+                  setSearchColumn('');
+                  setColumnSearch('');
                   setFrom('');
                   setTo('');
                   setPage(1);
@@ -101,13 +122,15 @@ export function ServerTable({ source, render: View, ...props }) {
           sort,
           pending: resource.pending,
           invalid,
-          filtersActive: !!(search || from || to || props.filtersActive),
+          filtersActive: !!(search || columnSearch || from || to || props.filtersActive),
           onPage: setPage,
           onPageSize: change(setSize),
           onSort: change(setSort),
           onRefresh: resource.refresh,
           onReset: () => {
             setSearch('');
+            setSearchColumn('');
+            setColumnSearch('');
             setFrom('');
             setTo('');
             setSort(

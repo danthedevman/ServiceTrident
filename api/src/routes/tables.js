@@ -1,3 +1,10 @@
+import {
+  retainedEvents,
+  incidentEventsFilter,
+  incidentAlertsFilter,
+  eventRelationParent,
+  relatedIncidentsFilter,
+} from '../repositories/event-relations.js';
 import { systemActor } from '@servicetrident/shared/domain/audit';
 import { embeddedImageIds } from '@servicetrident/shared/files/rich-content';
 import { dashboardReportTable } from '../repositories/dashboard-report.js';
@@ -72,6 +79,64 @@ async function source(db, req) {
       fields('title', 'status', 'statusLabel', 'createdBy', 'createdAt', 'updatedAt'),
       view,
       'updatedAt',
+    );
+  }
+  if (kind === 'event-incidents') {
+    const { item, isAlert } = await eventRelationParent(db, workspaceId, req.query);
+    return databaseTable(
+      db,
+      'incidents',
+      { workspaceId, ...relatedIncidentsFilter(item, isAlert) },
+      fields('number', 'title', 'status', 'severity', 'createdAt'),
+      view,
+      'createdAt',
+    );
+  }
+  if (kind === 'event-alerts') {
+    const filter = { workspaceId };
+    const related = req.query.eventId || req.query.incidentId;
+    if (req.query.eventId) {
+      const { item } = await eventRelationParent(db, workspaceId, req.query);
+      filter._id = { $in: item.alertId ? [id(item.alertId)] : [] };
+    }
+    if (req.query.incidentId) {
+      const incident = await parent(db, { ...req, query: { recordId: req.query.incidentId } });
+      Object.assign(filter, incidentAlertsFilter(incident, workspaceId));
+    }
+    if (req.query.status) {
+      if (!['open', 'acknowledged', 'resolved'].includes(req.query.status))
+        throw new InputError('Choose a valid alert state.');
+      filter.status = req.query.status;
+    } else if (!related) filter.status = { $in: ['open', 'acknowledged'] };
+    if (req.query.serviceId) filter.serviceId = String(id(req.query.serviceId));
+    if (req.query.sourceType) {
+      if (!['monitor', 'external'].includes(req.query.sourceType))
+        throw new InputError('Choose a valid event source.');
+      filter.sourceType = req.query.sourceType;
+    }
+    if (req.query.severity) {
+      if (!['critical', 'high', 'medium', 'low', 'info'].includes(req.query.severity))
+        throw new InputError('Choose a valid severity.');
+      filter.severity = req.query.severity;
+    }
+    return databaseTable(
+      db,
+      'eventAlerts',
+      filter,
+      fields(
+        'number',
+        'title',
+        'sourceType',
+        'sourceName',
+        'serviceId',
+        'serviceName',
+        'severity',
+        'status',
+        'lastOccurredAt',
+        'latestEventId',
+      ),
+      view,
+      'lastOccurredAt',
     );
   }
   if (kind === 'events') {
@@ -553,6 +618,21 @@ export function installTableRoutes(app, db) {
       ]);
       return res.json({ counts: { incidents, tasks, knowledge, monitors } });
     }
+    if (['events', 'eventAlerts'].includes(kind)) {
+      if (req.role === 'user') throw new InputError('Your role cannot view events.', 403);
+      const isAlert = kind === 'eventAlerts';
+      const { item } = await eventRelationParent(
+        db,
+        workspaceId,
+        isAlert ? { alertId: recordId } : { eventId: recordId },
+      );
+      const [incidents, events, alerts] = await Promise.all([
+        count('incidents', { workspaceId, ...relatedIncidentsFilter(item, isAlert) }),
+        isAlert ? count('events', { ...retainedEvents(workspaceId), alertId: recordId }) : 0,
+        !isAlert && item.alertId ? count('eventAlerts', { workspaceId, _id: id(item.alertId) }) : 0,
+      ]);
+      return res.json({ counts: { incidents, events, alerts } });
+    }
     if (kind === 'monitors') {
       if (req.role === 'user') throw new InputError('Your role cannot view monitors.', 403);
       if (
@@ -623,7 +703,11 @@ export function installTableRoutes(app, db) {
             : { _id: { $in: [] } }),
         }),
       ]);
-      Object.assign(counts, { tasks, knowledge, 'monitor-events': monitorEvents });
+      const [events, alerts] = await Promise.all([
+        count('events', { ...retainedEvents(workspaceId), ...incidentEventsFilter(record) }),
+        count('eventAlerts', { workspaceId, ...incidentAlertsFilter(record, workspaceId) }),
+      ]);
+      Object.assign(counts, { tasks, knowledge, 'monitor-events': monitorEvents, events, alerts });
     }
     res.json({ counts });
   });

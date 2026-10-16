@@ -1,3 +1,4 @@
+import { publicAppearanceCss } from '../shared/status/appearance.js';
 import { DEMO_TYPES, DEMO_COUNT } from '../shared/domain/demo-data.js';
 import { monitorIntervalMinutes } from '../shared/validation/monitor-interval.js';
 import { validateRca, RCA_FIELDS } from '../shared/domain/rca.js';
@@ -284,7 +285,48 @@ demoBases.forEach((row, index) => {
   row.number = `KBASE${String(index + 1).padStart(7, '0')}`;
 });
 demoServiceNow.number = 'INT0000001';
+const demoExternalEvent = {
+  id: 'edededededededededededed',
+  number: 'EVT0000041',
+  title: 'Checkout error threshold exceeded',
+  description:
+    'Errors increased after a deployment. Review the release and recent service metrics.',
+  sourceType: 'external',
+  sourceName: 'Deployment Pipeline',
+  eventType: 'alert',
+  severity: 'high',
+  signal: 'firing',
+  serviceId: services[0].id,
+  serviceName: services[0].name,
+  alertId: 'ecececececececececececec',
+  externalId: 'release-42-failure',
+  correlationKey: 'checkout-errors',
+  payload: { release: '42', region: 'test-east', errorRate: 0.12 },
+  occurredAt: '2026-10-15T12:00:00Z',
+  receivedAt: '2026-10-15T12:00:02Z',
+  checkedAt: '2026-10-15T12:00:02Z',
+  status: 'down',
+};
+const demoEventAlert = {
+  id: demoExternalEvent.alertId,
+  number: 'ALT0000001',
+  title: demoExternalEvent.title,
+  description: demoExternalEvent.description,
+  sourceType: 'external',
+  sourceName: 'Deployment Pipeline',
+  severity: 'high',
+  serviceId: services[0].id,
+  serviceName: services[0].name,
+  status: 'open',
+  lastOccurredAt: demoExternalEvent.occurredAt,
+  latestEventId: demoExternalEvent.id,
+  revision: 0,
+  createdAt: demoExternalEvent.receivedAt,
+  updatedAt: demoExternalEvent.receivedAt,
+};
 const recordRequests = [];
+let notificationCount = 1,
+  notificationsRead = false;
 let watcherUserIds = [],
   watcherGroupIds = [];
 await context.route('**/api/**', async (route) => {
@@ -293,25 +335,63 @@ await context.route('**/api/**', async (route) => {
   const path = url.pathname.slice(4);
   recordRequests.push(path);
   let data = {};
-  if (path === '/communication-options') data = { slack: true };
-  else if (path === '/notifications')
+  if (path === `/event-alerts/${demoEventAlert.id}`) {
+    if (request.method() === 'PATCH') {
+      const body = request.postDataJSON();
+      assert.equal(body.confirm, true);
+      assert.equal(body.revision, demoEventAlert.revision);
+      demoEventAlert.status = body.status;
+      demoEventAlert.revision++;
+    }
     data = {
-      notifications: [
+      item: demoEventAlert,
+      incidents: [
         {
-          id: 'notice-one',
-          incidentId: demoIncident.id,
-          title: demoIncident.title,
+          id: demoIncident.id,
           number: demoIncident.number,
-          author: 'Morgan Lee',
-          kind: 'comment',
-          unread: true,
-          createdAt: '2026-10-15T11:30:00Z',
+          title: demoIncident.title,
+          status: demoIncident.status,
         },
       ],
-      checkedAt: new Date().toISOString(),
     };
-  else if (path === '/notifications/read') data = { ok: true };
-  else if (path === `/incidents/${demoIncident.id}/collaboration`)
+  } else if (path === `/events/${demoExternalEvent.id}`)
+    data = {
+      event: demoExternalEvent,
+      monitor: null,
+      incidents: [
+        {
+          id: demoIncident.id,
+          number: demoIncident.number,
+          title: demoIncident.title,
+          status: demoIncident.status,
+        },
+      ],
+    };
+  else if (path === '/communication-options') data = { slack: true };
+  else if (path === '/notifications') {
+    const state = url.searchParams.get('state') || 'all',
+      size = Number(url.searchParams.get('pageSize') || 100);
+    const offset = Number((url.searchParams.get('cursor') || 'page-0').replace('page-', ''));
+    const entries = Array.from({ length: notificationCount }, (_, index) => ({
+      id: `notice-${index}`,
+      incidentId: demoIncident.id,
+      title: demoIncident.title,
+      number: demoIncident.number,
+      author: index % 2 ? 'Taylor Chen' : 'Morgan Lee',
+      kind: index % 2 ? 'work_note' : 'comment',
+      unread: !notificationsRead && index % 3 !== 2,
+      createdAt: new Date(Date.UTC(2026, 9, 15, 11, 30) - index * 60000).toISOString(),
+    })).filter((row) => state === 'all' || (state === 'unread' ? row.unread : !row.unread));
+    data = {
+      notifications: entries.slice(offset, offset + size),
+      checkedAt: new Date().toISOString(),
+      nextCursor: offset + size < entries.length ? `page-${offset + size}` : null,
+      hasMore: offset + size < entries.length,
+    };
+  } else if (path === '/notifications/read') {
+    notificationsRead = true;
+    data = { ok: true };
+  } else if (path === `/incidents/${demoIncident.id}/collaboration`)
     data = {
       members: [
         { id: user.id, label: user.displayName, staff: true },
@@ -401,6 +481,11 @@ await context.route('**/api/**', async (route) => {
     };
   } else if (path === '/event-metrics')
     data = {
+      activeAlerts: 4,
+      sources: [
+        { sourceType: 'monitor', count: 30 },
+        { sourceType: 'external', count: 12 },
+      ],
       outcomes: [
         { status: 'up', count: 24, durationTotal: 4800, durationCount: 24 },
         { status: 'down', count: 6, durationTotal: 1800, durationCount: 6 },
@@ -642,10 +727,15 @@ await context.route('**/api/**', async (route) => {
       demoBases.push({ id: 'dddddddddddddddddddddddd', ...body });
       data = { item: demoBases.at(-1) };
     } else {
-      const matches = demoBases.filter((item) =>
-        `${item.title} ${item.description}`
-          .toLowerCase()
-          .includes((url.searchParams.get('search') || '').toLowerCase()),
+      const matches = demoBases.filter(
+        (item) =>
+          `${item.title} ${item.description}`
+            .toLowerCase()
+            .includes((url.searchParams.get('search') || '').toLowerCase()) &&
+          (!url.searchParams.get('columnSearch') ||
+            String(row[url.searchParams.get('searchColumn')] || '')
+              .toLowerCase()
+              .includes(url.searchParams.get('columnSearch').toLowerCase())),
       );
       const pageNumber = Number(url.searchParams.get('page') || 1);
       knowledgePages.push(pageNumber);
@@ -850,6 +940,8 @@ await context.route('**/api/**', async (route) => {
       tasks: [],
       generatedAt: '2026-10-10T17:05:06Z',
     };
+  else if (/^\/public\/status\/[^/]+\/appearance\.css$/.test(path))
+    return route.fulfill({ contentType: 'text/css', body: publicAppearanceCss(statusAppearance) });
   else if (path.startsWith('/public/status/'))
     data = {
       services,
@@ -934,7 +1026,8 @@ await context.route('**/api/**', async (route) => {
   else if (path === `/monitors/${monitors[0].id}/events`)
     data = {
       events: [0, 1].map((index) => ({
-        id: String(index + 1).padStart(24, 'a'),
+        id: index === 0 ? 'cdcdcdcdcdcdcdcdcdcdcdcd' : String(index + 1).padStart(24, 'a'),
+        number: `EVT${String(index + 1).padStart(7, '0')}`,
         checkedAt: index ? '2026-10-09T11:55:00Z' : '2026-10-09T12:00:00Z',
         status: 'up',
         statusCode: 200,
@@ -953,7 +1046,20 @@ await context.route('**/api/**', async (route) => {
   } else if (path === '/tables/headers') {
     data = { rows: [{ id: 'content-type', name: 'content-type', value: 'text/plain' }], total: 1 };
   } else if (path.startsWith('/tables/')) {
+    if (path === '/tables/event-incidents')
+      return route.fulfill({ json: { rows: [demoIncident], total: 1 } });
+    if (path === '/tables/event-alerts') {
+      const rows = [demoEventAlert].filter(
+        (row) =>
+          (!url.searchParams.get('status') || row.status === url.searchParams.get('status')) &&
+          (!url.searchParams.get('sourceType') ||
+            row.sourceType === url.searchParams.get('sourceType')),
+      );
+      return route.fulfill({ json: { rows, total: rows.length } });
+    }
     if (path === '/tables/events') {
+      if (url.searchParams.get('alertId') === demoEventAlert.id)
+        return route.fulfill({ json: { rows: [demoExternalEvent], total: 1 } });
       const rows = Array.from({ length: 30 }, (_, index) => ({
         id: index.toString(16).padStart(24, 'c'),
         monitorId: monitors[0].id,
@@ -1015,10 +1121,15 @@ await context.route('**/api/**', async (route) => {
     }
     const rows = (
       path.endsWith('services') ? services : path.endsWith('monitors') ? monitors : []
-    ).filter((row) =>
-      JSON.stringify(row)
-        .toLowerCase()
-        .includes((url.searchParams.get('search') || '').toLowerCase()),
+    ).filter(
+      (row) =>
+        JSON.stringify(row)
+          .toLowerCase()
+          .includes((url.searchParams.get('search') || '').toLowerCase()) &&
+        (!url.searchParams.get('columnSearch') ||
+          String(row[url.searchParams.get('searchColumn')] || '')
+            .toLowerCase()
+            .includes(url.searchParams.get('columnSearch').toLowerCase())),
     );
     data = { rows, total: rows.length };
   } else if (path === '/tasks') {
@@ -1130,7 +1241,7 @@ async function captureRcaWorkflows() {
   await page.getByLabel('Detection gap', { exact: true }).fill('Missing timeout alert');
   // Restore the fixture so the remaining captures use the default form.
   rcaFields = RCA_FIELDS;
-  await page.goto(`${base}/settings`);
+  await page.goto(`${base}/settings?section=alert-grouping`);
   const groupingWindow = page.getByLabel('Alert grouping window (seconds)', { exact: true });
   await groupingWindow.waitFor();
   assert.equal(await groupingWindow.inputValue(), '30');
@@ -1205,6 +1316,15 @@ async function captureNavigation() {
   const nav = page.getByRole('navigation', { name: 'Help topics' });
   await nav.waitFor();
   const root = page.locator('.page-scroll-area');
+  const initialNav = await nav.boundingBox();
+  const initialSearch = await page
+    .getByRole('searchbox', { name: 'Search documentation', exact: true })
+    .boundingBox();
+  assert.ok(
+    Math.abs(initialNav.y - initialSearch.y) <= 2,
+    'Help categories align with the top of search',
+  );
+  await page.screenshot({ path: `${output}/help-navigation.png` });
   const before = await root.evaluate((el) => el.scrollTop);
   await nav.hover();
   await page.mouse.wheel(0, 400);
@@ -1216,7 +1336,43 @@ async function captureNavigation() {
   await nav.getByRole('link', { name: 'Common questions', exact: true }).scrollIntoViewIfNeeded();
   const bounds = await nav.boundingBox();
   assert.ok(bounds.y >= 0 && bounds.y + bounds.height <= 720);
-  await page.screenshot({ path: `${output}/help-navigation.png` });
+  const searchBox = page.getByRole('searchbox', { name: 'Search documentation', exact: true });
+  const searchBounds = await searchBox.boundingBox(),
+    rootBounds = await root.boundingBox();
+  assert.ok(
+    searchBounds.y >= rootBounds.y &&
+      searchBounds.y + searchBounds.height <= rootBounds.y + rootBounds.height,
+  );
+  assert.ok(
+    searchBounds.y - rootBounds.y <= 8,
+    'Sticky search meets the top of the guide scroll area',
+  );
+  const articleBounds = await page.locator('.page-scroll-area article').boundingBox();
+  assert.ok(Math.abs(searchBounds.x - articleBounds.x) < 2, 'Help search aligns with the guide');
+  await nav.getByRole('link', { name: 'Common questions', exact: true }).click();
+  await page.waitForURL('**/help?topic=questions');
+  await page.waitForFunction(() => document.querySelector('.page-scroll-area').scrollTop === 0);
+  await page.setViewportSize({ width: 390, height: 720 });
+  await page.goto(`${base}/help?topic=configuration`);
+  await page.locator('.page-scroll-area article').waitFor();
+  await root.evaluate((el) => {
+    el.scrollTop = el.scrollHeight;
+  });
+  const mobileScroll = await root.evaluate((el) => ({
+    top: el.scrollTop,
+    height: el.clientHeight,
+    total: el.scrollHeight,
+    width: el.clientWidth,
+    fullWidth: el.scrollWidth,
+  }));
+  assert.ok(
+    mobileScroll.top + mobileScroll.height >= mobileScroll.total - 2,
+    'Help bottom controls reachable on mobile',
+  );
+  assert.ok(
+    mobileScroll.fullWidth <= mobileScroll.width + 1,
+    'Help has no mobile horizontal overflow',
+  );
   await page.setViewportSize({ width: 1440, height: 960 });
 }
 
@@ -1317,11 +1473,11 @@ async function captureCollaboration() {
       bounds.y >= 0 && bounds.y + bounds.height <= viewport.height,
       'Incident content scrolls to conversation',
     );
-    assert.ok(
-      await page
-        .locator('#main')
-        .evaluate((el) => parseFloat(getComputedStyle(el).borderBottomLeftRadius) >= 12),
-    );
+    const radius = await page
+      .locator('#main')
+      .evaluate((el) => parseFloat(getComputedStyle(el).borderBottomLeftRadius));
+    if (viewport.width < 768) assert.equal(radius, 0);
+    else assert.ok(radius >= 12);
     assert.ok(
       await page.locator('.app-topbar').evaluate((el) => el.getBoundingClientRect().height <= 48),
     );
@@ -1402,7 +1558,7 @@ async function captureCollaboration() {
   await settingsPanel.waitFor();
   await settingsPanel.getByRole('button', { name: 'Close field settings', exact: true }).click();
   await page.setViewportSize({ width: 1440, height: 960 });
-  await page.goto(`${base}/settings`);
+  await page.goto(`${base}/settings?section=demo-data`);
   await page.getByRole('heading', { name: 'Demo Data', exact: true }).scrollIntoViewIfNeeded();
   await page.getByText('New batches include 50 linked RCAs', { exact: false }).waitFor();
   await page.screenshot({ path: `${output}/demo-data-rcas.png` });
@@ -1665,6 +1821,12 @@ async function captureReadmeRecords() {
   });
   assert.ok(brandAlignment.delta < 1, 'Expanded logo aligns with navigation icons');
   assert.ok(brandAlignment.edge < 1, 'Collapse toggle reaches the content-side edge');
+  assert.equal(
+    await page
+      .getByRole('button', { name: 'Collapse navigation', exact: true })
+      .evaluate((node) => node.getBoundingClientRect().height),
+    36,
+  );
 
   assert.equal(navigationSizing.width, 32);
   assert.equal(navigationSizing.height, 32);
@@ -1712,6 +1874,13 @@ async function captureMobileNavigation() {
       header.getByRole('button', { name: /^Notifications/ }).boundingBox(),
       header.locator('summary').boundingBox(),
     ]);
+    const contentBounds = await page.locator('#main').boundingBox();
+    assert.equal(contentBounds.x, 0);
+    assert.equal(contentBounds.width, width);
+    assert.equal(
+      await page.locator('#main').evaluate((node) => getComputedStyle(node).borderRadius),
+      '0px',
+    );
     boxes.forEach((box, index) => {
       assert.ok(box.x >= 0 && box.x + box.width <= width);
       assert.ok(Math.abs(box.y + box.height / 2 - boxes[0].y - boxes[0].height / 2) < 1);
@@ -1743,7 +1912,498 @@ async function captureMobileNavigation() {
     .waitFor();
 }
 
+async function captureChatWorkspace() {
+  if (!demoArticles.length) await captureRecordExports();
+  user.role = 'admin';
+  aiDemoEnabled = true;
+  aiChatEnabled = false;
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await page.goto(`${base}/dashboard`);
+  await page.getByRole('button', { name: 'Open AI Chat', exact: true }).click();
+  const panel = page.locator('#ai-chat-panel');
+  for (const example of AI_DEMO_EXAMPLES) {
+    await panel.getByRole('button', { name: example.label, exact: true }).click();
+    await panel.locator('.ai-chat-progress').waitFor();
+    await panel.locator('.ai-chat-transcript').evaluate((node) => {
+      node.scrollTop = 0;
+    });
+    await panel.locator('.ai-chat-progress').waitFor({ state: 'hidden' });
+    assert.equal(
+      await panel.locator('.ai-chat-transcript').evaluate((node) => node.scrollTop),
+      0,
+      'Answers preserve the reading position',
+    );
+  }
+  await panel.getByRole('button', { name: 'New Conversation', exact: true }).click();
+  assert.equal(await panel.locator('article').count(), 0);
+  await panel.getByRole('button', { name: 'Conversation History', exact: true }).click();
+  await panel.getByRole('button', { name: 'Full View', exact: true }).click();
+  await page.evaluate(async () => {
+    const animations = [
+      ...document.querySelector('.desktop-sidebar').getAnimations(),
+      ...document.querySelector('[data-app-shell]').getAnimations(),
+    ];
+    await Promise.all(animations.map((animation) => animation.finished.catch(() => {})));
+  });
+  await page.screenshot({ path: `${output}/ai-chat-history.png` });
+  await panel.locator('.ai-conversation-entry').first().click();
+  assert.equal(await panel.locator('article').count(), 12);
+  assert.equal(
+    await panel.getByRole('button', { name: 'Simulate Action', exact: true }).count(),
+    0,
+  );
+  await panel
+    .getByText('Previous action proposal. Ask again to review a fresh action.', { exact: true })
+    .waitFor();
+  for (const viewport of [
+    { width: 1440, height: 960 },
+    { width: 390, height: 844 },
+  ]) {
+    await page.setViewportSize(viewport);
+    const bounds = await panel.boundingBox(),
+      main = await page.locator('#main').boundingBox();
+    assert.ok(Math.abs(bounds.width - main.width) < 3 && Math.abs(bounds.height - main.height) < 3);
+    assert.equal(await page.locator('.record-sticky-header').evaluate((node) => node.inert), true);
+    await panel.locator('.ai-chat-transcript').evaluate((node) => {
+      node.scrollTop = node.scrollHeight;
+    });
+    assert.ok(await panel.locator('.ai-chat-transcript').evaluate((node) => node.scrollTop > 0));
+  }
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await panel.locator('.ai-chat-transcript').evaluate((node) => {
+    node.scrollTop = 0;
+  });
+  await page.evaluate(async () => {
+    const animations = [
+      ...document.querySelector('.desktop-sidebar').getAnimations(),
+      ...document.querySelector('[data-app-shell]').getAnimations(),
+    ];
+    await Promise.all(animations.map((animation) => animation.finished.catch(() => {})));
+  });
+  await page.screenshot({ path: `${output}/ai-chat-full-view.png` });
+  await panel.getByRole('button', { name: 'Exit Full View', exact: true }).click();
+  assert.equal(await page.locator('.record-sticky-header').evaluate((node) => node.inert), false);
+  await page.screenshot({ path: `${output}/ai-chat-conversation.png` });
+  await page.reload();
+  await page.getByRole('button', { name: 'Open AI Chat', exact: true }).click();
+  await panel.getByRole('button', { name: 'Conversation History', exact: true }).click();
+  assert.equal(
+    await panel.locator('.ai-conversation-entry').count(),
+    0,
+    'History is cleared on reload',
+  );
+}
+
+async function captureMonitorHistoryColumns() {
+  user.role = 'admin';
+  await page.goto(`${base}/monitors/${monitors[0].id}`);
+  const heading = page.getByRole('columnheader', { name: 'Check Number', exact: true });
+  await heading.waitFor();
+  for (const viewport of [
+    { width: 1440, height: 960 },
+    { width: 390, height: 844 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await heading.scrollIntoViewIfNeeded();
+    const sizes = await heading.evaluate((node) => {
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      const text = range.getBoundingClientRect(),
+        cell = node.getBoundingClientRect(),
+        next = node.nextElementSibling.getBoundingClientRect();
+      return {
+        textLeft: text.left,
+        textRight: text.right,
+        cellLeft: cell.left,
+        cellRight: cell.right,
+        nextLeft: next.left,
+        width: cell.width,
+      };
+    });
+    assert.ok(
+      sizes.width >= 140 &&
+        sizes.textLeft >= sizes.cellLeft &&
+        sizes.textRight <= sizes.cellRight &&
+        sizes.textRight <= sizes.nextLeft,
+      'Check Number heading has enough width without overlapping Checked At',
+    );
+  }
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await heading.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `${output}/monitor-check-history.png` });
+  await page.screenshot({ path: `${output}/monitor-check-now.png` });
+}
+
+async function captureNotificationHistory() {
+  notificationCount = 61;
+  notificationsRead = false;
+  user.role = 'admin';
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await page.goto(`${base}/dashboard`);
+  await page.getByRole('button', { name: /^Notifications/ }).click();
+  const dropdown = page.getByRole('region', { name: 'Notifications', exact: true });
+  await dropdown.getByRole('tab', { name: 'Read', exact: true }).click();
+  await page.waitForFunction(
+    () => document.querySelectorAll('#notification-panel .notification-entry').length === 20,
+  );
+  assert.equal(await dropdown.locator('.notification-entry').count(), 20);
+  await dropdown.getByRole('tab', { name: 'Unread', exact: true }).click();
+  assert.equal(await dropdown.locator('.notification-entry').count(), 41);
+  await page.screenshot({ path: `${output}/notifications-dropdown.png` });
+  await dropdown.getByRole('link', { name: 'View All Notifications', exact: true }).click();
+  await page.waitForURL(`${base}/notifications`);
+  await page.getByRole('heading', { name: 'Notifications', exact: true }).waitFor();
+  await page.getByRole('button', { name: 'Load More', exact: true }).waitFor();
+  assert.equal(await page.locator('.notification-history .notification-entry').count(), 50);
+  await page.getByRole('button', { name: 'Load More', exact: true }).click();
+  await page.waitForFunction(
+    () => document.querySelectorAll('.notification-history .notification-entry').length === 61,
+  );
+  await page.screenshot({ path: `${output}/notifications-page.png` });
+  await page.getByRole('tab', { name: 'Unread', exact: true }).click();
+  await page.getByRole('button', { name: 'Mark all as read', exact: true }).click();
+  await page.getByText('No notifications in this view.', { exact: true }).waitFor();
+  await page.getByRole('tab', { name: 'Read', exact: true }).click();
+  await page.getByRole('button', { name: 'Load More', exact: true }).click();
+  await page.waitForFunction(
+    () => document.querySelectorAll('.notification-history .notification-entry').length === 61,
+  );
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.locator('.notification-history .notification-entry').last().scrollIntoViewIfNeeded();
+  const last = await page.locator('.notification-history .notification-entry').last().boundingBox();
+  assert.ok(last.y + last.height <= 844, 'Notification history remains scrollable on mobile');
+  await page.locator('.page-scroll-area').evaluate((node) => {
+    node.scrollTop = 0;
+  });
+  while (await page.getByRole('button', { name: 'Dismiss notification', exact: true }).count())
+    await page.getByRole('button', { name: 'Dismiss notification', exact: true }).first().click();
+  await page.screenshot({ path: `${output}/notifications-mobile.png` });
+  await page.locator('.notification-history .notification-entry').first().click();
+  await page.waitForURL(`${base}/incidents/${demoIncident.id}`);
+  notificationCount = 1;
+  notificationsRead = false;
+  await page.setViewportSize({ width: 1440, height: 960 });
+}
+
+async function captureEventManagement() {
+  user.role = 'admin';
+  demoEventAlert.status = 'open';
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await page.goto(`${base}/alerts`);
+  await page.getByRole('columnheader', { name: 'State', exact: true }).waitFor();
+  await page.getByRole('link', { name: 'ALT0000001', exact: true }).waitFor();
+  await page.screenshot({ path: `${output}/events-alerts.png` });
+  await page.getByRole('link', { name: 'ALT0000001', exact: true }).click();
+  await page.waitForURL(`${base}/alerts/${demoEventAlert.id}`);
+  await page.getByRole('button', { name: 'Record actions', exact: true }).click();
+  await page.getByRole('button', { name: 'Acknowledge', exact: true }).click();
+  assert.equal(demoEventAlert.status, 'open', 'Triage waits for explicit confirmation');
+  await page
+    .getByRole('dialog', { name: 'Change Alert State', exact: true })
+    .getByRole('button', { name: 'Confirm', exact: true })
+    .click();
+  await page.waitForFunction(() =>
+    document.querySelector('[aria-label="Record number"]')?.textContent.includes('ALT0000001'),
+  );
+  assert.equal(demoEventAlert.status, 'acknowledged');
+  await page.screenshot({ path: `${output}/event-alert.png` });
+  await page.getByRole('link', { name: 'Create Incident', exact: true }).click();
+  await page.getByLabel('Title *', { exact: true }).waitFor();
+  assert.equal(
+    await page.getByLabel('Title *', { exact: true }).inputValue(),
+    demoEventAlert.title,
+  );
+  await page.goto(`${base}/events/${demoExternalEvent.id}`);
+  await page.getByRole('heading', { name: demoExternalEvent.title, exact: true }).waitFor();
+  assert.equal(await page.getByRole('heading', { name: 'HTTP Status', exact: true }).count(), 0);
+  await page.screenshot({ path: `${output}/external-event.png` });
+  await page
+    .getByRole('navigation', { name: 'Breadcrumb' })
+    .getByRole('link', { name: 'Events', exact: true })
+    .click();
+  await page.waitForURL(`${base}/events`);
+  await page.getByRole('columnheader', { name: 'HTTP Status', exact: true }).waitFor();
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 720 });
+    await page.goto(`${base}/alerts/${demoEventAlert.id}`);
+    await page.getByRole('heading', { name: demoEventAlert.title, exact: true }).waitFor();
+    const scroll = page.locator('.record-scroll-area');
+    await scroll.evaluate((el) => {
+      el.scrollTop = el.scrollHeight;
+    });
+    const box = await scroll.evaluate((el) => ({
+      top: el.scrollTop,
+      height: el.clientHeight,
+      total: el.scrollHeight,
+    }));
+    assert.ok(box.top + box.height >= box.total - 2, 'Alert bottom remains reachable');
+  }
+  await page.setViewportSize({ width: 1440, height: 960 });
+  demoEventAlert.status = 'open';
+}
+
+async function captureSettingsAndKeywords() {
+  user.role = 'admin';
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await page.goto(`${base}/settings?section=alert-grouping`);
+  await page.getByRole('navigation', { name: 'Settings categories' }).waitFor();
+  assert.equal(await page.getByRole('heading', { name: 'Demo Data', exact: true }).count(), 0);
+  await page.screenshot({ path: `${output}/settings-navigation.png` });
+  await page.getByRole('button', { name: 'Demo Data', exact: true }).click();
+  await page.getByRole('heading', { name: 'Demo Data', exact: true }).waitFor();
+  await page.reload();
+  await page.getByRole('heading', { name: 'Demo Data', exact: true }).waitFor();
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 720 });
+    const scroll = page.locator('.page-scroll-area, .record-scroll-area');
+    await scroll.evaluate((el) => (el.scrollTop = el.scrollHeight));
+    assert.ok(await scroll.evaluate((el) => el.scrollTop + el.clientHeight >= el.scrollHeight - 2));
+  }
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await page.goto(`${base}/monitors/new`);
+  await page.getByRole('textbox', { name: 'Keyword', exact: true }).fill('healthy');
+  await page.getByRole('combobox', { name: 'Trigger when', exact: true }).click();
+  await page.getByRole('option', { name: 'Keyword is missing', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Keyword', exact: true }).scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `${output}/monitor-keyword.png` });
+  await page.addInitScript(() => {
+    window.publicThemeFrames = [];
+    window.publicBackgroundFrames = [];
+    const observe = () => {
+      if (location.pathname.startsWith('/status/public/')) {
+        const color = getComputedStyle(document.documentElement).backgroundColor;
+        if (window.publicBackgroundFrames.at(-1) !== color)
+          window.publicBackgroundFrames.push(color);
+      }
+      if (
+        location.pathname.startsWith('/status/public/') &&
+        getComputedStyle(document.documentElement).visibility !== 'hidden'
+      ) {
+        const theme = document.documentElement.dataset.theme;
+        if (window.publicThemeFrames.at(-1) !== theme) window.publicThemeFrames.push(theme);
+      }
+      requestAnimationFrame(observe);
+    };
+    requestAnimationFrame(observe);
+  });
+  for (const appearance of ['dark', 'light']) {
+    statusAppearance = appearance;
+    await page.goto(`${base}/status/public/${'9'.repeat(48)}`);
+    await page.getByRole('button', { name: 'Toggle status page appearance' }).waitFor();
+    assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), appearance);
+    await page.getByRole('button', { name: 'Toggle status page appearance' }).click();
+    await page.reload();
+    await page.getByRole('button', { name: 'Toggle status page appearance' }).waitFor();
+    assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), appearance);
+    assert.equal(await page.evaluate(() => document.documentElement.style.visibility), '');
+    await page.evaluate(
+      () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
+    );
+    assert.deepEqual(
+      await page.evaluate(() => window.publicThemeFrames),
+      [appearance],
+      'No frame paints the wrong public appearance on reload',
+    );
+    assert.deepEqual(
+      await page.evaluate(() => window.publicBackgroundFrames),
+      [appearance === 'dark' ? 'rgb(0, 0, 0)' : 'rgb(255, 255, 255)'],
+      'The canvas uses the saved appearance from the first frame',
+    );
+  }
+  statusAppearance = 'light';
+}
+
+async function verifyFormHeadingRows() {
+  for (const role of ['admin', 'responder']) {
+    user.role = role;
+    for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: 720 });
+      for (const route of ['/incidents/new', '/tasks/new', '/knowledge/new']) {
+        await page.goto(`${base}${route}`);
+        await page.locator('.form-page form').first().waitFor();
+        assert.equal(
+          await page.locator('.form-page > div.flex.items-center.justify-between').count(),
+          0,
+          `${role} ${route}: no empty heading row`,
+        );
+        if (role === 'admin')
+          await page.getByRole('button', { name: 'Form actions', exact: true }).waitFor();
+        const scroll = page.locator('.record-scroll-area, .page-scroll-area');
+        await scroll.evaluate((el) => {
+          el.scrollTop = el.scrollHeight;
+        });
+        const metrics = await scroll.evaluate((el) => ({
+          top: el.scrollTop,
+          height: el.clientHeight,
+          total: el.scrollHeight,
+        }));
+        assert.ok(
+          metrics.top + metrics.height >= metrics.total - 2,
+          'Bottom of form remains reachable',
+        );
+      }
+    }
+  }
+  user.role = 'admin';
+}
+
 try {
+  if (process.env.HELP_CAPTURE_FOCUS === 'event-related-bottom') {
+    for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: 844 });
+      await page.goto(`${base}/events`);
+      await page.getByRole('link', { name: 'EVT0000001', exact: true }).click();
+      await page.getByRole('tab', { name: /^Incidents/ }).waitFor();
+      const related = page.locator('.record-scroll-area .related-lists');
+      assert.equal(
+        await related.evaluate((el) => el.nextElementSibling),
+        null,
+        'Monitor relationships follow all diagnostics',
+      );
+      await related.scrollIntoViewIfNeeded();
+      await page.getByRole('tab', { name: /^Alerts/ }).click();
+      await page.getByRole('tabpanel', { name: /^Alerts/ }).waitFor();
+      await page.getByRole('tab', { name: /^Incidents/ }).click();
+      await page.screenshot({ path: `${output}/monitor-event-related-${width}.png` });
+      await page.goto(`${base}/events/${demoExternalEvent.id}`);
+      await page.getByRole('tab', { name: /^Incidents/ }).waitFor();
+      assert.equal(
+        await related.evaluate((el) => el.nextElementSibling),
+        null,
+        'External relationships remain below the payload',
+      );
+    }
+    assert.deepEqual(faults, []);
+    await browser.close();
+    process.exit();
+  }
+  if (process.env.HELP_CAPTURE_FOCUS === 'event-filters') {
+    for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: 844 });
+      await page.goto(`${base}/events`);
+      await page.getByRole('button', { name: 'Filters', exact: true }).click();
+      const panel = page.getByRole('dialog', { name: 'Filter', exact: true });
+      await panel.waitFor();
+      const from = await panel.getByLabel('From', { exact: true }).boundingBox();
+      const to = await panel.getByLabel('To', { exact: true }).boundingBox();
+      assert.ok(Math.abs(from.y - to.y) < 2, 'Dates stay on the same row');
+      await panel.getByRole('combobox', { name: 'Filter Column' }).click();
+      await page.getByRole('option', { name: 'External ID', exact: true }).click();
+      const contains = panel.getByRole('textbox', { name: 'Column Contains' });
+      await contains.fill('release-42');
+      assert.ok((await contains.boundingBox()).width > 280, 'Column condition spans the panel');
+      assert.equal(await panel.getByRole('searchbox').count(), 0);
+      assert.equal(await panel.evaluate((el) => el.scrollWidth > el.clientWidth + 1), false);
+      await panel.evaluate((el) => (el.scrollTop = el.scrollHeight));
+      await panel.getByRole('button', { name: 'Done', exact: true }).waitFor();
+      await panel.evaluate((el) => (el.scrollTop = 0));
+      await page.screenshot({ path: `${output}/events-filter-${width}.png` });
+      await panel.getByRole('button', { name: 'Done', exact: true }).click();
+      await page.reload();
+      await page.getByRole('button', { name: 'Filters', exact: true }).click();
+      assert.equal(
+        await panel.getByRole('textbox', { name: 'Column Contains' }).inputValue(),
+        'release-42',
+      );
+      await panel.getByRole('textbox', { name: 'Column Contains' }).fill('');
+    }
+    await browser.close();
+    process.exit();
+  }
+  if (process.env.HELP_CAPTURE_FOCUS === 'settings-keyword') {
+    await captureSettingsAndKeywords();
+    assert.deepEqual(faults, []);
+    console.log('Verified Settings navigation, keyword controls, and public appearance reload.');
+    process.exitCode = 0;
+    await browser.close();
+    process.exit();
+  }
+  if (process.env.HELP_CAPTURE_FOCUS === 'event-management') {
+    await captureEventManagement();
+    assert.deepEqual(faults, []);
+    console.log(
+      'Verified event/alert navigation, confirmed triage, incident prefill and desktop/mobile scrolling.',
+    );
+    await browser.close();
+    process.exit(0);
+  }
+  if (process.env.HELP_CAPTURE_FOCUS === 'tab-frame') {
+    await page.goto(`${base}/tasks/${tasks[0].id}`);
+    await page
+      .getByRole('link', { name: 'Demo Customer Portal (opens in an app record tab)', exact: true })
+      .click();
+    const tabs = page.getByRole('tablist', { name: 'Record tabs', exact: true });
+    await tabs.waitFor();
+    for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: 960 });
+      for (const theme of ['light', 'dark']) {
+        await page.evaluate((theme) => {
+          document.documentElement.dataset.theme = theme;
+        }, theme);
+        for (const index of [0, 1]) {
+          await tabs.getByRole('tab').nth(index).click();
+          const tab = await page
+            .locator('.record-navigation-tab[data-active="true"]')
+            .boundingBox();
+          const main = await page.locator('#main').boundingBox();
+          assert.ok(
+            Math.abs(tab.y + tab.height - main.y) <= 1,
+            'Active tab joins content without a gap',
+          );
+          const corners = await page
+            .locator('#main')
+            .evaluate((el) => [
+              getComputedStyle(el).borderTopLeftRadius,
+              getComputedStyle(el).borderTopRightRadius,
+            ]);
+          assert.deepEqual(corners, ['0px', '0px']);
+        }
+      }
+    }
+    await page.setViewportSize({ width: 1440, height: 960 });
+    await tabs.getByRole('tab').first().click();
+    await page.screenshot({ path: `${output}/record-tabs.png` });
+    assert.deepEqual(faults, []);
+    console.log(
+      'Verified seamless tab/content joins for first and later tabs in light/dark desktop/mobile views.',
+    );
+    await browser.close();
+    process.exit(0);
+  }
+  if (process.env.HELP_CAPTURE_FOCUS === 'form-heading') {
+    await verifyFormHeadingRows();
+    assert.deepEqual(faults, []);
+    console.log(
+      'Verified no empty form heading rows, retained admin actions and desktop/mobile scrolling.',
+    );
+    await browser.close();
+    process.exit(0);
+  }
+  if (process.env.HELP_CAPTURE_FOCUS === 'notifications') {
+    await captureNotificationHistory();
+    assert.deepEqual(faults, []);
+    console.log(
+      'Verified notification tabs, full history pagination, read state, links and mobile scrolling.',
+    );
+    await browser.close();
+    process.exit(0);
+  }
+  if (process.env.HELP_CAPTURE_FOCUS === 'monitor-history') {
+    await captureMonitorHistoryColumns();
+    assert.deepEqual(faults, []);
+    console.log('Verified readable monitor check headings at desktop/mobile widths.');
+    await browser.close();
+    process.exit(0);
+  }
+  if (process.env.HELP_CAPTURE_FOCUS === 'chat-workspace') {
+    await captureChatWorkspace();
+    assert.deepEqual(faults, []);
+    console.log(
+      'Verified chat history, read-only past proposals, stable reply scrolling and responsive full view.',
+    );
+    await browser.close();
+    process.exit(0);
+  }
   if (process.env.HELP_CAPTURE_FOCUS === 'mobile-nav') {
     await captureMobileNavigation();
     assert.deepEqual(faults, []);
@@ -1879,10 +2539,21 @@ try {
       .evaluateAll((links) => links.map((link) => link.getAttribute('href'))),
     expandedOrder,
   );
+  await page
+    .locator('.desktop-sidebar')
+    .getByRole('link', { name: 'Services', exact: true })
+    .waitFor();
+  const moreShape = await page
+    .locator('.desktop-sidebar button[aria-label="More"] svg path')
+    .evaluate((path) => {
+      const bounds = path.getBBox();
+      return bounds.width > bounds.height;
+    });
+  assert.equal(moreShape, true, 'Sidenav More uses a horizontal ellipsis');
   await page.locator('.desktop-sidebar').getByRole('button', { name: 'More', exact: true }).click();
   await page
     .locator('.desktop-sidebar nav .action-menu')
-    .getByRole('link', { name: 'Services', exact: true })
+    .getByRole('link', { name: 'Knowledge', exact: true })
     .waitFor();
   assert.deepEqual(
     await page
@@ -1894,6 +2565,7 @@ try {
       ),
     expandedOrder,
   );
+  await page.screenshot({ path: `${output}/sidenav-more.png` });
   await page.locator('.desktop-sidebar nav .action-menu').press('Escape');
   const compactCenters = await page.locator('.desktop-sidebar').evaluate((rail) => {
     const targets = [
@@ -1972,29 +2644,25 @@ try {
   await filtersDialog.waitFor();
   assert.equal(await page.locator('dialog:modal').count(), 0);
   assert.ok((await filtersDialog.boundingBox()).width <= 416);
-  assert.equal(await filtersDialog.getByRole('combobox').count(), 0);
-  assert.ok(
-    (await filtersDialog.getByRole('searchbox', { name: 'Filter rows', exact: true }).boundingBox())
-      .width > 350,
-  );
-  await filtersDialog
-    .getByRole('searchbox', { name: 'Filter rows', exact: true })
-    .fill('Customer Portal');
+  assert.equal(await filtersDialog.getByRole('searchbox').count(), 0);
+  const outsideSearch = page.getByRole('searchbox', { name: 'Search list', exact: true });
+  await filtersDialog.getByRole('combobox', { name: 'Filter Column' }).click();
+  await page.getByRole('option', { name: 'Service', exact: true }).click();
+  await filtersDialog.getByRole('textbox', { name: 'Column Contains' }).fill('Customer Portal');
   await page.screenshot({ path: `${output}/table-filters-modal.png` });
   await filtersDialog.getByRole('button', { name: 'Done', exact: true }).click();
-  await filtersDialog.waitFor({ state: 'hidden' });
   await page
     .getByRole('link', { name: services[1].name, exact: true })
     .waitFor({ state: 'hidden' });
-  assert.equal(await filtersButton.evaluate((button) => button === document.activeElement), true);
+  assert.equal(await outsideSearch.inputValue(), '');
+  await page.reload();
   await filtersButton.click();
   assert.equal(
-    await filtersDialog.getByRole('searchbox', { name: 'Filter rows', exact: true }).inputValue(),
+    await filtersDialog.getByRole('textbox', { name: 'Column Contains' }).inputValue(),
     'Customer Portal',
   );
-  await filtersDialog.getByRole('searchbox', { name: 'Filter rows', exact: true }).fill('');
+  await filtersDialog.getByRole('textbox', { name: 'Column Contains' }).fill('');
   await page.keyboard.press('Escape');
-  await filtersDialog.waitFor({ state: 'hidden' });
   await page.getByRole('link', { name: services[1].name, exact: true }).waitFor();
   await page.goto(`${base}/monitors`);
   assert.equal(
@@ -2501,9 +3169,9 @@ try {
   );
   assert.equal(await page.getByRole('navigation', { name: 'Open record tabs' }).count(), 0);
   await page.goto(`${base}/help?topic=incidents`);
-  await page.getByRole('img', { name: /^Tasks Kanban/ }).scrollIntoViewIfNeeded();
+  await page.getByRole('img', { name: /^Task modal editor/ }).scrollIntoViewIfNeeded();
   await page.waitForFunction(() => {
-    const image = document.querySelector('img[src="/help/tasks-board.png"]');
+    const image = document.querySelector('img[src="/help/task-board-modal-edit.png"]');
     return image?.complete && image.naturalWidth > 0;
   });
   user.role = 'admin';
@@ -3778,11 +4446,11 @@ try {
   await page.reload();
   await page.getByText('Synthetic retained value', { exact: true }).waitFor();
 
-  await page.goto(`${base}/events`);
+  await page.goto(`${base}/events?view=events`);
   await page.getByRole('columnheader', { name: 'HTTP Status', exact: true }).waitFor();
   await page.getByRole('button', { name: 'Filters', exact: true }).click();
   await page.getByRole('combobox', { name: 'Outcome', exact: true }).click();
-  await page.getByRole('option', { name: 'Down', exact: true }).click();
+  await page.getByRole('option', { name: 'Failure / Firing', exact: true }).click();
   await page.getByRole('combobox', { name: 'Incident', exact: true }).click();
   await page
     .getByRole('option', { name: `INC0000001 · ${demoIncident.title}`, exact: true })
@@ -3806,8 +4474,9 @@ try {
   assert.ok(inlineNumber, 'Record number and reference icon stay on the same line');
   await eventNumber.click();
   await page
-    .getByRole('region', { name: 'Triggered Incidents', exact: true })
+    .getByRole('tabpanel', { name: /^Incidents/ })
     .getByRole('link')
+    .first()
     .waitFor();
   await page.locator('.record-navigation-context').getByText('Event', { exact: true }).waitFor();
   const eventPanel = page.locator('.record-sidebar');
@@ -3824,8 +4493,9 @@ try {
   await page.screenshot({ path: `${output}/event-triggered-incidents.png` });
   assert.equal(
     await page
-      .getByRole('region', { name: 'Triggered Incidents', exact: true })
+      .getByRole('tabpanel', { name: /^Incidents/ })
       .getByRole('link')
+      .first()
       .getAttribute('href'),
     `/incidents/${demoIncident.id}`,
   );
@@ -3987,6 +4657,11 @@ try {
   await captureNavigation();
   await captureReadmeRecords();
   await captureMobileNavigation();
+  await captureChatWorkspace();
+  await captureMonitorHistoryColumns();
+  await captureNotificationHistory();
+  await captureEventManagement();
+  await captureSettingsAndKeywords();
   assert.deepEqual(faults, []);
   console.log(
     'Captured synthetic screenshots, including five dark-mode README images; verified task ordering and loading, knowledge base destination exclusion and runbooks, accessible labels, global lanes, AI gating and drafts, logo themes, textarea growth, incident monitor events, date formats, and navigation and record header alignment.',

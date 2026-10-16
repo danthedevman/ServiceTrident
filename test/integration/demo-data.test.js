@@ -80,6 +80,7 @@ test('demo route adds once and removes only its workspace batch', async (t) => {
     'invitations',
     'monitors',
     'events',
+    'eventAlerts',
     'incidents',
     'tasks',
     'rcas',
@@ -198,6 +199,9 @@ test('demo route adds once and removes only its workspace batch', async (t) => {
     assert.ok(!JSON.stringify(first.data).includes('passwordHash'));
     assert.ok(!JSON.stringify(first.data).includes('"secret":'));
   }
+  const status = await request('/status');
+  assert.equal(status.status, 200, 'Mixed demo events must not break service health');
+  assert.equal(status.data.monitors.length, 50);
   const page2 = await request('/tables/services?page=2&pageSize=10&sortBy=name');
   assert.equal(page2.data.total, 51);
   assert.equal(page2.data.rows.length, 10);
@@ -243,6 +247,7 @@ test('demo route adds once and removes only its workspace batch', async (t) => {
     'invitations',
     'monitors',
     'events',
+    'eventAlerts',
     'incidents',
     'tasks',
     'rcas',

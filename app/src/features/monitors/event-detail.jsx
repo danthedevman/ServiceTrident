@@ -1,3 +1,5 @@
+import { EventRelatedLists } from './related-events.jsx';
+import { PageTitle } from '../../components/page-title.jsx';
 import { RecordWorkspace, RecordSection } from '../../components/record-workspace.jsx';
 import { ReferenceValue } from '../../components/reference-value.jsx';
 import { useRecordTabLabel } from '../../components/record-navigation.jsx';
@@ -8,6 +10,7 @@ import { DataTable } from '../../components/data-table.jsx';
 import { useResource } from '../../data/use-resource.js';
 
 import React from 'react';
+import { RecordLink } from '../../components/record-navigation.jsx';
 
 import { useParams } from 'react-router-dom';
 
@@ -47,73 +50,80 @@ export function HeaderTable({ headerSet = 'request' }) {
   );
 }
 
-function TriggeredIncidents({ incidents = [], truncated = false }) {
-  if (!incidents.length) return null;
-  return (
-    <section className="panel space-y-3 p-6" aria-label="Triggered Incidents">
-      <h2 className="font-semibold">Triggered Incidents</h2>
-      <ul className="space-y-3">
-        {incidents.map((incident) => (
-          <li key={incident.id} className="flex flex-wrap items-center gap-3">
-            <ReferenceValue
-              type="incidents"
-              id={incident.id}
-              label={incident.number ? `${incident.number} · ${incident.title}` : incident.title}
-            />
-            <Badge status={incident.status} />
-          </li>
-        ))}
-      </ul>
-      {truncated && (
-        <p className="field-hint">
-          Showing the latest 100 incidents. Use the Incidents list to find additional records.
-        </p>
-      )}
-    </section>
-  );
-}
-
 /** A saved event is immutable; loading this page never rechecks the endpoint. */
 export function EventDetail() {
   const { id, eventId } = useParams();
-  const { data, loading, error } = useResource(`/monitors/${id}/events/${eventId}`, 0);
+  const { data, loading, error } = useResource(
+    id ? `/monitors/${id}/events/${eventId}` : `/events/${eventId}`,
+    0,
+  );
   const event = data?.event;
   useRecordTabLabel(
     event?.number
-      ? `${event.number} · ${data.monitor?.name || 'Monitor'}`
+      ? `${event.number} · ${event.title || data.monitor?.name || 'Event'}`
       : data?.monitor?.name
         ? `Event · ${data.monitor.name}`
         : undefined,
   );
-  const services = useResource(data?.monitor?.serviceId ? '/services' : null);
-  const service = services.data?.services?.find((row) => row.id === data?.monitor?.serviceId);
+  const serviceId = data?.monitor?.serviceId || event?.serviceId;
+  const services = useResource(serviceId ? '/services' : null);
+  const service = services.data?.services?.find((row) => row.id === serviceId);
   return (
     <RecordWorkspace
       showToolbar={false}
       kind="events"
       item={event}
+      status={event?.sourceType === 'external' ? event.signal : undefined}
       label="Details"
       sidebar={
         event ? (
           <RecordSection title="Event Details">
             <dl className="space-y-4 text-sm">
               {[
-                ['Checked At', <DateTime value={event.checkedAt} />],
-                ['Status', <Badge status={event.status} />],
-                ['Monitor', <ReferenceValue type="monitors" id={id} label={data.monitor?.name} />],
+                ...(event.sourceType === 'external'
+                  ? [
+                      ['Source', event.sourceName],
+                      ['Severity', event.severity],
+                      ['Type', event.eventType],
+                      ['Signal', event.signal],
+                    ]
+                  : []),
+                [
+                  event.sourceType === 'external' ? 'Received At' : 'Checked At',
+                  <DateTime value={event.checkedAt} />,
+                ],
+                ...(event.sourceType !== 'external'
+                  ? [
+                      ['Status', <Badge status={event.status} />],
+                      [
+                        'Monitor',
+                        <ReferenceValue
+                          type="monitors"
+                          id={id || data.monitor?.id}
+                          label={data.monitor?.name}
+                        />,
+                      ],
+                    ]
+                  : []),
                 [
                   'Service',
                   <ReferenceValue
                     type="services"
-                    id={data.monitor?.serviceId}
+                    id={serviceId}
                     label={service?.name ?? 'View Service'}
                   />,
                 ],
-                ['HTTP Status', event.statusCode ?? 'No HTTP response'],
-                [
-                  'Duration',
-                  Number.isFinite(event.durationMs) ? `${event.durationMs} ms` : 'Not recorded',
-                ],
+                ...(event.sourceType !== 'external'
+                  ? [
+                      ['HTTP Status', event.statusCode ?? 'No HTTP response'],
+                      [
+                        'Duration',
+                        Number.isFinite(event.durationMs)
+                          ? `${event.durationMs} ms`
+                          : 'Not recorded',
+                      ],
+                    ]
+                  : []),
               ].map(([label, value]) => (
                 <div key={label}>
                   <dt className="text-xs text-slate-500">{label}</dt>
@@ -132,11 +142,59 @@ export function EventDetail() {
 function EventContent({ data, loading, error }) {
   const event = data?.event;
   const details = event?.details;
+  if (event?.sourceType === 'external')
+    return (
+      <>
+        <ErrorNotice>{error}</ErrorNotice>
+        <section className="panel space-y-4 p-6">
+          <PageTitle>{event.title}</PageTitle>
+          <p className="whitespace-pre-wrap break-words">{event.description}</p>
+          <dl className="space-y-3 text-sm">
+            <div>
+              <dt>Occurred At</dt>
+              <dd>
+                <DateTime value={event.occurredAt} />
+              </dd>
+            </div>
+            <div>
+              <dt>Received At</dt>
+              <dd>
+                <DateTime value={event.receivedAt || event.checkedAt} />
+              </dd>
+            </div>
+            <div>
+              <dt>External ID</dt>
+              <dd className="break-all">{event.externalId}</dd>
+            </div>
+            {event.correlationKey && (
+              <div>
+                <dt>Correlation Key</dt>
+                <dd className="break-all">{event.correlationKey}</dd>
+              </div>
+            )}
+          </dl>
+          {event.alertId && (
+            <RecordLink to={`/alerts/${event.alertId}`} className="text-blue-600">
+              View Alert
+            </RecordLink>
+          )}
+        </section>
+        {event.payload && (
+          <section className="panel space-y-3 p-6">
+            <h2 className="font-semibold">Payload</h2>
+            <pre className="overflow-auto whitespace-pre-wrap break-words text-sm">
+              {JSON.stringify(event.payload, null, 2)}
+            </pre>
+          </section>
+        )}
+        <EventRelatedLists eventId={event.id} />
+      </>
+    );
+
   if (details?.protocol)
     return (
       <section className="space-y-6">
         <ErrorNotice>{error}</ErrorNotice>
-        <TriggeredIncidents incidents={data.incidents} truncated={data.incidentsTruncated} />
         <dl className="panel space-y-4 p-6">
           {[
             ['Protocol', details.protocol],
@@ -155,6 +213,7 @@ function EventContent({ data, loading, error }) {
             </div>
           ))}
         </dl>
+        <EventRelatedLists eventId={event.id} />
       </section>
     );
   return (
@@ -168,7 +227,6 @@ function EventContent({ data, loading, error }) {
             <p className="text-sm text-slate-500 dark:text-slate-400">
               <DateTime value={event.checkedAt} />
             </p>
-            <TriggeredIncidents incidents={data.incidents} truncated={data.incidentsTruncated} />
             <div className={layouts.scores}>
               <Stat
                 title="HTTP Status"
@@ -245,6 +303,39 @@ function EventContent({ data, loading, error }) {
                 </p>
               )}
             </section>
+            {details?.keyword && (
+              <section className="panel space-y-3 p-6">
+                <h2 className="font-semibold">Keyword Check</h2>
+                <dl className="grid gap-3 text-sm sm:grid-cols-2">
+                  <div>
+                    <dt>Keyword</dt>
+                    <dd className="break-words">{details.keyword.text}</dd>
+                  </div>
+                  <div>
+                    <dt>Trigger when</dt>
+                    <dd>
+                      {details.keyword.condition === 'contains'
+                        ? 'Keyword is found'
+                        : 'Keyword is missing'}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Match</dt>
+                    <dd>
+                      {details.keyword.matched === null
+                        ? 'Inconclusive'
+                        : details.keyword.matched
+                          ? 'Found'
+                          : 'Missing'}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Result</dt>
+                    <dd>{details.keyword.triggered ? 'Failed' : 'Passed'}</dd>
+                  </div>
+                </dl>
+              </section>
+            )}
             <ErrorNotice>{event.error}</ErrorNotice>
             {!details ? (
               <div className="panel p-6 text-sm text-slate-500 dark:text-slate-400">
@@ -341,6 +432,7 @@ function EventContent({ data, loading, error }) {
                 </p>
               </>
             )}
+            <EventRelatedLists eventId={event.id} />
           </>
         )
       )}

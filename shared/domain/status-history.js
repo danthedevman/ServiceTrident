@@ -4,7 +4,13 @@ export async function summarizeStatusHistory(db) {
   await db
     .collection('events')
     .aggregate([
-      { $match: { checkedAt: { $gte: since } } },
+      {
+        $match: {
+          monitorId: { $exists: true, $ne: null },
+          sourceType: { $ne: 'external' },
+          checkedAt: { $gte: since },
+        },
+      },
       {
         $group: {
           _id: {

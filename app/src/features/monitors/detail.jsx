@@ -1,3 +1,4 @@
+import { useListFilter } from '../../data/use-list-filter.js';
 import { AuthContext } from '../../auth/auth-context.js';
 import { RecordTabs } from '../../components/record-tabs.jsx';
 import { Select } from '../../components/forms/select.jsx';
@@ -42,13 +43,19 @@ export function MonitorDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
-  const [filters, setFilters] = useState({
-    status: '',
-    from: '',
-    to: '',
-    sort: 'checkedAt:desc',
-  });
+  const [pageSize, setPageSize] = useListFilter('pageSize', 10, 'monitor-history');
+  const [status, setStatus] = useListFilter('status', '', 'monitor-history');
+  const [from, setFrom] = useListFilter('from', '', 'monitor-history');
+  const [to, setTo] = useListFilter('to', '', 'monitor-history');
+  const [sort, setSort] = useListFilter('sort', 'checkedAt:desc', 'monitor-history');
+  const filters = { status, from, to, sort };
+  function setFilters(update) {
+    const next = typeof update === 'function' ? update(filters) : update;
+    setStatus(next.status);
+    setFrom(next.from);
+    setTo(next.to);
+    setSort(next.sort);
+  }
   const [sortBy, order] = filters.sort.split(':');
   const query = new URLSearchParams({
     page: String(page),
@@ -78,6 +85,13 @@ export function MonitorDetail() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const monitor = monitorState.data?.monitor;
   const eventColumns = [
+    {
+      key: 'number',
+      label: 'Check Number',
+      width: '10rem',
+      value: (event) => event.number || '—',
+      sortable: false,
+    },
     {
       key: 'checkedAt',
       label: 'Checked at',
@@ -143,7 +157,7 @@ export function MonitorDetail() {
         </>
       ),
     },
-  ].map((column, index) => ({ ...column, width: historyColumns[index].width }));
+  ].map((column, index) => ({ ...column, width: column.width ?? historyColumns[index - 1].width }));
 
   const checkNow = async () => {
     setBusy(true);

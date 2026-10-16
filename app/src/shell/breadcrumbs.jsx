@@ -7,6 +7,7 @@ import { useResource } from '../data/use-resource.js';
 
 const sections = {
   records: 'Record',
+  notifications: 'Notifications',
   profile: 'Profile',
   dashboard: 'Dashboard',
   help: 'Help',
@@ -19,6 +20,7 @@ const sections = {
   collections: 'Collections',
   monitors: 'Monitors',
   events: 'Events',
+  alerts: 'Alerts',
   groups: 'Groups',
   integrations: 'Integrations',
   workspace: 'Users',
@@ -45,8 +47,8 @@ export function Breadcrumbs({ resolveNames = true }) {
     nested &&
     id &&
     !['new', 'fields', 'invite', 'settings', 'articles', 'bases', 'ai'].includes(id)
-      ? ['monitors', 'incidents', 'tasks', 'rcas', 'knowledge'].includes(kind)
-        ? `/${kind}/${id}`
+      ? ['monitors', 'incidents', 'tasks', 'rcas', 'knowledge', 'events', 'alerts'].includes(kind)
+        ? `/${kind === 'alerts' ? 'event-alerts' : kind}/${id}`
         : catalog
           ? kind === 'workspace'
             ? '/members'
@@ -191,6 +193,22 @@ export function Breadcrumbs({ resolveNames = true }) {
         label: currentEvent.data?.event?.number
           ? `Event ${currentEvent.data.event.number}`
           : 'Check Event',
+      },
+    );
+  if (['events', 'alerts'].includes(kind) && id)
+    crumbs.splice(
+      0,
+      crumbs.length,
+      {
+        label: kind === 'alerts' ? 'Alerts' : 'Events',
+        to: kind === 'alerts' ? '/alerts' : '/events',
+      },
+      {
+        label:
+          data?.item?.title ||
+          data?.event?.title ||
+          data?.event?.number ||
+          (kind === 'events' ? 'Event' : 'Alert'),
       },
     );
   return (

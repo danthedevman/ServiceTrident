@@ -18,6 +18,7 @@ import {
   CalendarDaysIcon,
   Squares2X2Icon,
   SignalIcon,
+  BellAlertIcon,
   CpuChipIcon,
   ServerStackIcon,
   FolderIcon,
@@ -36,12 +37,13 @@ import { ThemeToggle } from '../preferences/theme.jsx';
 const links = [
   ['/', 'Dashboard', Squares2X2Icon],
   ['/incidents', 'Incidents', ExclamationTriangleIcon],
+  ['/alerts', 'Alerts', BellAlertIcon],
   ['/events', 'Events', SignalIcon],
   ['/monitors', 'Monitors', CpuChipIcon],
   ['/tasks', 'Tasks', ClipboardDocumentListIcon],
+  ['/services', 'Services', ServerStackIcon],
   ['/rcas', 'RCAs', DocumentMagnifyingGlassIcon],
   ['/on-call', 'On Call', CalendarDaysIcon],
-  ['/services', 'Services', ServerStackIcon],
   ['/knowledge', 'Knowledge', BookOpenIcon],
   ['/status', 'Status Page', ChartBarSquareIcon],
 ];
@@ -246,7 +248,7 @@ export function Sidebar({
           <div className="flex shrink-0 items-center justify-center">
             <button
               type="button"
-              className="grid h-10 w-10 place-items-center rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
+              className="sidenav-toggle grid h-9 w-9 place-items-center"
               onClick={mobile ? close : toggle}
               aria-label={
                 mobile
@@ -263,13 +265,15 @@ export function Sidebar({
                     : 'Collapse navigation'
               }
             >
-              {mobile ? (
-                <XMarkIcon className="h-5 w-5" aria-hidden="true" />
-              ) : compact ? (
-                <ChevronDoubleRightIcon className="h-5 w-5" aria-hidden="true" />
-              ) : (
-                <ChevronDoubleLeftIcon className="h-5 w-5" aria-hidden="true" />
-              )}
+              <span className="sidenav-toggle-icon">
+                {mobile ? (
+                  <XMarkIcon className="h-5 w-5" aria-hidden="true" />
+                ) : compact ? (
+                  <ChevronDoubleRightIcon className="h-5 w-5" aria-hidden="true" />
+                ) : (
+                  <ChevronDoubleLeftIcon className="h-5 w-5" aria-hidden="true" />
+                )}
+              </span>
             </button>
           </div>
         )}
@@ -278,7 +282,7 @@ export function Sidebar({
         aria-label="Main navigation"
         className={`min-h-0 flex-1 space-y-1 ${compact ? 'px-2 pb-2' : 'px-3 pb-3'} pt-0 overflow-y-auto overflow-x-hidden`}
       >
-        {(compact ? visibleLinks.slice(0, 5) : visibleLinks).map(([to, label, Icon]) => (
+        {(compact ? visibleLinks.slice(0, 7) : visibleLinks).map(([to, label, Icon]) => (
           <Tooltip key={to} label={compact ? label : null}>
             <NavLink
               to={to}
@@ -298,12 +302,12 @@ export function Sidebar({
             </NavLink>
           </Tooltip>
         ))}
-        {compact && visibleLinks.length > 5 && (
+        {compact && visibleLinks.length > 7 && (
           <div className="flex justify-center">
             <Tooltip label="More">
               <span>
-                <ActionMenu label="More" borderless>
-                  {visibleLinks.slice(5).map(([to, label]) => (
+                <ActionMenu label="More" borderless horizontal>
+                  {visibleLinks.slice(7).map(([to, label]) => (
                     <NavLink key={to} to={to} className="nav-link" onClick={close}>
                       {label}
                     </NavLink>

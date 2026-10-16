@@ -126,6 +126,19 @@ const fields = {
     assigneeId: ['me'],
   },
   knowledge: { title: 160, summary: 500, content: 12000 },
+  rcas: {
+    title: 160,
+    status: ['draft', 'in_review', 'completed'],
+    summary: 10000,
+    impact: 10000,
+    timeline: 10000,
+    rootCause: 10000,
+    contributingFactors: 10000,
+    correctiveActions: 10000,
+    lessonsLearned: 10000,
+    incidentIds: 'ids',
+    taskIds: 'ids',
+  },
 };
 /** Models propose a narrow action vocabulary, never API paths, actors, credentials, or query operators. */
 export function validateAIAction(value) {
@@ -141,8 +154,7 @@ export function validateAIAction(value) {
   if (
     !allowed ||
     !['create', 'update'].includes(value.operation) ||
-    (value.operation === 'update' &&
-      (value.kind === 'knowledge' || !/^[a-f\d]{24}$/i.test(value.id ?? ''))) ||
+    (value.operation === 'update' && !/^[a-f\d]{24}$/i.test(value.id ?? '')) ||
     (value.operation === 'create' && value.id)
   )
     throw new InputError('The assistant proposed an unsupported record action.', 502);
@@ -152,19 +164,24 @@ export function validateAIAction(value) {
     typeof changes !== 'object' ||
     Array.isArray(changes) ||
     !Object.keys(changes).length ||
-    Object.keys(changes).length > 6
+    Object.keys(changes).length > (value.kind === 'rcas' ? 12 : 6)
   )
     throw new InputError('The assistant proposed an invalid change.', 502);
   for (const [key, entry] of Object.entries(changes)) {
     const rule = Object.hasOwn(allowed, key) ? allowed[key] : null;
     if (
       !rule ||
-      typeof entry !== 'string' ||
-      (rule === 'id'
-        ? !/^[a-f\d]{24}$/i.test(entry)
-        : Array.isArray(rule)
-          ? !rule.includes(entry)
-          : entry.length > rule)
+      (rule === 'ids'
+        ? !Array.isArray(entry) ||
+          entry.length > 20 ||
+          new Set(entry).size !== entry.length ||
+          entry.some((id) => typeof id !== 'string' || !/^[a-f\d]{24}$/i.test(id))
+        : typeof entry !== 'string' ||
+          (rule === 'id'
+            ? !/^[a-f\d]{24}$/i.test(entry)
+            : Array.isArray(rule)
+              ? !rule.includes(entry)
+              : entry.length > rule))
     )
       throw new InputError('The assistant proposed an unsupported field value.', 502);
   }

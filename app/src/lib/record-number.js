@@ -1,6 +1,7 @@
 const prefixes = {
   incidents: 'INC',
   events: 'EVT',
+  eventAlerts: 'ALT',
   tasks: 'TASK',
   rcas: 'RCA',
   knowledge: 'KB',

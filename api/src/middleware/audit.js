@@ -3,6 +3,12 @@ import { writeAudit } from '@servicetrident/shared/domain/audit';
 
 const safeFields = new Set([
   'title',
+  'externalId',
+  'correlationKey',
+  'signal',
+  'eventType',
+  'occurredAt',
+  'eventAlertId',
   'name',
   'displayName',
   'description',

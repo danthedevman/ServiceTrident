@@ -16,7 +16,11 @@ const collections = {
   integrations: 'integrations',
   'on-call': 'shifts',
 };
-const paths = { knowledgeBases: 'knowledge-bases', serviceAccounts: 'settings/service-accounts' };
+const paths = {
+  knowledgeBases: 'knowledge-bases',
+  serviceAccounts: 'settings/service-accounts',
+  eventAlerts: 'event-alerts',
+};
 const schemas = {
   incidents: '/incident-fields',
   tasks: '/task-fields',

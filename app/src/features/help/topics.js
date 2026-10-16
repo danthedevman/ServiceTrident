@@ -1,62 +1,32 @@
-/** Product documentation stays local, versioned with the application, and contains no workspace data. */
+/** Essential task guides; deployment details live in repository operating guides. */
 export const helpTopics = [
   {
     id: 'getting-started',
     title: 'Getting Started',
     screenshots: [
       {
-        src: '/help/mobile-profile-menu.png',
-        alt: 'Compact mobile profile menu with Profile, Settings, Help, appearance, and sign-out controls',
-        caption: 'Open your profile menu for account settings, Help, appearance, and sign out.',
-      },
-      {
-        src: '/help/mobile-navigation-actions.png',
-        alt: 'Mobile navigation with search, create, and notification icons before the profile menu',
-        caption: 'Use the top navigation for search, record creation, alerts, and your profile.',
-      },
-      {
-        src: '/help/help-navigation.png',
-        alt: 'Help categories beside a guide with the category list scrolled independently',
-        caption:
-          'Desktop categories stay beside the guide and scroll independently; on mobile, swipe the category bar horizontally.',
-      },
-      {
-        src: '/help/record-export-actions.png',
-        alt: 'RCA Record actions menu with Export CSV and Export PDF',
-        caption:
-          'Open Record actions and choose Export CSV or Export PDF to download saved record data.',
-      },
-      {
         src: '/help/getting-started.png',
         alt: 'Create Service form with a name and description, health thresholds, and the start of ownership settings',
-        caption:
-          'Create a service with a clear name and description, then choose its owners and dependencies.',
+        caption: 'Create a service, then add its monitors and ownership.',
       },
       {
-        src: '/help/record-references.png',
-        alt: 'Read-only task with links to its service, assignment group, and assignee',
+        src: '/help/notifications-page.png',
+        alt: 'Notification history page with All, Unread, and Read filters and links to incident records',
         caption:
-          'Long reference labels truncate within their fields and keep the record icon visible; hover for the full label. Reference labels remain clickable in read-only records and open the related record in an app record tab.',
+          'Choose View All Notifications from the bell menu to review retained alerts and load older notifications.',
       },
       {
-        src: '/help/reference-truncation.png',
-        alt: 'Mobile task form with a long service reference truncated beside visible record and clear icons',
-        caption:
-          'Long reference labels stay within the field; use the record icon to open the related record.',
+        src: '/help/record-tabs.png',
+        alt: 'record tabs retaining an unsaved task form while a related service is open',
+        caption: 'Open related records in tabs and return to the current draft.',
       },
     ],
     paragraphs: [
-      'On mobile, Search Workspace, Create, and Notifications appear in the top navigation to the left of the profile menu. Create is available only for roles allowed to create records. Select the bell to review alerts, or open the profile menu for Profile, Settings, and Help as permitted by your role.',
-      'Forms show custom validation messages for required values and invalid formats. The API checks values and workspace permissions again. Normal Unicode and multiline text are supported; unsupported control characters are rejected. Keep article links to HTTP or HTTPS URLs without embedded usernames or passwords. Uploads are size/type checked and access-controlled but are not malware-scanned; treat downloaded files as untrusted.',
-      'Saved records offer Export CSV and Export PDF in Record actions, including RCA records, knowledge articles, events and logs. Task previews offer the same controls in Task actions. Downloads use saved data, including current active custom fields; save edits first. CSV contains Field and Value columns. PDF uses a readable document layout with a title, sections and page numbers; timestamps follow your timezone and date/time preferences. Article text and runbook steps are included; embedded images, attachments, comments, work notes and related-list datasets are not bundled. RCA exports include linked incident and task titles. Credentials and monitor URL queries are excluded. Export requests recheck your current access and are audited. Existing table CSV exports still export the filtered list.',
-      'Detect, Respond, Resolve describes the workflow: monitor services to detect issues, coordinate incident response, and resolve incidents with recorded outcomes.',
-      'The logo and navigation toggle align in the sidenav header. Search Workspace and global Create appear at the right of the top toolbar beside Notifications. Select Search Workspace to find records, or Collapse navigation to switch to the 64-pixel compact rail, which keeps leading links in order and shows trailing links in More, with scrolling when needed. In the compact rail, hover or focus the logo to reveal Expand Navigation.',
-      'Start by creating a service for something your team owns, such as a customer portal or payments API. Add owners and a primary contact, then create a monitor from the service’s action menu.',
-      'Create user profiles, assign appropriate roles, and configure a communication integration before relying on notifications. Add an on-call schedule so responders know who owns coverage.',
-      'Record numbers use a prefix and a sequential suffix, such as INC0000001, TASK0000001, EVT0000001, MON0000001, and SVC0000001. Each workspace and record type has its own sequence. Numbers are assigned by the server, stay fixed, are never reused after deletion, and expand past seven digits. Gaps can occur after failed or competing allocations. Existing records receive their saved number when accessed; internal IDs and record URLs remain unchanged. Tab icons and type labels distinguish events, monitors, incidents, tasks, services, collections, knowledge, knowledge bases, groups, users, coverage, integrations, service accounts, activity, and logs.',
-      'List pagination buttons sit at the left of a compact footer, clear of the chat bubble. Use the global Create icon in the top toolbar for new records, including Knowledge Articles. Admins also have a Create User option. Open a saved record and select Edit to change it. Save applies changes; Cancel leaves edit mode without saving your draft. Related information appears in tabs below the record. Related-list counts appear only when at least one record exists; empty lists show no count. Totals are unfiltered and refresh at most once a minute and after record writes.',
-      'Multiline text fields grow as you type, paste, or change their width. They scroll internally after reaching 320 pixels so long text stays manageable.',
-      'Populated reference fields remain links when viewing a read-only record. Select the reference label or its info link to open the related record in an app record tab. Up to 20 record tabs can be open. Opening another record replaces the oldest opened tab; opening an existing record selects its tab. If the oldest tab has unsaved changes, confirm replacement or cancel to keep it. Close All Tabs keeps the current record and its draft open. Closing an edited tab, or other edited tabs through Close All Tabs, asks for confirmation before closing, and forms remain mounted when switching. The tab strip appears only on record pages when more than one record is open. Tabs use the record title or name alongside its record type. Long labels stay on one line with an ellipsis; hover to read the full label. Open tab links survive refreshes for the signed-in browser session; restored records load only when selected. Unsaved drafts reset on refresh. Sign-out clears the tabs. Your existing access permissions still apply.',
+      'Start with a service your team supports. Add its owners, create a monitor, and configure a communication integration before relying on alerts. Add on-call coverage so responders know who is responsible.',
+      'Use Search Workspace to find records and Create to add them. The profile menu contains Profile, Settings, and Help, subject to your role. Dashboard View switches between operational reports; select a score or chart to investigate the underlying records.',
+      'Open Notifications for Unread and Read alerts, or View All Notifications for older alerts. Mark all as read clears alerts through the latest check time. An alert never grants access to its record; internal work-note alerts are restricted to staff.',
+      'Reference links open related records in app tabs. Up to 20 tabs stay open; opening another replaces the oldest, with confirmation if it has unsaved changes. Close All Tabs keeps the current record. Tabs survive refresh within your signed-in browser session, but unsaved drafts do not. Signing out clears tabs.',
+      'Use Record actions → Export CSV or Export PDF to download saved record data. Save edits first. Downloads exclude attachments, comments, work notes, and related-list datasets. Table CSV exports use the current list filters.',
     ],
   },
   {
@@ -71,9 +41,9 @@ export const helpTopics = [
       },
     ],
     paragraphs: [
-      'A service represents a capability your team supports. Collections organize related services. You can select or create a collection from the service form, and associate users or groups as owners.',
-      'Dependencies describe services that another service relies on. A failing dependency can affect the parent service’s health. Avoid circular dependencies.',
-      'Service health comes from recent monitor results and dependencies. A failing check makes the service down; missing, paused, or stale checks can make it unknown. Creating a monitor alone does not establish healthy status—wait for a successful check.',
+      'A service represents a capability your team supports. Create one with a clear name, description, and owners. Collections organize related services.',
+      'Add dependencies for services it relies on. Dependency failures can affect its health; avoid circular dependencies. Open a service to review its monitors, incidents, and linked knowledge.',
+      'Health uses recent monitor results, dependencies, and configured health settings. Missing, paused, or stale checks can leave it Unknown. Creating a monitor alone does not establish healthy status; review its results.',
     ],
   },
   {
@@ -81,58 +51,63 @@ export const helpTopics = [
     title: 'Monitoring Endpoints',
     screenshots: [
       {
-        src: '/help/monitor-interval-units.png',
-        alt: 'Monitor form with a Check every value and Minutes or Hours selector',
-        caption:
-          'Choose Minutes or Hours. Save validates the equivalent whole-minute interval from 1 minute to 24 hours.',
-      },
-      {
-        src: '/help/events-list.png',
-        alt: 'Events table with monitor, service, linked incident, outcome, HTTP status, duration and error columns',
-        caption:
-          'Use Filters for service, monitor, outcome, search and UTC date ranges. Open a row for its saved response.',
-      },
-      {
-        src: '/help/dashboard-events.png',
-        alt: 'Events dashboard with check totals, successful check percentage, average duration and outcome and HTTP charts',
-        caption:
-          'Choose Events in Dashboard View and optionally select a service to review retained monitor checks.',
-      },
-      {
-        src: '/help/monitor-check-now.png',
-        alt: 'Monitor record with the Check Now action beside Edit',
-        caption:
-          'Select Check Now to request one worker check, including when the monitor schedule is paused.',
+        src: '/help/monitor-keyword.png',
+        alt: 'Keyword and Trigger when controls on a monitor form',
+        caption: 'Choose whether found or missing text should fail a check.',
       },
       {
         src: '/help/monitor-authentication.png',
         alt: 'Monitor Authentication section with OAuth client credentials settings and a blank saved-secret field',
         caption:
-          'Choose an Authentication Method and configure a machine account for the protected HTTPS endpoint.',
+          'Choose machine authentication for a protected endpoint; saved secrets remain hidden.',
       },
       {
-        src: '/help/event-triggered-incidents.png',
-        alt: 'Event record showing a Triggered Incidents section with an incident title link and status',
-        caption: 'Open the linked incident from the event that triggered it.',
+        src: '/help/monitor-check-history.png',
+        alt: 'Monitor Check History with separate Check Number and Checked At columns',
+        caption:
+          'Open a Check Number to inspect the event. Scroll the table horizontally on narrow screens.',
       },
       {
-        src: '/help/monitoring.png',
-        alt: 'Monitors list with HTTP endpoints, health states, associated services, and check intervals',
+        src: '/help/events-list.png',
+        alt: 'Events table with monitor, service, linked incident, outcome, HTTP status, duration and error columns',
+        caption: 'Filter retained events and open a check to investigate its diagnostics.',
       },
     ],
     paragraphs: [
-      'Monitor forms let you choose Minutes or Hours beside Check every. Switching units preserves the duration. The range is 1 minute to 24 hours, in whole-minute increments: 1.5 hours saves as 90 minutes; sub-minute values and values above 24 hours are rejected with custom validation. Hours may be fractional when they convert to a whole number of minutes. Saved schedules and the API remain in minutes.',
-      'Create a monitor from a service’s secondary action menu or its Monitors related list. A service and a public HTTP or HTTPS endpoint are required. Check intervals range from 1 minute to 1,440 minutes.',
-      'Admins can open a monitor and select Check Now to request one check through the worker queue. This also works on a paused monitor without resuming its schedule. Requests are limited to once per monitor per minute, duplicate pending requests are rejected, and the worker preserves at least one minute between check starts. A recent check, worker backlog, or an unavailable scheduler can delay the result; Check requested confirms acceptance, not success. Results appear in Check History and Events. A successful manual check reschedules the next regular check from its start; paused monitors remain excluded from service-health calculations. Demo and retired monitor types cannot run manual checks.',
-      'Each check independently selects a random browser-style user agent from 73 profiles; redirects within the same event keep that agent. Consecutive checks may select the same profile. These are HTTP requests, not browser sessions, and changing the agent does not guarantee acceptance by bot protection. For sites you control, use a dedicated health endpoint or allowlist legitimate monitoring traffic.',
-      'HEAD checks response headers without requesting a full response body. Unauthenticated GET also stores a bounded text preview. Choose GET if the endpoint does not support HEAD or you need response details for troubleshooting.',
-      'Admins can configure Authentication on a monitor using Basic Auth, Bearer Token, or OAuth Client Credentials. Use a least-privilege machine account and a protected API endpoint that accepts those credentials. Authenticated checks require public HTTPS on standard ports, reject redirects, and require a 2xx response; response bodies and headers are not saved. OAuth supports client_secret_basic and client_secret_post, optional Scope and Audience, and briefly reuses unexpired tokens. Browser SSO, MFA, and private_key_jwt are not supported. An Okta login page alone cannot establish application health. Saved secrets are encrypted and never returned; leave a secret blank to retain it when the target origin and account are unchanged, or choose None and Save to remove authentication. Provide new credentials when changing the target origin, Basic username, OAuth token endpoint, or Client ID. Replace expired static bearer tokens manually.',
-      'Redirect following is off by default. Enable it when checking an HTTP-to-HTTPS upgrade, canonical hostname, or moved endpoint. Each redirect destination must pass network validation; enabling redirects does not allow private network checks.',
-      'Events in the side navigation lists retained checks across the workspace. Admins can select Create Monitor; a selected service filter is carried into the new monitor form. Search, date ranges (UTC), sorting, CSV export, and Service, Monitor, and Outcome filters run on the server. Open a row to view its saved response; the Events breadcrumb returns to the full list. Admins, responders, and viewers have access; end users do not. Choose Events in Dashboard View for check totals, success rate, average recorded duration, and outcome/HTTP charts. Service filtering applies to its metrics and report links. Both views cover the last 30 days; deleted monitors remove their events. Historical check success does not imply current service health.',
-      'Event records include the standard right information panel with Checked At, Status, Monitor, Service, HTTP Status, and Duration. Use Expand/Collapse record information or drag its edge to resize it; long saved response content remains scrollable on desktop and mobile. Events that helped trigger an automatic incident show a Triggered Incidents section with incident titles, current statuses, and links that open in record tabs. The association uses the exact saved monitor/check-time pair, including dependency checks, rather than nearby failures. Events without a recorded association omit the section. Up to 100 linked incidents are shown, newest first; older incidents without saved trigger references cannot be associated retrospectively.',
-      'The Incident column shows linked incident numbers for events recorded among an automatic incident’s triggering checks, including dependency checks. Unassociated events show a dash. Numbers open incidents in app record tabs and are included in CSV exports. Use Incident in Filters to select a number and title; other event filters combine with it. Associations are fetched in bounded batches, with no per-row requests; searching and sorting continue to use event fields.',
-      'Open a monitor to review check events, filter the table, and open an event for response and timing details. A configured interval is a scheduling target: worker backlog, slow endpoints, and infrastructure interruptions can delay execution.',
-      'Only HTTP/HTTPS checks are supported. Database connection checks and arbitrary TCP/network scanning are not supported.',
+      'Create a monitor from Monitors, Events → Create Monitor, or a service’s actions. Select a service and public HTTP/HTTPS endpoint. Private and reserved network addresses are blocked.',
+      'Set Check every in Minutes or Hours, from 1 minute to 24 hours. Fractional hours must convert to whole minutes. HEAD checks headers; GET can capture a bounded response preview. Enable redirects only when the endpoint needs them.',
+      'For protected endpoints, admins configure Basic Auth, Bearer Token, or OAuth Client Credentials using a least-privilege machine account. Authenticated checks require public HTTPS, reject redirects, require a 2xx response, and do not save response headers or bodies. Browser SSO and MFA are unsupported; an Okta login page does not prove application health.',
+      'Saved secrets cannot be read back. Leave them blank to retain unchanged credentials; provide new credentials when changing the target origin or authentication account. Choose None and Save to remove authentication.',
+      'Admins select Check Now for a queued check, even when paused. Requests are limited to once per monitor per minute; queue delays can postpone results. Acceptance is not success. Review Check History or Events; a paused monitor stays paused.',
+      'Set Keyword and Trigger when to fail a check when literal text is found or missing. Matching can be case sensitive and requires an unauthenticated GET request. Only the first 16 KiB of a text response is checked; unreadable or inconclusive captures fail. Triggered checks follow the service’s existing health and incident thresholds. Leave Keyword empty to disable.',
+      'Use Check History for a monitor’s saved results. Events combines retained checks with external signals, with service, source, severity, incident, and UTC date filters. Open a check for diagnostics and its related incident. Events expire after 30 days and are removed when their monitor is deleted. Dashboard View → Events separates monitor check metrics from external event totals.',
+      'Checks run from workers, not your browser. A site may work locally but reject the worker’s network or HTTP request. Checks do not execute browser sessions; changing user agents does not guarantee acceptance by bot protection. For sites you control, use a dedicated health endpoint or allowlist monitoring traffic.',
+    ],
+  },
+  {
+    id: 'events',
+    title: 'Events and Alert Triage',
+    paragraphs: [
+      'Events combines monitor results and incoming operational signals. Open Alerts for correlated signals that need attention. Events keeps the immutable check, alert, change, and information history. Filter by service, source, severity, state, or event type.',
+      'Open an alert to inspect its event history and related incidents. Responders and admins can Acknowledge, Resolve, or Reopen after confirmation. These actions change alert triage only; they do not change measured service health or resolve incidents. A newer recovery signal resolves its matching alert; a newer failure can reopen it.',
+      'Monitor failures still create incidents using the existing service-health thresholds and alert-grouping rules. External events do not create incidents automatically. Use Create Incident on an alert, review the prefilled form, and save to link the incident. Configured required fields still apply.',
+      'Admins create a service account with Receive events and permitted services, then configure the sender to POST normalized events to /api/external/v1/events using its API key or OAuth token. Each event needs a unique External ID; alert signals also need a stable Correlation Key. See docs/external-api.md in the repository for payload examples.',
+      'Open the related lists at the bottom of an event, alert, or incident to see its linked records. Counts load separately and rows load when a panel is opened. Only exact triggering checks and explicit alert links are included; shared service membership alone is not a relationship.',
+      'External events may include a diagnostic payload object up to 32 KiB. Common credential fields are redacted before storage; do not send secrets or personal data. Open the event to inspect the retained payload. External ID, Correlation Key, and occurrence and receipt times are searchable table columns.',
+      'Use the same Correlation Key for a failure and its recovery. Keys are isolated by workspace, service account, and service. Retrying the same External ID and payload returns the existing event; reusing it for different content is rejected. Older signals cannot replace newer alert state. Change and information events remain history without opening alerts.',
+      'Raw events are retained for 30 days. Alert summaries and incident links remain after their raw evidence expires; deleting a monitor removes its events and monitor alerts. Existing history stays readable, and monitor alerts begin with new checks after upgrade. New demo batches include both monitor and external examples.',
+    ],
+    screenshots: [
+      {
+        src: '/help/events-alerts.png',
+        alt: 'Events Alerts view with source, service, severity, state and latest event',
+        caption: 'Use Alerts for triage and Events for the underlying evidence.',
+      },
+      {
+        src: '/help/event-alert.png',
+        alt: 'Alert record with Acknowledge, Resolve and Create Incident actions and related events',
+        caption: 'Review the evidence before changing alert state or creating an incident.',
+      },
     ],
   },
   {
@@ -140,27 +115,10 @@ export const helpTopics = [
     title: 'Incidents, Tasks, and Knowledge',
     screenshots: [
       {
-        src: '/help/incident-source.png',
-        alt: 'Incident record with Source badge and Triggered by monitor and event links',
+        src: '/help/incident-resolve.png',
+        alt: 'Resolve Incident dialog with resolution notes and Cancel and Resolve Incident controls',
         caption:
-          'Source identifies how the incident was opened; Triggered by links to available origin records.',
-      },
-      {
-        src: '/help/incident-source-list.png',
-        alt: 'Incidents list with Source column filtered to Monitor',
-        caption: 'Use Filters → Source to narrow incidents by origin.',
-      },
-      {
-        src: '/help/assign-to-me.png',
-        alt: 'Task edit form with Assign to Me beside Assigned to and the current user selected',
-        caption:
-          'Choose Assign to Me to select your account, then save the record. A selected assignment group must include you.',
-      },
-      {
-        src: '/help/task-board-modal.png',
-        alt: 'Task details displayed in a modal above the Kanban board',
-        caption:
-          'The task title appears in the modal header. Edit changes the task in place; Save and Cancel stay in the border-free footer.',
+          'Resolve opens this dialog directly without entering Edit. Add notes if required by your form configuration, then confirm.',
       },
       {
         src: '/help/task-board-modal-edit.png',
@@ -169,96 +127,21 @@ export const helpTopics = [
           'Edit task fields and Save without leaving the board; Cancel returns to task details.',
       },
       {
-        src: '/help/tasks-board.png',
-        alt: 'Tasks Kanban board with a custom Review lane, admin lane ordering controls, and per-card Move To controls',
-        caption:
-          'Drag a task into another lane, or use Move To to save its status. Archived Tasks opens a separate list.',
-      },
-      {
         src: '/help/knowledge-base-articles.png',
         alt: 'Knowledge base article list showing Title, Author, Last Updated, search, and publication status filters',
         caption:
           'Search within a knowledge base and use Status to choose publication status. Select an article panel to read it.',
       },
-      {
-        src: '/help/knowledge-bases.png',
-        alt: 'knowledge base cards with a simple search field and Create Knowledge Base control',
-        caption: 'Search by base name or description, then open a card to view its articles.',
-      },
-      {
-        src: '/help/knowledge-article.png',
-        alt: 'article creation form associated with Recovery Guides knowledge base',
-        caption:
-          'The optional Knowledge Base reference organizes articles; leave it empty for an unassigned article.',
-      },
-      {
-        src: '/help/knowledge-runbook.png',
-        alt: 'runbook reading page with numbered recovery steps',
-        caption: 'Runbooks display saved instructions as a readable process document.',
-      },
-      {
-        src: '/help/knowledge-base-delete.png',
-        alt: 'knowledge base deletion dialog with content action and Cancel control',
-        caption:
-          'Choose whether to move articles to another base or permanently delete them and their attachments.',
-      },
-      {
-        src: '/help/knowledge-base-move.png',
-        alt: 'knowledge base deletion dialog with a destination picker that excludes the base being deleted',
-        caption:
-          'Choose a different knowledge base to retain its articles, then confirm Move Articles and Delete Base.',
-      },
-      {
-        src: '/help/incident-resolve.png',
-        alt: 'Resolve Incident dialog with resolution notes and Cancel and Resolve Incident controls',
-        caption:
-          'Resolve opens this dialog directly without entering Edit. Add notes if required by your form configuration, then confirm.',
-      },
-      {
-        src: '/help/incident-comment-authors.png',
-        alt: 'Incident conversation with linked display names on comments and internal work notes',
-        caption: 'Admins select an author name to open that user record in an app record tab.',
-      },
-      {
-        src: '/help/event-response-headers.png',
-        alt: 'Event response with one Response Headers heading above its header table',
-        caption: 'Review captured response headers and the response body on an event.',
-      },
-      {
-        src: '/help/all-articles-list.png',
-        alt: 'All Articles table showing a Knowledge Base reference column',
-        caption: 'Select the Knowledge Base name to open the base associated with an article.',
-      },
-      {
-        src: '/help/incident-mentions-notifications.png',
-        alt: 'Incident conversation with a user mention and the notification bell panel',
-        caption:
-          'Mention a teammate in Conversation and use Notifications to open comment alerts. Edit watchers manages additional recipients without changing record access.',
-      },
-      {
-        src: '/help/incident-monitor-events.png',
-        alt: 'incident Monitor Events tab showing the triggering portal health check, HTTP 503, duration, and error',
-        caption:
-          'Open Monitor Events to review checks recorded when the incident opened; select the check time or Open Record to inspect its saved response.',
-      },
     ],
     paragraphs: [
-      'Record tabs appear in the compact top toolbar, with a Notifications bell on the right. The toolbar and outer background match the themed sidenav, framing the rounded content area. Use the info icon to the right of the primary record action to show or hide record information. Open it to see your latest 100 accessible comment and work-note alerts, refreshed every 30 seconds. Select an alert to open its incident. Mark all as read clears the unread state through the last check time. Current record access is checked again; work-note alerts are visible only to responders and admins.',
-      'In incident Conversation, type @ and select a suggested person, or use arrow keys and Enter. Up to 20 selected mentions are supported. Removing the mention text removes its notification. Responders and admins choose Edit watchers, select Watcher users or Watcher groups, then Save. Participants, the assignee, mentions and authorized watcher-group members receive in-app alerts, excluding the author and disabled accounts. Watching never grants access. Work notes notify staff only and never send email. Public comment emails require configured SMTP. Comments and watchers are available on incidents, which currently provide the Conversation composer.',
-      'Admins can store a Group email for a mailbox or distribution list. An enabled Slack integration reveals Slack channel on group forms and Slack user ID on user forms. These directory fields do not automatically send messages to the mailbox/channel or enable direct messages; outbound destinations remain controlled by integration configuration. Disabling Slack hides its fields and preserves saved values.',
-      'Global search results open the matching record page where available. Admins can open a user’s record directly from search; service, collection, and group results also link to their detail pages.',
-      'Use the Search Tasks or Search Knowledge Bases placeholder to find records; both search controls remain labeled for assistive technology.',
-      'Automatic incidents include a Monitor Events related tab for admins, responders, and viewers. It lists qualifying service and dependency checks collected during the initial alert-grouping window, with monitor, service, check time, status, HTTP status, duration, and error. Open a row to inspect its saved response. Search, date filters, column sorting, and CSV export use the same related checks. Checks after that initial window and recovery do not replace the recorded group references. Up to 1,000 check references are recorded per incident; events expire after 30 days and are removed when their monitor is deleted. Older incidents explain when trigger references were not recorded. End-user incident portals do not expose monitor events.',
-      'Knowledge opens cards for knowledge bases. Create a base to organize articles, or use All Articles or global Create to create an article or runbook without a base. The Knowledge Base reference is optional. Admins can delete a base from its record action menu and choose to move its articles to another base or delete the articles and their attachments. The destination picker excludes the base being deleted. Choose another existing destination or create a new base from the destination reference. Confirm the selected consequence before deleting.',
-      'Knowledge records default to Article. Choose Runbook for a step-by-step process, add titled steps with instructions, and reorder them with Move Up or Move Down. An introduction is optional for a runbook. Saved articles display as reading pages; runbooks display numbered steps.',
-      'Create an incident with a clear title, affected service, severity, and description. Assign the responder and, when appropriate, the person the incident was opened for. Use tasks to track investigation and follow-up work.',
-      'Select a task card’s body or title on a Kanban board to view its details in a modal without leaving the board. Admins and responders select Edit in the modal, then Save or Cancel; saving updates the board without leaving it, shows a toast, and keeps the Save label stable. Move To, links, and ordering controls retain their own actions. Closing or cancelling unsaved edits asks whether to keep editing or discard changes. Save errors keep the form open. Viewers can read only. Close or Escape returns to the same board position and search. Open Record opens the full task and attachment controls. Task list links still open record tabs. Tasks opens as a Kanban board with a lane for every active status, including custom statuses. Only admins can reorder lanes by dragging their headers or using their left/right controls. Lane order is saved globally for the workspace and applies to everyone. Lane move and refresh controls are compact icons on one row beside the title and count; hover for labels. Admins and responders can drag a task between lanes to save its status immediately, or use the card’s Move To control with a keyboard or touch screen. Drag above or below another card to save its position within the lane; Compact up-arrow and down-arrow icons, without button backgrounds or borders, move a card within its lane and provide the keyboard and touch alternative; hover to see their action labels. Ordering is shared with the workspace and survives reloads. Viewers can open cards but cannot move them. A failed save keeps the saved status and shows an error; a concurrent edit refreshes the record before retrying.',
-      'Lanes are at least 320 pixels wide; scroll horizontally when the board exceeds the available width. While dragging a card or lane, hold the pointer near the left or right edge to scroll across lanes, or near the top or bottom edge to scroll the page. Scrolling continues while you hold near the edge and stops when you drop, cancel, or leave the board. Lanes fill the available page height and grow with their cards. Cards continue down each lane and load automatically as you scroll. While dragging, the source fades, eligible lanes have dashed outlines, and blue insertion bars and drop hints show the proposed position. Use Refresh to reload a lane. The list icon opens List View with active tasks as a table. Archived tasks never appear on the board: use the archive-box icon to open Archived Tasks. Both icons have hover titles and accessible labels. Archive or restore a task from its record’s Edit form.',
-      'In list views, select a Record Number to open that record in an app record tab. Link icons stay beside their labels; long labels are truncated with the full value on hover. Admins can select a comment or work-note author’s name in Conversation or Table view to open their user record in an app record tab. User records remain admin-only; names without a saved author reference remain plain text. Comments are shared with people who can read the incident and can notify its participants through configured email delivery. Work notes are visible only to responders and admins. Do not put internal information in a shared comment.',
-      'Incident Source is shown beside the record number and in the list. Use Filters → Source to select Manual, Monitor, Integration, Automation, AI Assistant, or Unknown; CSV uses the same filter. Source is set by the server when created and stays separate from Created by. Monitor means failing checks; Automation means service health triggered the incident without recorded failing checks. Confirmed AI-created incidents use AI Assistant; AI edits do not change an existing source. Triggered by in record information links to up to 20 triggering monitors and retained events, or the integration service account (admin link only). Open Monitor Events for the complete retained set. End users do not receive internal trigger details. Missing or unrecognized legacy sources show Unknown; existing source history is not rewritten.',
-      'In an incident or task create/edit form, admins and responders can choose Assign to Me beside Assigned to to select their own account. Save the record to apply the assignment. If an assignment group is selected, you must belong to it; otherwise choose a group you belong to or clear the group first. In Conversation, filter All messages, Comments, or Work notes with the compact dropdown; the adjacent table icon switches to table view, and the conversation icon returns to messages. Choose Resolve to open the confirmation dialog directly from the read-only record. Review or enter resolution notes, then confirm Resolve Incident; Cancel leaves the record unchanged. Notes are optional in the default form; admins can change Required for all System Fields, including Resolution notes, in Form Builder. Existing saved workspace requirements remain in effect until an admin changes them. Required notes are enforced before confirmation and by the API. Reopen asks for confirmation, with Cancel focused initially; saving an active status from a resolved incident’s Edit form also requires confirmation. Monitor-created incidents also have automatic lifecycle behavior; read the record’s notice before resolving an ongoing outage manually.',
-      'Open Knowledge to view knowledge-base cards. Scroll the knowledge-base cards to load additional results automatically in pages of 25; the page remains scrollable on desktop and mobile. If a request fails, choose Retry to continue without losing the cards already loaded. Use Search Knowledge Bases to find a base by name or description, then select its card to open its articles. Each article has a panel with its title, author, and last updated time. When viewing an article, use Knowledge Bases → the linked base → article in the breadcrumb to return to the base or main list. Articles without a base link back to All Articles. Other records also show applicable list and settings parents. Activity, conversation, attachments and delivery-log breadcrumbs return to the corresponding related section. Use Search Articles to search within that base, or Status to choose a publication status. Author shows the recorded creator, or Not recorded when unavailable; timestamps use your profile preferences. Admins and responders first choose Create (+), enter the base name and description, then open it and choose Create Article in the record header to add an associated article. The article’s Knowledge Base reference can be changed to another base in the workspace. Viewers can read bases and articles. All Articles includes a Knowledge Base reference column: select the base name to open it in a record tab. Unassigned indicates no base. Search includes base titles, and article CSV exports include Knowledge Base. All Articles includes older unassigned articles, which can be assigned a base when edited. Link relevant articles to incidents and services. Images embedded in article content stay separate from the visible attachment list. On a saved unpublished article or runbook, admins and responders can choose Publish to use the configured Published status without opening Edit. Published records instead show Unpublish, which asks for confirmation before returning the article to Draft. Record actions → Archive Article also requires confirmation, retains content/history, and removes the article from active lists. Viewers cannot change publication or archive state. Save any draft edits before using these actions. In All Articles, Create opens the article form; Knowledge Bases has its separate base-creation action.',
-      'Choose attachments or drag files into the upload box. Files must use a supported extension and be no larger than 5 MB, with up to 20 attachments per record including embedded images. Uploads on a new form are staged privately. Create sends their file IDs so the API can link them to the new record. Cancel abandons the draft and aborts an active upload; completed unattached files become eligible for worker cleanup after 24 hours.',
+      'Create an incident with its affected service, severity, description, and responder. Source identifies whether it came from a person, monitor, integration, automation, or AI. Automatic incidents link to their retained triggering checks under Monitor Events.',
+      'Use Assign to Me in an incident or task form, then Save. If an assignment group is selected, you must belong to it. Tasks track investigation and follow-up work.',
+      'In Conversation, use comments for information everyone with incident access may read. Work notes are restricted to responders and admins. Type @ and select a person to mention them. Edit watchers adds users or groups to notifications without granting record access. Public-comment emails require SMTP; work notes do not send email.',
+      'Select Resolve to open its confirmation dialog directly. Resolution notes are optional by default; admins may make them required in Form Builder. Confirm Resolve Incident to apply the change. Reopening also requires confirmation. For monitor-created incidents, review the automatic-lifecycle notice before resolving an ongoing outage manually.',
+      'On the task board, select a card to read or Edit it in a modal. Save keeps you on the board; Open Record opens the full form and attachments. Admins and responders can drag cards or use Move To and ordering controls. Changes are shared with the workspace. Only admins reorder lanes. Use List View or Archived Tasks for table views.',
+      'Open Knowledge to search knowledge bases, then search or filter their articles. Create Article in a base’s header associates a new article with it. All Articles → Create makes an article with an optional base. Choose Runbook for ordered recovery steps.',
+      'Admins and responders can Publish saved articles and runbooks. Unpublish returns them to Draft after confirmation; Record actions → Archive Article hides them from active lists while retaining content. Save draft edits before these actions. Deleting a knowledge base requires choosing whether to move its articles to a different base or permanently delete them and their attachments.',
+      'Attachments support files up to 5 MB, with up to 20 per record including embedded article images. New-form uploads attach when the record is created; abandoned uploads are eligible for cleanup after 24 hours. Files are access-controlled but not malware-scanned, so treat downloads as untrusted.',
     ],
   },
   {
@@ -266,20 +149,10 @@ export const helpTopics = [
     title: 'Root Cause Analyses and Alert Grouping',
     screenshots: [
       {
-        src: '/help/global-create-rca.png',
-        alt: 'Global Create modal with the RCA option beside other record types',
-        caption: 'Admins and responders choose RCA from the global Create modal.',
-      },
-      {
         src: '/help/rca-record.png',
         alt: 'Root cause analysis with structured findings and linked incidents and corrective-action tasks',
         caption:
           'Read the RCA like a knowledge article: summary, findings and linked corrective-action records, with exports in Record actions.',
-      },
-      {
-        src: '/help/rca-form-builder.png',
-        alt: 'RCA Form Builder showing a custom Detection gap field',
-        caption: 'Admins add RCA fields in Form Builder and Save the configuration.',
       },
       {
         src: '/help/alert-grouping-settings.png',
@@ -289,11 +162,11 @@ export const helpTopics = [
       },
     ],
     paragraphs: [
-      'Read RCAs in an article-style layout with a title, summary, author, updated time and clear findings sections, like knowledge articles. Use RCAs to record why an incident happened and how the team will prevent recurrence. Admins and responders choose Create from RCAs, Create → RCA in the global Create modal, or the RCAs related list on an incident or task. Viewers can read; end users cannot access internal RCAs.',
-      'Enter a title and capture Summary, Impact, Timeline, Root Cause, Contributing Factors, Corrective Actions, and Lessons Learned. Related Incidents and Corrective Action Tasks accept up to 50 existing workspace records each. Select a linked record to open it in an app record tab. Draft and In Review permit unfinished analysis; Completed requires Summary, Root Cause, and Corrective Actions. Select Save. Admins can open Form Builder from the RCA list or record actions, select Edit, and Add Custom Field. Save applies labels, Help Text, Required policy and custom fields to RCA forms. Up to 20 custom fields are supported. Archived custom fields disappear from forms and records; stored values remain available when restored. System Fields cannot be archived. Completion requirements still apply.',
-      'RCA record numbers start at RCA0000001. Search and filter the list by status; global search includes active titles and summaries. Record actions → Archive RCA asks for confirmation and retains the analysis and its links. Find it with Status → Archived, then Edit and change Status to restore it. Concurrent saves require a refresh. RCA completion does not publish a status message or run corrective actions automatically.',
-      'Admins configure Settings → Alert Grouping → Alert grouping window (seconds), then Save. Choose 0–300 seconds; the default is 30. A new automatic incident appears immediately. Its initial notification waits for that window and the next worker reconciliation to collect related failing monitor checks for the same service and its dependencies. Separate services and manual incidents stay separate. Use 0 to send immediately; the existing one-active-automatic-incident-per-service correlation still applies. Settings changes apply to new automatic incidents.',
-      'The Monitor Events related list preserves up to 1,000 check references gathered during the initial grouping window. Later checks and recovery do not replace them. Event retention remains 30 days. Grouped notifications include the affected-monitor count; Slack includes diagnostics for up to five monitors. Original failure diagnostics remain available when recovery happens before notification. Recovery still updates the incident immediately; grouping does not hide short outages.',
+      'Use a root cause analysis (RCA) to explain why an incident happened and prevent recurrence. Admins and responders choose Create in RCAs, Create → RCA, or an incident/task’s RCAs related list. Viewers can read; end users cannot access internal RCAs.',
+      'Capture the impact, timeline, root cause, contributing factors, corrective actions, and lessons learned. Link the affected incidents and follow-up tasks. Draft and In Review allow unfinished analysis; Completed requires Summary, Root Cause, and Corrective Actions. Completion does not execute actions or publish a status update.',
+      'Admins customize RCA fields through Form Builder. Record actions offers CSV/PDF exports and Archive RCA. To restore an archived RCA, filter the list by Archived, then Edit its status.',
+      'Admins set Settings → Alert Grouping → Alert grouping window (seconds) from 0–300; the default is 30. Automatic incidents appear immediately, while their initial notification waits to collect failing checks for the same service and its dependencies. Use 0 to send immediately. Separate services and manual incidents remain separate; changes apply to new automatic incidents.',
+      'Monitor Events preserves checks gathered during that initial window, subject to 30-day event retention. Later checks do not replace the group. Recovery updates the incident immediately, including short outages.',
     ],
   },
   {
@@ -306,56 +179,22 @@ export const helpTopics = [
         caption:
           'Select coverage on the calendar to view details. Admins can select Edit Coverage to update the shift without leaving the calendar.',
       },
-      {
-        src: '/help/on-call-calendar.png',
-        alt: 'on-call calendar with All services filter at the upper left and month controls on the right',
-        caption:
-          'Search for a service at the top left of the calendar; clear the selection to show all services. Month controls stay beside the filter.',
-      },
-      {
-        src: '/help/theme-black.png',
-        alt: 'Default theme with a black background and neutral gray surfaces',
-        caption:
-          'Default is the default primary theme. Select Light for a white background and light-gray surfaces.',
-      },
-      {
-        src: '/help/theme-white.png',
-        alt: 'Light theme with a white background and light-gray surfaces',
-        caption: 'Select Light to apply its light appearance; Default applies its dark appearance.',
-      },
-      {
-        src: '/help/profile-themes.png',
-        alt: 'profile with twelve color scheme cards and accessibility controls',
-        caption: 'Select a color scheme, then adjust contrast, motion, and text size.',
-      },
-      {
-        src: '/help/profile-greeting.png',
-        alt: 'profile with a custom dashboard greeting and first-name preview',
-        caption: 'Customize your greeting using {firstName}, then select Save.',
-      },
-      {
-        src: '/help/profile-date-ai.png',
-        alt: 'profile with date and time format selectors and enabled AI feature switches',
-        caption:
-          'Choose timestamp formats and control the AI features available through the workspace provider.',
-      },
     ],
     paragraphs: [
-      'Admins manage configuration and membership. Responders manage operational work such as incidents, tasks, and knowledge. Users can create incidents and view incidents opened by or for them. Viewers can read permitted workspace information but cannot edit it.',
-      'An admin creates a profile from Users with a name, email, role, and initial password. Share the password privately. Admins can reset another user’s password from their record after confirming their own password; this signs the user out. The owner changes their own password in Profile settings. Groups let you organize multiple members for ownership and coordination.',
-      'Use the All services reference field at the top left of the On-call calendar to filter coverage by service. Global coverage remains included, and clearing the field shows all services. Month controls sit beside the field, close to the calendar. Create coverage from On-call or select a calendar date to prefill it. Choose the teammate, service scope, and UTC start/end times. Rotation settings create multiple shifts. Only one shift can cover a service at a time; All services also overlaps service-specific shifts. An overlap error gives the conflicting UTC interval. Edit the existing calendar coverage, select different services, or start at the previous shift’s end (the end is exclusive). Editing preserves seconds and milliseconds at handoffs. Coverage record breadcrumbs and tabs identify the teammate and service scope, rather than a timestamp. Record start and end values follow your timezone and date format; schedule editing remains explicitly UTC. Confirm before removing a shift.',
-      'Set your name, phone, and time zone in Profile settings. Personal timestamps use your saved time zone, including daylight-saving changes. Schedule editors, date filters, and status-history day buckets explicitly labeled UTC remain UTC. Audit displays follow your account timezone and date format. Adding a phone number does not enable SMS or voice delivery.',
-      'Open the profile menu at the bottom of the navigation and choose Profile for personal preferences, or Settings for workspace configuration. Available settings depend on your role. Under Profile, Dashboard Greeting lets you change your welcome message. Include {firstName} wherever your first name should appear, preview it, then choose Save. Reset Greeting restores Welcome, {firstName}. The message is plain text, limited to 120 characters, and saved with your account across sessions.',
-      'Profile settings includes twelve Theme color schemes. Default uses a pure black background and neutral gray surfaces; Light has a white background and light-gray surfaces. These primary choices appear first and apply their matching dark or light appearance. Existing saved choices are respected. Theme settings also includes light or dark appearance, higher contrast, reduced motion, and text size. The app logo background follows your selected color scheme and light or dark appearance. Date and Time settings offers browser defaults, 12-hour or 24-hour clocks, and alternative date formats. Integration logs, audit activity, monitor checks, and record metadata use your selected timezone and date/time formats. Shared fields, form sections, filter dropdowns, popovers, and button states follow the selected palette and appearance. These account preferences apply to private app pages; public status pages use their status settings and their configured Light or Dark appearance. Explicitly UTC schedules, filters, and exports retain their documented formats.',
+      'Admins manage users and configuration. Responders manage operational records. Viewers can read permitted information. Users can create incidents and view those opened by or for them. Available controls follow your effective role.',
+      'Admins create users with a name, email, role, and initial password; share passwords privately. Resetting another user’s password requires the admin’s password and signs that user out. Change your own password in Profile. Groups organize membership and ownership.',
+      'Use On-call to create coverage or select a calendar date. Choose the teammate, services, and UTC start/end times; rotation settings create multiple shifts. Select existing coverage to review or edit it. Filter by service to inspect coverage.',
+      'Coverage cannot overlap for the same service; All services overlaps service-specific shifts. Start a shift at the previous shift’s end to avoid a conflict. Schedule editing uses UTC even when record timestamps use your profile timezone.',
+      'Open Profile for timezone, date/time formats, theme, accessibility, and AI preferences. Dashboard Greeting accepts {firstName}. Personal appearance applies within the app; public status pages have separate settings. Fields explicitly labeled UTC stay in UTC. Adding a phone number does not enable SMS or voice delivery.',
+      'An enabled Slack integration reveals Slack channel on groups and Slack user ID on users. Group email stores a mailbox or distribution list. These directory values alone do not send messages; delivery destinations remain controlled by integration configuration.',
     ],
   },
   {
     id: 'role-preview',
     title: 'Impersonation and Role Preview',
     paragraphs: [
-      'Admins open their profile menu and use Impersonation to preview Responder, Viewer, or User permissions. Select the role you want to check; the app returns to the dashboard and applies that role’s API permissions.',
-      'This previews a role, not another person. Your signed-in identity and workspace remain unchanged. Permitted actions are real and use your account: creating, editing, deleting, or publishing affects actual records and can send configured notifications. Use a separate test workspace when exploring changes.',
-      'The Viewing as banner identifies the effective role. Select Return to Admin to restore administrator access. Role changes clear private cached data and update other tabs using the same browser session. Audit entries retain your account identity, actual role, and effective role.',
+      'Admins choose Impersonation in the profile menu to preview Responder, Viewer, or User permissions. Select Return to Admin in the Viewing as banner to restore admin access.',
+      'This previews a role using your own account. Permitted actions change real records and may send notifications. Use a separate test workspace when exploring changes. Audit history retains your identity and effective role.',
     ],
   },
   {
@@ -370,13 +209,11 @@ export const helpTopics = [
       },
     ],
     paragraphs: [
-      'Admins open Settings → Service Accounts → Add Service Account. Enter a name, choose at least one Allowed Scope, and select Permitted Services. Allow all workspace services and unassigned records explicitly grants broader service access. New accounts default to Enabled, API Key authentication, and a 90-day credential lifetime; no scopes or services are selected automatically.',
-      'Choose API Key, OAuth Client Credentials, or both. Credential Lifetime supports 1–365 days. After creating the account, use Copy API Key or Copy OAuth Client Secret and store the value in your external integration’s secret manager. Copy the OAuth Client ID as well. Dismiss Credentials removes the one-time values from view; saved secrets cannot be retrieved. Browser clipboard access requires a secure context.',
-      'External clients use HTTPS and POST JSON to /api/external/v1/incidents, /api/external/v1/tasks, or /api/external/v1/knowledge, with Authorization: Bearer followed by their API key or OAuth access token. Each route needs its matching create scope. Published knowledge also needs knowledge:publish. These credentials grant no record reads, edits, deletes, uploads, browser sign-in, or administrator access.',
-      'For OAuth, configure the external client with /api/oauth/token, the generated client ID/secret, and the client_credentials grant. Send an application/x-www-form-urlencoded token request using HTTP Basic or form-body client authentication. Request a subset of the allowed scopes if appropriate. Access tokens last at most one hour, never beyond the client secret’s expiry; obtain a fresh token after expiration. This machine flow is separate from Identity Providers used for human sign-in.',
-      'Every record follows workspace Form Builder validation and reference rules. Provide IDs from this workspace and use an allowed service. Linked tasks inherit their incident’s service. Incidents start Open, tasks start To Do, and knowledge starts Draft unless publication is explicitly authorized. External incidents default to no Opened for user, and the creator is recorded as Service account: [name]. Creation is not automatically deduplicated; check the app before retrying an uncertain request.',
-      'Open a service account record to change scopes or service restrictions, disable it, generate or rotate credentials, revoke them with confirmation, or delete the account with confirmation. Rotating replaces the old credential immediately. OAuth rotation/revocation or any account settings change also invalidates issued OAuth tokens. Disabling/deleting rejects future requests; an already-authorized operation may finish. Never share credentials in URLs, tickets, screenshots, or source code.',
-      'Open an audit record and select Audit Log in its breadcrumb to return to the list. Audit records omit the Back to List button. Settings → Audit Log records safe API metadata, including machine access, OAuth issuance, denials, human requests, and list polling. Entries do not contain credentials, request bodies, or private contents. Calls without a verified workspace remain deployment-level entries, outside tenant-visible history. Invalid credentials return 401, scope/service restrictions return 403, and validation errors identify fields to correct. Deployment details and payload fields are documented in docs/external-api.md in the repository.',
+      'Admins choose Settings → Service Accounts → Add Service Account. Select only the Allowed Scopes and Permitted Services the external source needs. Choose API Key, OAuth Client Credentials, or both, and a credential lifetime.',
+      'Copy credentials when shown and store them in the external system’s secret manager. They cannot be retrieved later. Use HTTPS and the dedicated external creation endpoints; credentials do not grant record reads, updates, deletes, uploads, browser sign-in, or admin access.',
+      'External records must satisfy workspace required-field policies and relationship permissions. Published knowledge needs its separate publish scope. Creation is not automatically deduplicated; investigate uncertain requests before retrying. Receive events grants normalized event intake only, with the same permitted-service restrictions. Event retries use External ID deduplication.',
+      'Rotate or revoke compromised credentials, or disable the account. Rotation replaces the old credential immediately. OAuth credential or account-setting changes invalidate issued tokens. An operation already authorized may finish.',
+      'Use Settings → Audit Log to review safe request metadata. A 401 indicates invalid credentials; 403 indicates denied scope or service access. See the repository’s docs/external-api.md for endpoints, token requests, payloads, and deployment requirements.',
     ],
   },
   {
@@ -390,47 +227,23 @@ export const helpTopics = [
           'Select an authentication method and save the settings, then use Test Saved Connection to check authentication and access without creating an incident.',
       },
       {
-        src: '/help/ai-chat-demo.png',
-        alt: 'AI Chat with six predefined examples and a simulated incident resolution',
-        caption: 'Enable Demo AI to explore fixed examples without a provider or record changes.',
-      },
-      {
         src: '/help/ai-chat-action.png',
         alt: 'AI Chat showing a cited task and proposed status change awaiting confirmation',
         caption:
           'Review the target and exact changes before Apply Changes saves through normal record validation.',
       },
-      {
-        src: '/help/ai-provider.png',
-        alt: 'AI provider settings with a model identifier, empty API key field, and connection controls',
-        caption: 'Admins configure a provider and model. Saved keys are never displayed.',
-      },
-      {
-        src: '/help/ai-drafting.png',
-        alt: 'AI article draft with a reviewable preview and Use Draft in Form control',
-        caption:
-          'Generate and review a draft, confirm replacement of the form content, then save the record yourself.',
-      },
-      {
-        src: '/help/ai-knowledge.png',
-        alt: 'knowledge answer with a numbered source link to a knowledge article',
-        caption: 'Ask a question and open the cited source articles to verify the answer.',
-      },
     ],
     paragraphs: [
-      'Admins open Integrations → AI Provider, select OpenAI or Claude, enter an API model identifier and provider API key, and Save. Use Test Connection after saving to check credentials and model access. One provider is configured per workspace; removing it requires confirmation and hides live AI features. Independently enabled Demo AI remains available while an active demo dataset exists. Provider charges and account quotas apply.',
-      'AI Chat appears as a floating button when Enable AI Chat is on and a provider is configured, or when Enable Demo AI is on with an active demo dataset. Admins control both under Integrations → AI Provider; users can disable AI Chat under Profile → AI Features. Demo AI offers six fictional examples for attention, assignments, failed checks, similar incidents, runbooks, and resolution/postmortems. Demo replies show Thinking and Retrieving Example Data before the fictional result; the open floating chat control becomes an X. Demo actions only simulate changes and never contact providers or change workspace records. Demo citations open corresponding records from the active demo dataset, using bounded title/status metadata; live operational records are excluded.',
-      'Open a record and ask AI Chat to explain it, find similar incidents or published runbooks, or draft a postmortem. Inline citations and result titles open app record tabs. Source links and search criteria accompany the answer. Results use bounded keyword matching and may miss relevant records; check the evidence and treat possible causes as hypotheses. Viewers can read; incident-portal users have no AI access.',
-      'Responders and admins can ask chat to create incidents/tasks, update incident/task titles, descriptions, status, severity/priority, assign themselves, or create draft knowledge articles. Review and Apply shows exact changes and requires Apply Changes confirmation. Native API permissions, Form Builder requirements, relationships, revision checks, and audit logging still apply; actions may send configured notifications. Proposals expire after ten minutes and cannot be replayed. After a failure, refresh and ask again. Your browser’s record views refresh after a successful action; existing form drafts are preserved. Other users see changes through normal polling or refresh. Chat has no delete, publish, external-message, or shell-execution actions. New Conversation clears the chat; reload, sign-out, or role changes also clear it.',
-      'With a provider configured, summaries, article/runbook drafting, and knowledge answers are enabled by default. Each workspace user with operational access can disable individual features under Profile → AI Features; disabled features are hidden and the API rejects their requests. Incident-portal users do not have AI access. Viewers can use summaries and knowledge answers; drafting requires responder or admin access.',
-      'Select Summarize on a saved task or incident. In an article or runbook form, describe the desired document and choose Generate Draft. Review the preview, then confirm Use Draft in Form to replace title, summary, content, and steps. This creates an unsaved draft; normal validation and Save/Create still apply. The floating AI Chat can propose record changes; Review and Apply requires explicit confirmation before saving.',
-      'Ask Knowledge searches up to five matching published articles in the workspace or current base and returns an answer with source links. Draft and archived articles are excluded. Matching uses keywords, so try other wording if relevant articles are missed. Answers can be incorrect or incomplete; verify them against the linked sources.',
-      'Requests send bounded authorized record text, your prompt, recent chat turns, or matching published article excerpts to the configured provider. Attachments, credentials, and internal work-note conversations are not included. Keys are encrypted on the server and are never returned to the browser. Generation and chat share 10 AI requests/actions per user per minute and 1,000 generation/chat turns per workspace per UTC day, including failed turns. A live chat turn makes two provider calls. Conversations remain in memory; generated content is saved only through a reviewed draft save or confirmed record action.',
-      'Admins can configure SMTP email (including SendGrid and Amazon SES presets), Slack, Microsoft Teams, Discord, PagerDuty, ServiceNow, Jira Cloud, GitHub Issues, and generic HTTPS webhooks under Integrations. Browse the catalog by category. Choose the provider, enter its configuration, and select service scopes, recovery notifications, and on-call routing where applicable. Enable delivery is on by default for new integrations; turn it off before saving to keep delivery disabled. Editing an existing integration preserves its saved delivery setting.',
-      'Email requires an authorized sender and a configured SMTP server. Supported SMTP ports are 465 for implicit TLS and 587 for STARTTLS. Use the credentials and sender verification required by your provider. An email address in a user profile alone is not enough to send mail.',
-      'Slack and Teams require an appropriate provider webhook. ServiceNow keeps the saved Instance Root URL visible. Choose Basic Auth or OAuth client credentials. For OAuth, configure an inbound client credentials integration in ServiceNow and enter its Client ID, Client Secret, and optional scope. The integration account needs Incident API permissions and read access to its own User record; created incidents use that authenticated account as Caller. Save changes, then use Test Saved Connection to check authentication, caller lookup, and read access without creating an incident. HTTP 401 means authentication was rejected; check the credentials and enabled authentication method. HTTP 403 requires reviewing table permissions and REST API access policies. Keep credentials out of incident descriptions, comments, and screenshots.',
-      'Slack notifications use bold alert and monitor headings and stack fields vertically in separate full-width sections with Key: Value text, including Incident: View Incident as a clickable link. Multiline descriptions and errors are kept on a single value line. For automatic monitor incidents, they include up to five relevant checks from the service or its dependencies: HTTP status and reason, check and response-reading errors, method, duration, and check time. Checks are saved when the notification is queued so retries retain the original diagnostics. Response bodies, headers, and endpoint URLs stay in the authenticated app. Configure APP_ORIGIN on the workers to the address recipients use to open the app.',
-      'Review Integrations → Logs when messages do not arrive. Check whether the integration is enabled, its service scope matches, and the SMTP/webhook credentials are valid. Workers and Redis must be running to process queued delivery.',
+      'Admins open Integrations, choose a provider, configure its credentials and destination, and Save. Check service scope, recovery notifications, and on-call routing where applicable. Enable delivery defaults to on for new integrations. Configure SMTP with an authorized sender before expecting email.',
+      'Review Integrations → Logs when delivery fails. Check credentials, enabled delivery, and service scope. Workers and Redis must be running. Test controls check only their stated connection capabilities; verify actual delivery before relying on an integration.',
+      'For ServiceNow, enter Instance Root URL and choose Basic Auth or OAuth client credentials. The account needs Incident API access and read access to its own User record; it becomes Caller on created incidents. Save, then use Test Saved Connection. This checks authentication and read access without creating an incident. For 401 check authentication; for 403 review permissions and REST API policies.',
+      'Slack alerts include View Incident and, for monitor-triggered incidents, relevant HTTP/error diagnostics. Open the incident for full investigation. If links point to the wrong host, ask your deployment administrator to check the configured application origin.',
+      'For live AI, admins configure OpenAI or Claude under Integrations → AI Provider, select a model, Save, and Test Connection. Provider charges and quotas apply. Profile → AI Features controls your enabled features. Incident-portal users have no AI access.',
+      'AI Chat can search accessible records and propose incident, task, article-draft, or RCA changes. Every write requires Review and Apply, then Apply Changes. Permissions, required fields, relationships, and revisions are checked again. Published articles, deletion, publishing, credentials, and administrative actions are outside its tools. Actions can trigger normal notifications.',
+      'Review AI sources and proposed changes. Answers may be incorrect or miss relevant records. Authorized record text, prompts, and bounded recent context are sent to the provider; attachments, credentials, and internal work-note conversations are excluded. Context is limited to 20 recent messages and eight accessible references, so restate older details when needed.',
+      'Use New Conversation to start again, Conversation History for the last 20 conversations, and Full View for more reading space. History clears on reload, sign-out, or role change. Historical proposals cannot be applied; ask for a fresh one. Proposals expire after ten minutes. Successful actions refresh record views while preserving unsaved form drafts.',
+      'Use Summarize on saved incidents/tasks, Generate Draft in article/runbook forms, or Ask Knowledge for answers from published articles. Review generated drafts before Use Draft in Form, then Save yourself. AI shares per-user and workspace limits; if a request is rejected, wait or ask an admin to review usage.',
+      'Enable Demo AI with an active demo dataset to try six predefined examples without a provider. Replies and actions are simulated; they do not change records or contact a provider. Demo AI can be enabled independently of live AI.',
     ],
   },
   {
@@ -438,27 +251,17 @@ export const helpTopics = [
     title: 'Status Pages and Subscriptions',
     screenshots: [
       {
-        src: '/help/public-status-appearance.png',
-        alt: 'public service status page using its configured dark appearance',
-        caption:
-          'Public status pages start with the saved Light or Dark Appearance. The icon at the right edge switches the visitor’s mode; the in-app page follows profile preferences.',
-      },
-      {
         src: '/help/status-settings.png',
         alt: 'status settings with a new service message enabled and Light or Dark Appearance below the other settings',
-        caption:
-          'New service messages start with Display message on. Enter the message before saving. Choose Light or Dark in Appearance below the other settings, then choose Save.',
+        caption: 'Configure public visibility, messages, subscriptions, and appearance, then Save.',
       },
     ],
     paragraphs: [
-      'In Status Page Settings, Add a Service Message starts with Display message enabled. Enter the required message text, choose its level, and save to publish it. Turn Display message off before saving to retain a hidden message. Existing messages keep their saved display setting. Appearance is below visibility, subscriptions, icon, global banner, and service messages; choose Light or Dark and then Save.',
-      'Open Service Status and select the settings gear. Choose Private for workspace access or Public to share the generated public link. The public page has no application sidebar and omits monitor targets and response bodies.',
-      'The in-app status page includes the Service Status heading and shows Settings and the public launch control in its top header. Public launch appears for admins when public visibility is enabled. The in-app Service Status page follows your profile appearance and color scheme. Admins choose the public page’s initial Light or Dark mode under Appearance in Status Page Settings. Custom background colors are no longer used. Service health and its colored history blocks sit flush with the page, without an outer card background or border. Public status pages use this saved mode and their configured icon/messages, ignoring personal, browser, and device themes; public visitors can switch Light/Dark using the sun/moon icon flush with the right edge of the logo header for the current visit. This does not update profile preferences and resets to the saved status-page appearance on reload. Your personal appearance applies throughout private app routes.',
-      'Publish a global banner or service-specific message to explain impact. Choose its criticality and enable it when ready. Messages add context; they do not override measured service health. You can upload or remove a branding icon.',
-      'Show or hide subscriptions with one control. Hiding subscriptions stops new signups, email updates, and RSS access. Email and RSS can be configured independently when shown. Unsubscribe links continue to work.',
-      'For email subscriptions, select an enabled SMTP integration and configure the public HTTPS origin used for links. Visitors select Subscribe to updates in the public page header, then choose email or RSS. Email requires confirmation within 24 hours and includes an unsubscribe link.',
-      'Subscribers receive public service-health and published-message changes, not internal work notes or every unchanged check. RSS provides up to 50 updates from the last 30 days. Workers must run for updates to be published. Switching to Private cannot recall already delivered messages or cached feeds.',
-      'To use a custom domain, configure DNS, HTTPS, and a reverse proxy, then set the public origin in status settings. The repository README includes a proxy example; DNS alone cannot map a hostname to the public page’s URL path.',
+      'Admins open Service Status → Settings to choose Private workspace access or Public visibility and share the public link. Public pages omit internal monitor targets and responses.',
+      'Add a banner or service message to explain impact; messages do not override measured health. New service messages have Display message enabled, so enter their text before Save or disable display to keep them hidden.',
+      'The in-app page follows your profile appearance. Public pages start with the Light or Dark Appearance saved in Status Page Settings. Visitors can toggle it for the current visit; reload restores the saved appearance without changing profile preferences.',
+      'To offer email subscriptions, enable subscriptions, choose an enabled SMTP integration, and configure the public HTTPS origin. Visitors choose Subscribe to updates and confirm email within 24 hours. RSS can be enabled independently. Hiding subscriptions stops new signups, email updates, and RSS access; unsubscribe links still work.',
+      'Subscribers receive public health and published-message changes, not internal work notes or unchanged checks. Workers must be running. Switching to Private cannot recall delivered messages or cached feeds. See docs/deployment.md in the repository for custom-domain setup.',
     ],
   },
   {
@@ -466,78 +269,40 @@ export const helpTopics = [
     title: 'Forms, Tables, and Administration',
     screenshots: [
       {
+        src: '/help/settings-navigation.png',
+        alt: 'Settings categories beside the selected settings panel',
+        caption: 'Choose a category to open its settings.',
+      },
+      {
+        src: '/help/configuration.png',
+        alt: 'Task Form Builder with the System Field status label changed to Workflow and an additional Review option',
+        caption: 'Edit field labels, required settings, and custom fields in Form Builder.',
+      },
+      {
         src: '/help/identity-provider-settings.png',
         alt: 'Identity Providers settings with callback URL, workspace sign-in link, and an enabled Auth0 configuration',
         caption:
           'Register the Callback URL with the identity provider, configure the client, then connect your account in Profile before using the Workspace Sign-in Link.',
       },
-      {
-        src: '/help/record-tabs.png',
-        alt: 'record tabs retaining an unsaved task form while a related service is open',
-        caption:
-          'Reference links open app record tabs. Switch tabs to return to your draft; up to twenty record tabs can be open, with the oldest replaced when opening another.',
-      },
-      {
-        src: '/help/audit-record.png',
-        alt: 'read-only Audit Entry record showing actor, action, outcome, and submitted field names',
-        caption:
-          'The list Open Record control opens a read-only detail view with the same permissions and safe fields as the list.',
-      },
-      {
-        src: '/help/table-compact-toggle.png',
-        alt: 'Services table menu with the Compact Rows switch',
-        caption:
-          'Toggle Compact Rows in the ellipsis menu to save your preferred spacing across tables.',
-      },
-      {
-        src: '/help/table-filters-modal.png',
-        alt: 'Services table with search controls in a small Filter panel beside the Filters button',
-        caption: 'Filters apply immediately; the table stays visible while you change filters.',
-      },
-      {
-        src: '/help/configuration.png',
-        alt: 'Task Form Builder with the System Field status label changed to Workflow and an additional Review option',
-        caption:
-          'Select Edit, choose a System Field, update its label or add select options, then Save the form configuration.',
-      },
-      {
-        src: '/help/demo-data-rcas.png',
-        alt: 'Demo Data settings with Add Demo Data and Delete demo data controls and RCA refresh guidance',
-        caption:
-          'New demo batches include linked RCAs. To refresh an older dataset, delete its demo records and add a new batch; other records are retained.',
-      },
-      {
-        src: '/help/dashboard-overview.png',
-        alt: 'Overview dashboard with a view dropdown and cross-domain scorecards and report links',
-        caption:
-          'Use Dashboard View to choose Overview or a domain dashboard. Bar and pie charts show incident severity, task status, service health, and knowledge article status; use their links to inspect records.',
-      },
     ],
     paragraphs: [
-      'Breadcrumbs provide the page title across forms and lists; duplicate headings and their empty wrappers are omitted so they leave no extra spacing. Record IDs and status appear in the form body, while the header contains record actions aligned with the information-panel toggle. Secondary controls precede the primary action in both visual and keyboard order. On desktop, drag the left edge of the right record information panel to resize it from 240 to 560 pixels. Drag to 160 pixels or below to hide the panel and free its width. Use the info icon beside the primary record action to reopen it. The Details and Form Builder Field settings headers also have a close icon. Selecting a Form Builder field reveals its settings again. The panel background, borders, fields, and resize focus indicator follow your selected theme immediately. The geometric trident logo uses three upward points and one unified stem for coordinated service response; its background follows the app palette. Your account remembers the expanded width; the toggle restores it. Focus the resize edge and use Left/Right arrows, Home to collapse, or End for maximum width. On mobile and tablet, the info icon opens an overlay over the record. Tap outside, press Escape, or use its close icon or Close button to dismiss it; focus returns to the control that opened it and the record stays in place. Create forms focus their first editable field once it appears. After successful creation, the completed create tab is replaced by the saved record tab; a first editable field is focused there when present. On desktop, the breadcrumb header and information panel have aligned bottom borders when the information panel is expanded, including when record tabs are open. Record forms begin close to the top header and record identity row, while field groups retain their spacing. Fields use subtle theme-aware borders to distinguish controls from their background. Reference fields and dropdowns have a single outline; their option lists can open beyond header and scroll-container boundaries.',
-      'Admins open Settings → Identity Providers to configure up to ten Auth0, Okta, Microsoft Entra ID, Google, Keycloak, OneLogin, Ping Identity, or other OpenID Connect providers. Register a confidential web application with authorization code flow, and copy the exact Callback URL into its allowed redirect URIs. Enter the exact issuer URL, client ID, client secret, and client authentication method. New providers default to enabled. Secrets are encrypted and cannot be read back; leave a saved secret blank to retain it. Test Discovery checks public HTTPS metadata, not the client credentials. Use a tenant-specific Entra issuer rather than common or organizations.',
-      'Users sign in with their password, then open Profile → Identity Provider Connections, confirm their current password, and select Connect. Authenticate with the intended identity at the provider. The account is linked by issuer and subject, never by matching email. Admins share the Workspace Sign-in Link from Settings; users can also paste that link under Workspace Sign-in on the login page. Provider sign-in grants the existing workspace role. There is no automatic provisioning, group mapping, SCIM, SAML, or enforcement of provider-only sign-in. Disabling a provider stops new sign-ins; deleting it removes its connections. Existing sessions and password sign-in remain available. Disconnect your own connection in Profile. App sign-out ends the app session, not the provider session.',
-      'Admins access Form Builder, marked with a sliders icon, from the secondary actions menu on supported incident, task, knowledge, and RCA records, create forms, and list views. The task board also includes it in Tasks actions. Select Edit to change configuration. System Fields can be reordered and their labels updated; select System Fields also accept additional options and updated option labels. Admins can toggle Required and edit labels and Help Text for every System Field. System Fields cannot be archived; their IDs, storage types, and existing workflow meanings remain protected. Active Form shows active fields; Archived Fields shows custom fields that can be restored. Cancel discards the draft; Save applies it.',
-      'Select any System Field or custom field and enter Help Text to explain its purpose or expected value. Help text is plain text, limited to 1,000 characters, and displays beside the corresponding form control with an accessible association. Save the form configuration to make it available to users.',
-      'Overview starts with Needs Attention, using the same full-size colored score cards as the incident, task, and service dashboards. My Assignments and My Team follow directly, with compact incident and task tiles, prominent active totals, and critical/high or overdue indicators. Select a tile to open its report. Team work includes all your assignment groups and may overlap personal assignments. Needs Attention highlights urgent incidents, unassigned incidents, overdue tasks, and services down. Select an Incident Priority bar or Service Health segment to open a matching report. Useful Shortcuts opens Knowledge, On-call Coverage, or Service Status. Unknown service health stays distinct from operational status.',
-      'Dashboard opens Overview with personal and team assignments, actionable attention counts, incident and service charts, and useful shortcuts. The dashboard greets you by your first name, with a compact Dashboard View picker and Refresh aligned to its right. The sticky header has a theme-aware bottom border and keeps padding below these controls while scrolling, with consistent spacing after returning from a record or refreshing. Use the Dashboard View picker to switch to Incidents, Tasks, or Service Health, and the adjacent refresh icon to update the data. Your selection is saved with your account preferences. Lists and forms align breadcrumbs and compact main action buttons in one header row; new and existing record forms keep their actions visible above the scrolling content, with headers spanning the available width and inside the rounded content frame below the compact top toolbar; report breadcrumbs show the selected report name.',
-      'When adding a System Field select option, choose its canonical workflow meaning. Existing option values, workflow meanings, and visibility stay fixed so saved records and reports remain consistent. Custom-field select options can be added, ordered, hidden, or removed. Existing saved configuration is preserved, and saved custom field types cannot change.',
-      'Use the Filters icon to open a small table search and filter panel beside the button, without an overlay. The table stays visible and interactive as results update. Changes apply immediately; Done, Close, or Escape closes the panel while keeping filters active. The Active indicator shows when filters affect the table. Reopen Filters to change or reset them; each table’s filter panel starts closed. Search matches all table columns; sort using column headers. Tables search and paginate on the server. CSV export follows filters; selecting rows exposes actions for that selection above the table.',
-      'Open a table’s ellipsis menu and turn on the Compact Rows switch to reduce row and header padding. The switch shows whether compact spacing is enabled. This account preference applies to list and related tables and is restored when you sign in again; Turn it off to return to standard spacing.',
-      'Archived custom fields are hidden in record forms and read-only views, including knowledge articles. Stored values remain available if the field is restored. Forms show custom required-field and email errors consistently, focus the first invalid field, and keep values available for correction. Every list row has an Open Record control. Activity, discussion, audit entries, integration delivery logs, attachments, response headers, invitations, and hosting inquiries open read-only detail pages with the same access rules as their lists. Sensitive fields remain excluded. Settings includes Audit Log for every API response, including reads, list polling, authentication, external API access, and failures. Verified workspace events appear here; requests without a verified workspace remain deployment-level entries. Audit metadata never includes request bodies, credentials, tokens, or query strings. Automated updates identify their actor as System. Deletion requires confirmation. Review the affected record and consequences before confirming, especially bulk deletion or bulk cleanup.',
-      'Settings → Add demo data creates 50 records per supported type. Knowledge includes 25 articles and 25 runbooks with ordered triage, mitigation, and recovery steps. Demo data also includes 50 populated RCAs in Draft, In Review and Completed, linked to sample incidents and corrective-action tasks and using the saved custom-field schema. The admin adding a new batch also receives six in-app comment/work-note examples in Notifications. Open an alert to view its demo incident or select Mark all as read; deleting demo data removes the sample alerts. No emails or external messages are queued. Demo users cannot sign in, monitors stay paused, and integrations never send notifications. Only one batch is allowed. An existing batch is unchanged by an upgrade; remove its demo records using Settings → Delete demo data, then add a new batch to include the latest sample types, including RCAs. Batch cleanup preserves other workspace records.',
-      'Some infrastructure controls still require deployment configuration, including database connections, network access, and worker capacity. Consult the README for environment variables and monitor limits; not every infrastructure setting has a UI control.',
+      'Admins open Form Builder from supported record or list secondary actions, then select Edit. Adjust labels, Help Text, Required, field order, and custom fields. Save applies the configuration; Cancel discards the draft.',
+      'All System Fields, including Resolution notes, support Required and label changes. System Fields cannot be archived, and their stored types and existing workflow meanings stay protected. Additional system select options need a canonical workflow meaning. Use Archived Fields to restore custom fields; their saved values are retained while hidden.',
+      'Use Search list above the table for text search. Use Filters for Filter Column, Column Contains, dates, and other field conditions; changes apply immediately. Filters are saved for your account and list across refresh until reset. Closing the panel keeps filters active. Sort with column headers. Filtering, sorting, and pagination run on the server. The ellipsis menu’s Compact Rows switch saves your spacing preference across tables.',
+      'Use Settings → Audit Log to investigate who performed an action and its outcome. It includes API activity and failures with safe metadata, excluding credentials and private request contents. Automated updates appear as System.',
+      'For provider sign-in, admins configure Settings → Identity Providers with an OpenID Connect issuer, client credentials, and the exact Callback URL registered at the provider. Test Discovery checks public metadata, not credentials. Users first sign in with a password and connect their identity under Profile → Identity Provider Connections, then use the Workspace Sign-in Link.',
+      'Provider sign-in retains the existing role. Automatic provisioning, group mapping, SAML/SCIM, and provider-only enforcement are unsupported. Disabling a provider prevents new sign-ins but does not end existing sessions or password access. App sign-out does not sign out of the provider.',
+      'Open Settings and choose a category from the vertical navigation. Admin categories include Alert Grouping, Integrations, Identity Providers, Service Accounts, Audit Log, and Demo Data.',
+      'Settings → Demo Data → Add Demo Data creates a sample batch with linked records, runbooks, RCAs, and in-app notifications. Demo users cannot sign in, monitors stay paused, and no external messages are sent. Only one batch is allowed. To receive newer examples, use Delete demo data and add a new batch; cleanup preserves unrelated records. Demo AI is enabled separately.',
     ],
   },
   {
     id: 'hosting',
     title: 'Self-hosting and Maintenance',
     paragraphs: [
-      'Follow the repository README to create your environment configuration, then run docker compose up -d --build from the project root. The app normally opens at http://127.0.0.1:8090. Use the exact configured origin to avoid write-origin errors.',
-      'The application uses a React frontend, Express API, scheduled workers, Redis, and a configured persistence backend. MongoDB and PostgreSQL are supported. Changing a database connection is not a migration of existing data.',
-      'Use docker compose ps to check service health and docker compose logs --tail=100 api workers scheduler to investigate startup or scheduling problems. Do not share logs containing credentials or private record data.',
-      'Back up your database and integration encryption-key storage before upgrades. Rebuild changed services with docker compose up -d --build. Do not remove persistent volumes unless you intend to erase their data.',
-      'For external access, use HTTPS, restrict infrastructure ports, and configure the public application origin. Size workers for check frequency and endpoint latency, and watch queue delays and database growth. More monitors at shorter intervals produce more events.',
+      'Follow the repository README for installation. Use docs/deployment.md for HTTPS and public domains, docs/database-backends.md for database configuration, and docs/operations.md for upgrades, backups, and recovery.',
+      'Before upgrading, back up the database and integration-encryption key. Preserve persistent volumes and rebuild changed services. Switching database providers does not migrate existing data.',
+      'If checks or notifications stall, verify API, worker, scheduler, Redis, and database health. A configured interval is a target; slow endpoints and queue backlogs can delay checks. Consult docs/scaling.md for capacity planning. Keep secrets and private records out of shared troubleshooting logs.',
     ],
   },
 ];
