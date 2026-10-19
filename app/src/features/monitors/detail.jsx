@@ -1,8 +1,8 @@
+import { DateTime } from '../../preferences/date-time.jsx';
 import { useListFilter } from '../../data/use-list-filter.js';
 import { AuthContext } from '../../auth/auth-context.js';
 import { RecordTabs } from '../../components/record-tabs.jsx';
 import { Select } from '../../components/forms/select.jsx';
-import { EditRecordButton } from '../../components/record-workspace.jsx';
 import { Stat } from '../../components/stat.jsx';
 import { PendingPage } from '../../components/pending-page.jsx';
 import { RecordWorkspace, RecordMetadata } from '../../components/record-workspace.jsx';
@@ -90,7 +90,6 @@ export function MonitorDetail() {
       label: 'Check Number',
       width: '10rem',
       value: (event) => event.number || '—',
-      sortable: false,
     },
     {
       key: 'checkedAt',
@@ -229,6 +228,11 @@ export function MonitorDetail() {
             <RecordWorkspace
               item={monitor}
               kind={'monitors'}
+              onEdit={
+                user?.role === 'admin' && !editing && !monitor.unsupported
+                  ? () => setEditingId(id)
+                  : undefined
+              }
               actions={
                 !editing &&
                 !monitor.unsupported && (
@@ -242,7 +246,6 @@ export function MonitorDetail() {
                       <ArrowPathIcon className="h-4 w-4" aria-hidden="true" />
                       Check Now
                     </button>
-                    <EditRecordButton onClick={() => setEditingId(id)} />
                   </AdminOnly>
                 )
               }
@@ -285,18 +288,29 @@ export function MonitorDetail() {
                 </>
               }
             >
-              <AdminOnly>
-                {editing && (
-                  <MonitorForm
-                    key={`${id}-${formVersion}`}
-                    monitor={monitor}
-                    onReset={() => {
-                      setEditingId(null);
-                      setFormVersion((value) => value + 1);
-                    }}
-                  />
-                )}
-              </AdminOnly>
+              <MonitorForm
+                key={`${id}-${formVersion}-${editing ? 'edit' : monitor.revision}`}
+                monitor={monitor}
+                readOnly={!editing || user?.role !== 'admin'}
+                onReset={() => {
+                  setEditingId(null);
+                  setFormVersion((value) => value + 1);
+                }}
+              />
+              {monitor.confirmationProbeId && (
+                <section className="panel space-y-2 p-4">
+                  <h2 className="font-semibold">Monitor Confidence</h2>
+                  <p>
+                    {(monitor.confidence?.state || 'awaiting_confirmation').replaceAll('_', ' ')}
+                  </p>
+                  {monitor.confirmationCheck && (
+                    <p className="text-sm">
+                      {monitor.confirmationCheck.region} · {monitor.confirmationCheck.status} ·{' '}
+                      <DateTime value={monitor.confirmationCheck.checkedAt} />
+                    </p>
+                  )}
+                </section>
+              )}
               <div className={layouts.scores}>
                 <Stat
                   title="Check Interval"

@@ -100,7 +100,6 @@ function DataTableView({
             label: 'Record Number',
             width: '10rem',
             value: (row) => row.number || '—',
-            sortable: false,
           },
           ...providedColumns,
         ]

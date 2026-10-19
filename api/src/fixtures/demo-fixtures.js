@@ -130,6 +130,7 @@ export function demoFixtures(workspaceId, actor, batchId, config, passwordHash, 
       'eventAlerts',
       'incidents',
       'tasks',
+      'projects',
       'rcas',
       'articles',
       'knowledgeBases',
@@ -153,6 +154,9 @@ export function demoFixtures(workspaceId, actor, batchId, config, passwordHash, 
     eventAlerts: [],
     incidents: [],
     tasks: [],
+    projects: [],
+    projectMilestones: [],
+    projectActivity: [],
     rcas: [],
     articles: [],
     knowledgeBases: [],
@@ -177,6 +181,37 @@ export function demoFixtures(workspaceId, actor, batchId, config, passwordHash, 
       scenario = scenarios[i % 5],
       person = personName(i),
       serviceId = String(ids.services[i]);
+    result.projects.push({
+      id: String(ids.projects[i]),
+      name: `Operations Project ${n}`,
+      description: `Coordinate ${topic.toLowerCase()} improvements and follow-up work.`,
+      ownerIds: [String(ids.users[i])],
+      ownerGroupIds: [String(ids.groups[i])],
+      ...stamp(i),
+    });
+    result.projectMilestones.push({
+      _id: new ObjectId(),
+      workspaceId,
+      projectId: String(ids.projects[i % 5]),
+      projectName: `Operations Project ${String((i % 5) + 1).padStart(2, '0')}`,
+      title: `${topic} readiness ${n}`,
+      description: 'Validate the deliverable and close follow-up work.',
+      targetDate: new Date(+now + (i - 10) * 86400000).toISOString().slice(0, 10),
+      status: ['planned', 'in_progress', 'blocked', 'completed', 'planned'][i % 5],
+      taskIds: [String(ids.tasks[i])],
+      ...stamp(i),
+    });
+    result.projectActivity.push({
+      _id: new ObjectId(),
+      workspaceId,
+      projectId: String(ids.projects[i % 5]),
+      taskId: String(ids.tasks[i]),
+      action: i % 2 ? 'Task updated' : 'Comment',
+      ...(i % 2 ? {} : { body: 'Readiness review is scheduled for the next handoff.' }),
+      actor: person,
+      actorId: String(ids.users[i]),
+      ...stamp(i),
+    });
     const service = {
       ...stamp(i),
       id: serviceId,
@@ -364,6 +399,8 @@ export function demoFixtures(workspaceId, actor, batchId, config, passwordHash, 
       _id: ids.tasks[i],
       workspaceId,
       ...taskInput,
+      projectId: String(ids.projects[i % 5]),
+      projectName: `Operations Project ${String((i % 5) + 1).padStart(2, '0')}`,
       serviceName: name,
       incidentTitle: incident.title,
       assigneeName: person,
@@ -529,6 +566,73 @@ export function demoFixtures(workspaceId, actor, batchId, config, passwordHash, 
       error: 'Demo delivery — no message sent.',
     });
   }
+  result.eventRules = result.services.map((service, index) => ({
+    id: String(new ObjectId()),
+    demoBatchId: batchId,
+    name: `${service.name} routing`,
+    enabled: false,
+    match: 'all',
+    conditions: [{ field: 'sourceType', operator: 'equals', value: 'external' }],
+    actions: {
+      severity: 'high',
+      serviceId: service.id,
+      assignmentGroupId: result.groups[index].id,
+      suppress: false,
+      createIncident: false,
+    },
+  }));
+  result.escalationPolicies = result.services.map((service, index) => ({
+    id: String(new ObjectId()),
+    demoBatchId: batchId,
+    name: `${service.name} response`,
+    enabled: false,
+    serviceIds: [service.id],
+    steps: [
+      {
+        afterMinutes: 0,
+        target: 'on_call',
+        userId: null,
+        integrationIds: [result.integrations[index].id],
+      },
+      {
+        afterMinutes: 5,
+        target: 'user',
+        userId: String(result.users[index]._id),
+        integrationIds: [result.integrations[index].id],
+      },
+    ],
+  }));
+  result.maintenanceWindows = result.services.map((service) => ({
+    id: String(new ObjectId()),
+    demoBatchId: batchId,
+    name: `${service.name} planned work`,
+    enabled: false,
+    serviceIds: [service.id],
+    startsAt: now.toISOString(),
+    endsAt: new Date(+now + 3600000).toISOString(),
+    reason: 'Planned deployment and verification.',
+  }));
+  result.monitorProbes = result.services.map((service, index) => ({
+    id: String(new ObjectId()),
+    demoBatchId: batchId,
+    name: `${service.name} confirmation`,
+    region: ['North America', 'Europe', 'Asia Pacific'][index % 3],
+    enabled: false,
+    expiresAt: new Date(+now + 90 * 86400000).toISOString(),
+  }));
+  for (const incident of result.incidents) {
+    if (['acknowledged', 'resolved'].includes(incident.status)) {
+      incident.acknowledgmentDurationMs = Math.max(0, Math.min(300000, +now - +incident.createdAt));
+      incident.acknowledgedAt = new Date(+incident.createdAt + incident.acknowledgmentDurationMs);
+    }
+    if (incident.status === 'resolved') {
+      incident.resolutionDurationMs = Math.max(0, Math.min(1200000, +now - +incident.createdAt));
+      incident.resolvedAt = new Date(+incident.createdAt + incident.resolutionDurationMs);
+    }
+  }
+  result.deliveries.forEach((delivery, index) => {
+    delivery.deliveryState = ['queued', 'delivered', 'retrying', 'failed', 'suppressed'][index % 5];
+  });
   validateShifts(
     result.shifts,
     result.users.map((row) => String(row._id)),

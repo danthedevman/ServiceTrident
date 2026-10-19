@@ -1,3 +1,4 @@
+import { DEFAULT_FORM_LAYOUT, validateFormLayout } from '@servicetrident/shared/forms/layout';
 import { settings, save as saveSettings } from '../repositories/settings.js';
 import {
   validateFields,
@@ -19,7 +20,11 @@ export function installRcaRoutes(app, db) {
   const records = db.collection('rcas');
   app.get('/api/rca-fields', async (req, res) => {
     const config = await settings(db, req.workspaceId);
-    res.json({ fields: config.rcaFields ?? RCA_FIELDS, revision: config.revision });
+    res.json({
+      fields: config.rcaFields ?? RCA_FIELDS,
+      layout: config.formLayouts?.rcas ?? { ...DEFAULT_FORM_LAYOUT, columns: 1 },
+      revision: config.revision,
+    });
   });
   app.put('/api/rca-fields', requireAdmin, async (req, res) => {
     const config = await settings(db, req.workspaceId);
@@ -29,7 +34,17 @@ export function installRcaRoutes(app, db) {
       RCA_FIELDS,
       'rcas',
     );
-    await saveSettings(db, config, req.body.revision, { rcaFields: fields });
+    await saveSettings(db, config, req.body.revision, {
+      rcaFields: fields,
+      ...(req.body.layout !== undefined
+        ? {
+            formLayouts: {
+              ...config.formLayouts,
+              rcas: validateFormLayout(req.body.layout, fields),
+            },
+          }
+        : {}),
+    });
     res.json({ ok: true });
   });
   app.get('/api/rcas/:id', async (req, res) => {

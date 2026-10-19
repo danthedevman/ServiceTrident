@@ -1,3 +1,4 @@
+import { ConfirmDeleteButton } from '../../components/confirm-delete-button.jsx';
 import { PageTitle } from '../../components/page-title.jsx';
 import { RecordHeader } from '../../components/record-actions.jsx';
 import { PlusIcon } from '@heroicons/react/24/outline';
@@ -19,7 +20,6 @@ import { RefreshButton } from '../../components/icon-button.jsx';
 import { Notice } from '../../components/forms/fields.jsx';
 import { newId } from '../../lib/identifiers.js';
 import { useSave } from '../../data/use-save.js';
-import { ReferenceValues } from '../../components/reference-value.jsx';
 
 /** Admin integration settings and durable delivery history; secret values never return to the browser. */
 export function IntegrationsPage({ form = false }) {
@@ -90,7 +90,8 @@ export function IntegrationsPage({ form = false }) {
     };
     const editor = (
       <IntegrationEditor
-        key={`${id || 'new'}-${formVersion}`}
+        key={`${id || 'new'}-${formVersion}-${editingId === id ? 'edit' : config.data.revision}`}
+        readOnly={!!id && editingId !== id}
         initial={initial}
         services={services.data.services}
         close={id ? resetForm : () => navigate('/integrations')}
@@ -108,58 +109,7 @@ export function IntegrationsPage({ form = false }) {
         onEdit={editingId !== id ? () => setEditingId(id) : undefined}
         sidebar={<RecordMetadata item={item} />}
       >
-        {editingId === id ? (
-          editor
-        ) : (
-          <section className="record-details">
-            <dl className="grid gap-5 sm:grid-cols-2">
-              {[
-                ['Name', item.name],
-                [
-                  'Provider',
-                  providers.find((provider) => provider.id === item.type)?.name || item.type,
-                ],
-                ...(item.type === 'servicenow'
-                  ? [
-                      ['Instance Root URL', item.instanceUrl || 'Not configured'],
-                      [
-                        'Authentication',
-                        item.authType === 'oauth'
-                          ? 'OAuth Client Credentials'
-                          : 'Basic Authentication',
-                      ],
-                    ]
-                  : []),
-                ['Delivery', item.enabled ? 'Enabled' : 'Disabled'],
-                ['Recovery notifications', item.recovery ? 'Enabled' : 'Disabled'],
-                ['On-call recipients', item.onCall ? 'Enabled' : 'Disabled'],
-                ['Recipients', item.recipients?.join(', ') || 'None'],
-                [
-                  'Services',
-                  <ReferenceValues
-                    key="services"
-                    type="services"
-                    ids={item.serviceIds}
-                    getLabel={(serviceId) =>
-                      services.data.services.find((service) => service.id === serviceId)?.name ||
-                      'Unavailable service'
-                    }
-                    empty="All services"
-                  />,
-                ],
-                [
-                  'Credentials',
-                  item.configured || item.smtpConfigured ? 'Configured' : 'Not configured',
-                ],
-              ].map(([label, value]) => (
-                <div key={label}>
-                  <dt>{label}</dt>
-                  <dd>{value}</dd>
-                </div>
-              ))}
-            </dl>
-          </section>
-        )}
+        {editor}
       </RecordWorkspace>
     ) : (
       editor
@@ -280,10 +230,26 @@ export function IntegrationsPage({ form = false }) {
                     {
                       key: 'status',
                       label: 'Status',
-                      value: (r) => displayValue(r.status),
-                      render: (r) => <StateBadge status={r.status} />,
+                      value: (r) =>
+                        displayValue(
+                          r.deliveryState ||
+                            (r.status === 'sent'
+                              ? 'delivered'
+                              : r.status === 'pending'
+                                ? r.attempts
+                                  ? 'retrying'
+                                  : 'queued'
+                                : r.status),
+                        ),
+                      render: (r) => <StateBadge status={r.deliveryState || r.status} />,
                     },
                     { key: 'attempts', label: 'Attempts', value: (r) => r.attempts },
+                    {
+                      key: 'totalAttempts',
+                      label: 'Total attempts',
+                      value: (r) => r.totalAttempts || r.attempts,
+                    },
+                    { key: 'nextAttemptAt', label: 'Next attempt', value: (r) => r.nextAttemptAt },
                     { key: 'externalId', label: 'External incident', value: (r) => r.externalId },
                     { key: 'error', label: 'Details', value: (r) => r.error },
                     {
@@ -293,13 +259,22 @@ export function IntegrationsPage({ form = false }) {
                       value: () => '',
                       render: (r) =>
                         r.status === 'failed' ? (
-                          <button
+                          <ConfirmDeleteButton
                             disabled={save.busy}
                             className="btn-secondary"
-                            onClick={() => save.run(`/deliveries/${r.id}/retry`, 'POST', {})}
+                            title="Retry Delivery"
+                            confirmation="Retry this failed delivery? A provider may have received an earlier timed-out attempt."
+                            confirmLabel="Retry"
+                            confirmClassName="btn-primary"
+                            onConfirm={() =>
+                              writeApi(`/deliveries/${r.id}/retry`, {
+                                method: 'POST',
+                                body: { confirm: true },
+                              })
+                            }
                           >
                             Retry
-                          </button>
+                          </ConfirmDeleteButton>
                         ) : null,
                     },
                   ]}

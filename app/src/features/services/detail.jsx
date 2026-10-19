@@ -2,7 +2,6 @@ import { PlusIcon } from '@heroicons/react/24/outline';
 import { RecordTabs } from '../../components/record-tabs.jsx';
 import { IncidentsPage } from '../incidents/incidents.jsx';
 import { WorkTable } from '../work/work.jsx';
-import { StateBadge } from '../../components/state-badge.jsx';
 import { AuthContext } from '../../auth/auth-context.js';
 
 import { RecordWorkspace, RecordMetadata } from '../../components/record-workspace.jsx';
@@ -53,15 +52,6 @@ export function CatalogDetailPage({ kind = 'services' }) {
     })[status] || 'Unknown';
   const state = (item) =>
     health.data?.[kind]?.find((row) => row.id === item.id)?.status || 'unknown';
-  const names = (ids) => (
-    <ReferenceValues
-      type="services"
-      ids={ids}
-      getLabel={(value) =>
-        data.services.find((service) => service.id === value)?.name || 'Deleted service'
-      }
-    />
-  );
   async function remove() {
     setBusy(true);
     setError('');
@@ -125,9 +115,10 @@ export function CatalogDetailPage({ kind = 'services' }) {
             </>
           }
         >
-          {user?.role === 'admin' && editing && (
+          {
             <CatalogForm
-              key={`${id}-${formVersion}`}
+              key={`${id}-${formVersion}-${editing ? 'edit' : data.revision}`}
+              readOnly={!editing || user?.role !== 'admin'}
               kind={kind}
               item={selected}
               services={data.services}
@@ -137,106 +128,39 @@ export function CatalogDetailPage({ kind = 'services' }) {
               onSaved={resetForm}
               onCancel={resetForm}
             />
+          }
+          {isService && (
+            <section className="record-details space-y-6">
+              <RecordTabs
+                related
+                key={selected.id}
+                lazy
+                label="Service related records"
+                tabs={[
+                  {
+                    id: 'incidents',
+                    label: 'Incidents',
+                    content: <IncidentsPage initialServiceId={selected.id} related />,
+                  },
+                  {
+                    id: 'tasks',
+                    label: 'Tasks',
+                    content: <WorkTable kind="tasks" initialServiceId={selected.id} related />,
+                  },
+                  {
+                    id: 'knowledge',
+                    label: 'Knowledge',
+                    content: <WorkTable kind="knowledge" initialServiceId={selected.id} related />,
+                  },
+                  {
+                    id: 'monitors',
+                    label: 'Monitors',
+                    content: <ServiceMonitors serviceId={selected.id} />,
+                  },
+                ]}
+              />
+            </section>
           )}
-          <section hidden={editing} className="record-details space-y-6">
-            <dl className="grid gap-5 sm:grid-cols-2">
-              <div className="sm:col-span-2">
-                <dt>Name</dt>
-                <dd>{selected.name}</dd>
-              </div>
-              <div className="sm:col-span-2">
-                <dt>Description</dt>
-                <dd className="whitespace-pre-wrap">{selected.description || 'No description.'}</dd>
-              </div>
-              <div>
-                <dt>Health</dt>
-                <dd>
-                  <StateBadge status={state(selected)} />
-                </dd>
-              </div>
-              <div>
-                <dt>{isService ? 'Dependencies' : 'Services'}</dt>
-                <dd>{names(selected[isService ? 'dependencyIds' : 'serviceIds'])}</dd>
-              </div>
-            </dl>
-            {isService && (
-              <>
-                <dl className="grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <dt>Manual health flag</dt>
-                    <dd>
-                      {selected.healthPolicy?.manualDown
-                        ? 'Down'
-                        : selected.healthPolicy?.manualDegraded
-                          ? 'Degraded'
-                          : 'None'}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>Degraded response time</dt>
-                    <dd>
-                      {selected.healthPolicy?.responseTimeMs
-                        ? `${selected.healthPolicy.responseTimeMs} ms`
-                        : 'Disabled'}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>Consecutive failures before Down</dt>
-                    <dd>{selected.healthPolicy?.failuresBeforeDown ?? 1}</dd>
-                  </div>
-                </dl>
-                <ServiceOwnership service={selected} members={data.members} groups={data.groups} />
-                <dl>
-                  <div>
-                    <dt>Collections</dt>
-                    <dd>
-                      <ReferenceValues
-                        type="collections"
-                        ids={data.collections
-                          .filter((collection) => collection.serviceIds.includes(selected.id))
-                          .map((collection) => collection.id)}
-                        getLabel={(id) =>
-                          data.collections.find((collection) => collection.id === id)?.name ||
-                          'Unavailable collection'
-                        }
-                      />
-                    </dd>
-                  </div>
-                </dl>
-
-                <RecordTabs
-                  related
-                  key={selected.id}
-                  lazy
-                  label="Service related records"
-                  tabs={[
-                    {
-                      id: 'incidents',
-                      label: 'Incidents',
-                      content: <IncidentsPage initialServiceId={selected.id} related />,
-                    },
-                    {
-                      id: 'tasks',
-                      label: 'Tasks',
-                      content: <WorkTable kind="tasks" initialServiceId={selected.id} related />,
-                    },
-                    {
-                      id: 'knowledge',
-                      label: 'Knowledge',
-                      content: (
-                        <WorkTable kind="knowledge" initialServiceId={selected.id} related />
-                      ),
-                    },
-                    {
-                      id: 'monitors',
-                      label: 'Monitors',
-                      content: <ServiceMonitors serviceId={selected.id} />,
-                    },
-                  ]}
-                />
-              </>
-            )}
-          </section>
         </RecordWorkspace>
       )}
       {confirmDelete && (

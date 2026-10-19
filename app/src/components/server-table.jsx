@@ -60,7 +60,7 @@ export function ServerTable({ source, render: View, ...props }) {
         loading={!resource.data && resource.loading}
         columns={props.columns.map((column) => ({
           ...column,
-          value: (row) => (Object.hasOwn(row, column.key) ? row[column.key] : column.value(row)),
+          value: (row) => (Object.hasOwn(row, column.key) ? row[column.key] : column.value?.(row)),
         }))}
         toolbar={
           <div className="table-search-toolbar shrink-0 px-4 py-3">

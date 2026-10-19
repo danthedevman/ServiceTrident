@@ -1,3 +1,4 @@
+import { StaticRecordFields } from '../../components/forms/record-field-layout.jsx';
 import { ValidatedForm } from '../../components/forms/validated-form.jsx';
 import { PlusIcon } from '@heroicons/react/24/outline';
 import { RecordActions } from '../../components/record-actions.jsx';
@@ -5,7 +6,6 @@ import { CancelButton } from '../../components/forms/cancel-button.jsx';
 import { FormPage } from '../../components/forms/form-page.jsx';
 import { RecordWorkspace, RecordMetadata } from '../../components/record-workspace.jsx';
 import { ReferenceField } from '../../components/forms/reference-field.jsx';
-import { ReferenceValue } from '../../components/reference-value.jsx';
 import { displayValue } from '../../lib/display-value.js';
 import React, { useContext, useState } from 'react';
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -23,7 +23,6 @@ export function GroupsPage({ form = false }) {
   const [params] = useSearchParams(),
     { id } = useParams(),
     navigate = useNavigate();
-  const communication = useResource('/communication-options', 30000);
   const groups = useResource(id || form ? '/groups' : null),
     members = useResource(id || form ? '/members' : null);
   const [formVersion, setFormVersion] = useState(0);
@@ -79,46 +78,16 @@ export function GroupsPage({ form = false }) {
               </>
             }
           >
-            {admin && editing && members.data ? (
+            {members.data && (
               <GroupEditor
-                key={`${id}-${formVersion}`}
+                key={`${id}-${formVersion}-${editing ? 'edit' : groups.data.revision}`}
+                readOnly={!editing || !admin}
                 initial={item}
                 revision={groups.data.revision}
                 members={members.data.members}
                 onClose={resetForm}
                 onSaved={resetForm}
               />
-            ) : (
-              <section className="record-details space-y-6">
-                <dl>
-                  <div>
-                    <dt>Name</dt>
-                    <dd>{item.name}</dd>
-                  </div>
-                  <div>
-                    <dt>Group email</dt>
-                    <dd>{item.email || 'Not set'}</dd>
-                  </div>
-                  {communication.data?.slack && (
-                    <div>
-                      <dt>Slack channel</dt>
-                      <dd>{item.slackChannel || 'Not set'}</dd>
-                    </div>
-                  )}
-                  <div>
-                    <dt>Description</dt>
-                    <dd className="whitespace-pre-wrap">{item.description || 'No description.'}</dd>
-                  </div>
-                </dl>
-                <h2 className="font-semibold">Members</h2>
-                <ul className="space-y-2">
-                  {item.memberIds.map((memberId) => (
-                    <li key={memberId}>
-                      <ReferenceValue type="members" id={memberId} label={memberName(memberId)} />
-                    </li>
-                  ))}
-                </ul>
-              </section>
             )}
           </RecordWorkspace>
         ) : (
@@ -200,7 +169,7 @@ export function GroupsPage({ form = false }) {
 }
 
 /** A searchable, scrollable member picker supports large groups without enlarging the page. */
-function GroupEditor({ initial, revision, members, onClose, onSaved }) {
+function GroupEditor({ initial, revision, members, onClose, onSaved, readOnly = false }) {
   const communication = useResource('/communication-options', 30000);
   const save = useSave(),
     [value, setValue] = useState({
@@ -218,6 +187,7 @@ function GroupEditor({ initial, revision, members, onClose, onSaved }) {
         className="form-body"
         onSubmit={(e) => {
           e.preventDefault();
+          if (readOnly) return;
           save.run(
             initial.id ? `/groups/${initial.id}` : '/groups',
             initial.id ? 'PATCH' : 'POST',
@@ -227,61 +197,65 @@ function GroupEditor({ initial, revision, members, onClose, onSaved }) {
         }}
       >
         <Notice error={save.error} />
-        <Field name="name" label="Group name *" errors={save.fields}>
-          <input
-            autoFocus
-            value={value.name}
-            maxLength={80}
-            onChange={(e) => setValue({ ...value, name: e.target.value })}
-          />
-        </Field>
-        <Field name="description" label="Description" errors={save.fields}>
-          <AutoTextarea
-            value={value.description}
-            maxLength={1000}
-            onChange={(e) => setValue({ ...value, description: e.target.value })}
-          />
-        </Field>
-        <Field name="email" label="Group email" errors={save.fields}>
-          <input
-            type="email"
-            value={value.email}
-            maxLength={254}
-            onChange={(event) => setValue({ ...value, email: event.target.value })}
-          />
-        </Field>
-        {communication.data?.slack && (
-          <Field name="slackChannel" label="Slack channel" errors={save.fields}>
+        <StaticRecordFields readOnly={readOnly}>
+          <Field name="name" label="Group name *" errors={save.fields}>
             <input
-              value={value.slackChannel}
+              autoFocus
+              value={value.name}
               maxLength={80}
-              placeholder="#channel-name or channel ID"
-              onChange={(event) => setValue({ ...value, slackChannel: event.target.value })}
+              onChange={(e) => setValue({ ...value, name: e.target.value })}
             />
           </Field>
+          <Field name="description" label="Description" errors={save.fields}>
+            <AutoTextarea
+              value={value.description}
+              maxLength={1000}
+              onChange={(e) => setValue({ ...value, description: e.target.value })}
+            />
+          </Field>
+          <Field name="email" label="Group email" errors={save.fields}>
+            <input
+              type="email"
+              value={value.email}
+              maxLength={254}
+              onChange={(event) => setValue({ ...value, email: event.target.value })}
+            />
+          </Field>
+          {communication.data?.slack && (
+            <Field name="slackChannel" label="Slack channel" errors={save.fields}>
+              <input
+                value={value.slackChannel}
+                maxLength={80}
+                placeholder="#channel-name or channel ID"
+                onChange={(event) => setValue({ ...value, slackChannel: event.target.value })}
+              />
+            </Field>
+          )}
+          <ReferenceField
+            referenceType="members"
+            label="Group members"
+            multiple
+            options={members.map((member) => ({
+              id: member.id,
+              label: member.displayName || member.email,
+              description: displayValue(member.role),
+            }))}
+            value={value.memberIds}
+            onChange={(memberIds) => setValue({ ...value, memberIds })}
+            error={save.fields.memberIds}
+          />
+          <p className="text-sm text-slate-500">
+            Groups are organizational. Each member keeps their individual role and access.
+          </p>
+        </StaticRecordFields>
+        {!readOnly && (
+          <RecordActions>
+            <CancelButton onCancel={onClose} to={'/groups'} disabled={save.busy} />
+            <button className="btn-primary" disabled={save.busy}>
+              {save.busy ? 'Saving…' : 'Save'}
+            </button>
+          </RecordActions>
         )}
-        <ReferenceField
-          referenceType="members"
-          label="Group members"
-          multiple
-          options={members.map((member) => ({
-            id: member.id,
-            label: member.displayName || member.email,
-            description: displayValue(member.role),
-          }))}
-          value={value.memberIds}
-          onChange={(memberIds) => setValue({ ...value, memberIds })}
-          error={save.fields.memberIds}
-        />
-        <p className="text-sm text-slate-500">
-          Groups are organizational. Each member keeps their individual role and access.
-        </p>
-        <RecordActions>
-          <CancelButton onCancel={onClose} to={'/groups'} disabled={save.busy} />
-          <button className="btn-primary" disabled={save.busy}>
-            {save.busy ? 'Saving…' : 'Save'}
-          </button>
-        </RecordActions>
       </ValidatedForm>
     </FormPage>
   );

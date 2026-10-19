@@ -26,7 +26,16 @@ const fields = {
     'resolutionNotes',
     'resolvedAt',
   ],
-  tasks: ['serviceName', 'incidentTitle', 'assignmentGroupName', 'assigneeName', 'dueDate'],
+  projects: ['owners', 'groups'],
+  'project-milestones': ['projectName', 'targetDate', 'taskIds'],
+  tasks: [
+    'projectName',
+    'serviceName',
+    'incidentTitle',
+    'assignmentGroupName',
+    'assigneeName',
+    'dueDate',
+  ],
   knowledge: [
     'articleTypeLabel',
     'knowledgeBaseTitle',

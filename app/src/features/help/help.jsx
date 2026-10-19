@@ -41,6 +41,11 @@ const guides = {
     'Manage incidents, tasks, knowledge, and attachments',
   ],
   people: [CalendarDaysIcon, 'People and on-call', 'Manage access, profiles, and coverage'],
+  'operational-automation': [
+    SignalIcon,
+    'Routing, Escalation, and Maintenance',
+    'Route events, escalate incidents, and manage maintenance and probes',
+  ],
   'role-preview': [
     BookOpenIcon,
     'Impersonation and Role Preview',
@@ -60,6 +65,17 @@ const guides = {
   ],
   hosting: [ServerStackIcon, 'Self-hosting', 'Run, maintain, and troubleshoot your deployment'],
 };
+
+/** A newly added topic must remain usable before optional card metadata is supplied. */
+function guide(topic) {
+  return (
+    guides[topic.id] || [
+      BookOpenIcon,
+      topic.title,
+      'Read this guide for setup and supported workflows.',
+    ]
+  );
+}
 
 /** Local guides provide shareable topic URLs and search only bundled documentation, never workspace records. */
 export function HelpPage() {
@@ -120,7 +136,7 @@ export function HelpPage() {
           Overview
         </Link>
         {helpTopics.map((item) => {
-          const [Icon, title] = guides[item.id];
+          const [Icon, title] = guide(item);
           return (
             <Link
               key={item.id}
@@ -209,7 +225,7 @@ export function HelpPage() {
                 to={index > 0 ? `/help?topic=${helpTopics[index - 1].id}` : '/help'}
               >
                 <ArrowLeftIcon className="h-4 w-4" aria-hidden="true" />
-                {index > 0 ? guides[helpTopics[index - 1].id][1] : 'Overview'}
+                {index > 0 ? guide(helpTopics[index - 1])[1] : 'Overview'}
               </Link>
               <Link
                 className="inline-flex items-center gap-2 text-sm text-blue-700 dark:text-blue-300"
@@ -220,7 +236,7 @@ export function HelpPage() {
                 }
               >
                 {index < helpTopics.length - 1
-                  ? guides[helpTopics[index + 1].id][1]
+                  ? guide(helpTopics[index + 1])[1]
                   : 'Common Questions'}
                 <ArrowRightIcon className="h-4 w-4" aria-hidden="true" />
               </Link>
@@ -263,7 +279,7 @@ function GuideCards({ topics, onSelect }) {
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
       {topics.map((topic) => {
-        const [Icon, title, description] = guides[topic.id];
+        const [Icon, title, description] = guide(topic);
         return (
           <Link
             key={topic.id}

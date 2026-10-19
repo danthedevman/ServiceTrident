@@ -118,6 +118,7 @@ const fields = {
     assigneeId: ['me'],
   },
   tasks: {
+    projectId: 'id',
     serviceId: 'id',
     title: 160,
     description: 5000,
@@ -164,7 +165,7 @@ export function validateAIAction(value) {
     typeof changes !== 'object' ||
     Array.isArray(changes) ||
     !Object.keys(changes).length ||
-    Object.keys(changes).length > (value.kind === 'rcas' ? 12 : 6)
+    Object.keys(changes).length > (value.kind === 'rcas' ? 12 : value.kind === 'tasks' ? 7 : 6)
   )
     throw new InputError('The assistant proposed an invalid change.', 502);
   for (const [key, entry] of Object.entries(changes)) {

@@ -102,6 +102,7 @@ export function installMonitorRoutes(app, db) {
         body.followRedirects,
       ),
     };
+    await validateProbe(db, req.workspaceId, input);
     const quota = await db.collection('users').updateOne(
       {
         _id: req.workspaceId,
@@ -160,6 +161,7 @@ export function installMonitorRoutes(app, db) {
       'component',
       'authentication',
       'keyword',
+      'confirmationProbeId',
     ];
     if (
       !body ||
@@ -205,6 +207,7 @@ export function installMonitorRoutes(app, db) {
         body.followRedirects ?? current.followRedirects,
       ),
     };
+    await validateProbe(db, req.workspaceId, input);
     const updates = Object.fromEntries(
       Object.entries({ ...input, ...auditStamp(current, req.user) }).map(([key, value]) => [
         key,
@@ -213,6 +216,7 @@ export function installMonitorRoutes(app, db) {
     );
     if ('paused' in body) updates.paused = body.paused;
     const requestChanged =
+      input.confirmationProbeId !== (current.confirmationProbeId || null) ||
       JSON.stringify(input.keyword) !== JSON.stringify(current.keyword ?? null) ||
       input.url !== current.url ||
       input.method !== (current.method ?? 'GET') ||
@@ -275,4 +279,22 @@ export function installMonitorRoutes(app, db) {
     ]);
     res.status(204).end();
   });
+}
+
+async function validateProbe(db, workspaceId, input) {
+  if (!input.confirmationProbeId) return;
+  const config = await db.collection('operations').findOne({ _id: workspaceId });
+  if (
+    !config?.monitorProbes?.some(
+      (probe) =>
+        probe.id === input.confirmationProbeId &&
+        probe.enabled &&
+        new Date(probe.expiresAt) > new Date(),
+    ) ||
+    input.authSecret ||
+    (input.authConfig?.mode && input.authConfig.mode !== 'none')
+  )
+    throw new InputError('Choose an active probe and an unauthenticated monitor.', 400, {
+      confirmationProbeId: 'Choose an active probe. Authentication is not shared with probes.',
+    });
 }

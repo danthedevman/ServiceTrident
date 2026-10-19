@@ -1,3 +1,9 @@
+import { SearchInput } from '../../components/forms/search-input.jsx';
+import {
+  RecordFieldLayout,
+  RecordFieldsReadOnly,
+} from '../../components/forms/record-field-layout.jsx';
+import { TaskBoard } from './task-board.jsx';
 import { ColumnFilter } from '../../components/column-filter.jsx';
 import { useListFilter } from '../../data/use-list-filter.js';
 import { RcaList } from './rcas.jsx';
@@ -54,7 +60,6 @@ import { downloadCsv } from '../../lib/csv-download.js';
 import { AutoTextarea } from '../../components/forms/auto-textarea.jsx';
 import { Field, CustomField, Notice } from '../../components/forms/fields.jsx';
 import { useSave } from '../../data/use-save.js';
-import { TaskBoard } from './task-board.jsx';
 import { ReferenceValue } from '../../components/reference-value.jsx';
 
 const RichEditor = lazy(() =>
@@ -78,8 +83,8 @@ export function WorkPage({ kind = 'tasks' }) {
   if (kind === 'tasks' && !['list', 'archived'].includes(params.get('view')))
     return (
       <TaskBoard
-        serviceId={params.get('serviceId') ?? ''}
-        incidentId={params.get('incidentId') ?? ''}
+        serviceId={params.get('serviceId') || ''}
+        incidentId={params.get('incidentId') || ''}
       />
     );
   return (
@@ -87,6 +92,7 @@ export function WorkPage({ kind = 'tasks' }) {
       fullPage
       kind={kind}
       archived={kind === 'tasks' && params.get('view') === 'archived'}
+      projectId=""
       initialServiceId={params.get('serviceId') ?? ''}
       initialIncidentId={params.get('incidentId') ?? ''}
     />
@@ -127,6 +133,7 @@ export function WorkTable({
   fullPage = false,
   kind = 'tasks',
   initialServiceId = '',
+  projectId = '',
   initialIncidentId = '',
   initialKnowledgeBaseId = '',
   simpleArticles = false,
@@ -134,6 +141,7 @@ export function WorkTable({
   onCreateClose,
   related = false,
   archived = false,
+  embedded = false,
 }) {
   const navigate = useNavigate();
   const { user } = useContext(AuthContext),
@@ -149,7 +157,7 @@ export function WorkTable({
     [sort, setSort] = useListFilter('sort', 'updatedAt:desc', kind);
   useEffect(() => {
     setPage(1);
-  }, [initialServiceId, initialIncidentId]);
+  }, [initialServiceId, initialIncidentId, projectId]);
   const [sortBy, order] = sort.split(':');
   const query = new URLSearchParams({
     searchColumn,
@@ -158,6 +166,7 @@ export function WorkTable({
     status: archived ? 'archived' : status,
     serviceId,
     incidentId: initialIncidentId,
+    projectId: task ? projectId : '',
     knowledgeBaseId: initialKnowledgeBaseId,
     page,
     pageSize,
@@ -267,17 +276,15 @@ export function WorkTable({
         fullPage={fullPage}
         secondaryActions={
           task &&
-          fullPage && (
+          fullPage &&
+          !embedded && (
             <>
-              <Link
-                className="btn-secondary"
-                to={`/tasks?${new URLSearchParams({ serviceId, incidentId: initialIncidentId })}`}
-              >
+              <Link className="btn-secondary" to="/tasks">
                 Board View
               </Link>
               <Link
                 className="btn-secondary"
-                to={`/tasks?${new URLSearchParams({ serviceId, incidentId: initialIncidentId, view: archived ? 'list' : 'archived' })}`}
+                to={`/tasks?${new URLSearchParams({ serviceId, projectId, incidentId: initialIncidentId, view: archived ? 'list' : 'archived' })}`}
               >
                 {archived ? 'Active Tasks' : 'Archived Tasks'}
               </Link>
@@ -285,12 +292,13 @@ export function WorkTable({
           )
         }
         actions={
-          canEdit && (
+          canEdit &&
+          !embedded && (
             <button
               className="btn-primary gap-2"
               onClick={() =>
                 navigate(
-                  `/${kind}/new?${new URLSearchParams({ serviceId, incidentId: initialIncidentId, knowledgeBaseId: initialKnowledgeBaseId })}`,
+                  `/${kind}/new?${new URLSearchParams({ serviceId, projectId, incidentId: initialIncidentId, knowledgeBaseId: initialKnowledgeBaseId })}`,
                 )
               }
             >
@@ -331,7 +339,7 @@ export function WorkTable({
           simpleArticles ? (
             <label className="field-label block px-3 pb-3">
               <span className="sr-only">Search Articles</span>
-              <input
+              <SearchInput
                 type="search"
                 placeholder="Search articles"
                 maxLength={100}
@@ -343,7 +351,7 @@ export function WorkTable({
               />
             </label>
           ) : (
-            <div className="table-search-toolbar shrink-0 px-4 py-3">
+            <div className="table-search-toolbar shrink-0 space-y-3 px-4 py-3">
               <TableSearch
                 columns={columns}
                 search={search}
@@ -486,6 +494,11 @@ export function WorkDetail({ kind = 'tasks' }) {
           <RecordWorkspace
             item={item}
             kind={kind}
+            identityExtra={
+              task && item.status === 'archived' ? (
+                <StateBadge status="archived" label="Archived" />
+              ) : undefined
+            }
             secondaryActions={
               !task && canEdit && !editing && item.status !== 'archived' && archiveOption ? (
                 <ConfirmDeleteButton
@@ -557,8 +570,26 @@ export function WorkDetail({ kind = 'tasks' }) {
               </>
             }
           >
+            {task && item.status === 'archived' && (
+              <div className="panel flex items-start gap-3 p-4" role="status">
+                <ArchiveBoxIcon className="h-5 w-5 shrink-0" aria-hidden="true" />
+                <div className="space-y-1">
+                  <p className="font-semibold">Archived Task</p>
+                  <p className="text-sm">
+                    This task is excluded from the active task list and board.{' '}
+                    {canEdit ? 'Edit its status to restore it.' : 'A responder can restore it.'}
+                  </p>
+                  <Link
+                    className="text-sm text-blue-700 hover:underline dark:text-blue-300"
+                    to="/tasks?view=archived"
+                  >
+                    View Archived Tasks
+                  </Link>
+                </div>
+              </div>
+            )}
             {task && <AttachmentLinks kind="tasks" recordId={item.id} />}
-            {task && !editing && <AIAssistant action="summary" kind="tasks" id={item.id} />}
+            {task && <AIAssistant action="summary" kind="tasks" id={item.id} />}
             {canEdit && editing ? (
               <WorkEditor
                 key={`${id}-${formVersion}`}
@@ -567,9 +598,19 @@ export function WorkDetail({ kind = 'tasks' }) {
                 onClose={resetForm}
               />
             ) : !task ? (
-              <KnowledgeReader item={item} fields={visibleFields} />
+              <KnowledgeReader
+                item={item}
+                fields={visibleFields}
+                schema={articleSchema.data?.fields}
+                layout={articleSchema.data?.layout}
+              />
             ) : (
-              <TaskDetails item={item} visibleFields={visibleFields} />
+              <TaskDetails
+                item={item}
+                visibleFields={visibleFields}
+                schema={articleSchema.data?.fields}
+                layout={articleSchema.data?.layout}
+              />
             )}
             {task && (
               <RecordTabs
@@ -619,6 +660,7 @@ export function WorkEditor({
     <>
       {ready ? (
         <WorkForm
+          layoutConfig={schema.data.layout}
           schema={schema.data.fields}
           save={save}
           kind={kind}
@@ -677,6 +719,7 @@ function WorkForm({
   focusTitle = false,
   save,
   schema,
+  layoutConfig,
 }) {
   const [params] = useSearchParams();
   const [clientErrors, setClientErrors] = useState({});
@@ -714,6 +757,7 @@ function WorkForm({
     custom: item?.custom ?? {},
     ...(task
       ? {
+          projectId: item ? (item.projectId ?? '') : '',
           description: item?.description ?? '',
           priorityOption: item?.priorityOption ?? item?.priority ?? choiceDefault('priority'),
           assignmentGroupId: item?.assignmentGroupId ?? '',
@@ -729,8 +773,8 @@ function WorkForm({
           contentDocument: item?.contentDocument ?? textDocument(item?.content ?? ''),
         }),
   }));
-  const [initialValue] = useState(() => JSON.stringify(value));
-  const dirty = JSON.stringify(value) !== initialValue;
+  const [initialValue] = useState(() => JSON.stringify({ value, attachmentIds: draft.ids }));
+  const dirty = JSON.stringify({ value, attachmentIds: draft.ids }) !== initialValue;
   useLayoutEffect(() => {
     onBusyChange?.(save.busy || draft.busy);
   }, [save.busy, draft.busy, onBusyChange]);
@@ -794,6 +838,21 @@ function WorkForm({
           onChange={(next) => set('custom', { ...value.custom, [name]: next })}
         />
       );
+    if (name === 'knowledgeBaseId')
+      return (
+        <ReferenceField
+          key={name}
+          name={name}
+          referenceType="knowledgeBases"
+          label={field.label}
+          value={value.knowledgeBaseId}
+          onChange={(next) => set(name, next)}
+          helpText={field.helpText}
+          required={field.required}
+          error={errors[name]}
+        />
+      );
+    if (name === 'projectId') return null;
     if (name === 'serviceId')
       return references(
         field,
@@ -927,6 +986,8 @@ function WorkForm({
   };
   return (
     <ValidatedForm
+      confirmDiscard={!onDirtyChange}
+      dirty={dirty}
       noValidate
       className="form-body"
       onSubmit={(event) => {
@@ -989,16 +1050,12 @@ function WorkForm({
         }
       />
 
-      {!task && (
-        <ReferenceField
-          label="Knowledge Base"
-          error={errors.knowledgeBaseId}
-          referenceType="knowledgeBases"
-          value={value.knowledgeBaseId}
-          onChange={(next) => set('knowledgeBaseId', next)}
-        />
-      )}
-      {layout.map(control)}
+      <RecordFieldLayout
+        fields={layout}
+        layout={layoutConfig}
+        renderField={control}
+        editing={!!item}
+      />
       {!task && (
         <AIAssistant
           action="draft"
@@ -1127,39 +1184,23 @@ function WorkForm({
 }
 
 /** Reading layout keeps article typography and numbered process steps separate from edit controls. */
-function KnowledgeReader({ item, fields }) {
+function KnowledgeReader({ item, fields, schema, layout }) {
   const runbook = item.articleType === 'runbook';
   return (
     <article className="knowledge-reader">
-      <header className="knowledge-reader-header">
-        <div className="flex flex-wrap items-center gap-3 text-sm">
-          <span className="knowledge-type">
-            {item.articleTypeLabel || (runbook ? 'Runbook' : 'Article')}
-          </span>
-          <ReferenceValue
-            type="knowledgeBases"
-            id={item.knowledgeBaseId}
-            label={item.knowledgeBaseTitle}
-            empty="Unassigned legacy article"
-          />
-        </div>
-        <h1>{item.title}</h1>
-        {item.summary && <p className="knowledge-summary">{item.summary}</p>}
-        <div className="flex flex-wrap gap-3 text-sm text-slate-500">
-          {item.updatedAt && (
-            <span>
-              Updated <DateTime value={item.updatedAt} />
-            </span>
-          )}
-          {item.serviceId && (
-            <ReferenceValue type="services" id={item.serviceId} label={item.serviceName} />
-          )}
-        </div>
-      </header>
+      <RecordFieldsReadOnly
+        fields={schema || fields}
+        layout={layout}
+        item={item}
+        renderValue={(field) =>
+          field.id === 'content' ? (
+            <Suspense fallback={<div className="h-20" aria-busy="true" />}>
+              <ArticleContent document={item.contentDocument} text={runbook ? '' : item.content} />
+            </Suspense>
+          ) : undefined
+        }
+      />
       <div className="knowledge-reading-content">
-        <Suspense fallback={<p role="status">Loading article…</p>}>
-          <ArticleContent document={item.contentDocument} text={runbook ? '' : item.content} />
-        </Suspense>
         {runbook && (
           <section aria-label="Runbook process">
             <h2>Step-by-Step Process</h2>
@@ -1176,19 +1217,6 @@ function KnowledgeReader({ item, fields }) {
                 </li>
               ))}
             </ol>
-          </section>
-        )}
-        {fields.length > 0 && (
-          <section className="knowledge-additional">
-            <h2>Additional Information</h2>
-            <dl>
-              {fields.map((field) => (
-                <div key={field.id}>
-                  <dt>{field.label}</dt>
-                  <dd>{String(item.custom?.[field.id] ?? '—')}</dd>
-                </div>
-              ))}
-            </dl>
           </section>
         )}
       </div>

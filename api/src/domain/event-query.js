@@ -20,7 +20,7 @@ export function eventQuery(query) {
   const sortBy = query.sortBy ?? 'checkedAt';
   const order = query.order ?? 'desc';
   if (
-    !['checkedAt', 'durationMs', 'statusCode'].includes(sortBy) ||
+    !['number', 'checkedAt', 'durationMs', 'statusCode'].includes(sortBy) ||
     !['asc', 'desc'].includes(order)
   )
     throw new InputError('Invalid event sort.');

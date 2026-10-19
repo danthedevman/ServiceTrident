@@ -74,3 +74,11 @@ Admins can open a monitor and select Check Now to request one check through the 
 Configure a provider under Integrations → AI Provider and turn on Enable AI Chat. Enable Demo AI is separate and requires an active demo-data batch; it needs no credentials. Users can turn AI Chat off in Profile. Live turns send bounded authorized text and recent chat history to the provider, use two model calls, and share the existing daily generation ceiling. AI actions use normal validators, tenant/role checks, revision checks and audits, and require explicit confirmation. Proposals expire after ten minutes; a failed or repeated confirmation requires refreshing and requesting a new proposal. Back up the database and existing integration-encryption key together. Neither chat history nor proposals are persisted by the browser.
 
 Slack uses bold alert/monitor headings and native View Incident links. Recovery messages label the retained outage text Original Description and include Resolution Notes. Configure the same reachable APP_ORIGIN on the API and workers; localhost incident links will not work for teammates on other computers. Connection tests and synthetic UI tests do not establish successful delivery to a real provider.
+
+## Tasks
+
+Use Tasks in the main menu for the workspace board; List View and Archived Tasks open task tables. Tasks do not require a project.
+
+See [Operational automation](operational-automation.md) for event routing, escalation, maintenance, retries, independent probes and reporting definitions.
+
+Task navigation uses the main Tasks link above Pinned. Task forms do not require or expose Project. Legacy project associations remain stored; project workspace routes redirect to Tasks. Form layout sections default to showing their name; `showName: false` hides only the heading.

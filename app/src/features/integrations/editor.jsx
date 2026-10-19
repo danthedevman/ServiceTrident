@@ -1,3 +1,4 @@
+import { StaticRecordFields } from '../../components/forms/record-field-layout.jsx';
 import { writeApi } from '../../data/query-client.js';
 import { ValidatedForm } from '../../components/forms/validated-form.jsx';
 import { providerFields } from '../../../../shared/integrations/provider-fields.js';
@@ -36,7 +37,14 @@ const help = {
     'Use your instance root URL and Basic Auth or OAuth client credentials with Incident API access. Recovery adds a work note; your ServiceNow workflow controls closure.',
 };
 /** Configure an adapter through the UI; blank secret fields preserve encrypted credentials. */
-export function IntegrationEditor({ initial, services, close, onSaved, onDeleted }) {
+export function IntegrationEditor({
+  initial,
+  services,
+  close,
+  onSaved,
+  onDeleted,
+  readOnly = false,
+}) {
   const [value, setValue] = useState(initial),
     [errors, setErrors] = useState({}),
     [editSmtp, setEditSmtp] = useState(!initial.smtpConfigured),
@@ -72,6 +80,7 @@ export function IntegrationEditor({ initial, services, close, onSaved, onDeleted
         className="form-body"
         onSubmit={(event) => {
           event.preventDefault();
+          if (readOnly) return;
           const next = integrationErrors(value, {
             configured:
               initial.configured &&
@@ -86,227 +95,231 @@ export function IntegrationEditor({ initial, services, close, onSaved, onDeleted
           save.run(`/integrations/${value.id}`, 'PUT', value, () => onSaved(value.id));
         }}
       >
-        <Notice error={save.error} />
-        {input('name', 'Name', 'text', 80)}
-        <Field name="type" label="Provider" errors={fields}>
-          <Select
-            disabled={initial.existing}
-            value={value.type}
-            onChange={(event) =>
-              setValue((current) => ({
-                ...current,
-                type: event.target.value,
-                preset: undefined,
-                url:
-                  event.target.value === 'pagerduty'
-                    ? 'https://events.pagerduty.com/v2/enqueue'
-                    : '',
-                token: '',
-                username: '',
-                password: '',
-                projectKey: '',
-                issueTypeId: '',
-                smtpHost: '',
-                smtpUser: '',
-                smtpPassword: '',
-              }))
-            }
-          >
-            {providers.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </Select>
-        </Field>
-        <p className="text-sm text-slate-500">{help[value.preset || value.type]}</p>
-        {value.type === 'email' ? (
-          <>
-            {initial.smtpConfigured && (
-              <label className="flex items-center gap-2">
-                <Toggle
-                  checked={editSmtp}
-                  onChange={(event) => {
-                    setEditSmtp(event.target.checked);
-                    if (!event.target.checked)
-                      setValue((current) => ({
-                        ...current,
-                        smtpHost: '',
-                        smtpFrom: '',
-                        smtpUser: '',
-                        smtpPassword: '',
-                      }));
-                  }}
-                />
-                Replace saved SMTP settings
-              </label>
-            )}
-            {editSmtp && (
-              <>
-                {input('smtpHost', 'SMTP host', 'text', 253)}
-                <Field name="smtpPort" label="Encryption / port" errors={fields}>
-                  <Select
-                    value={value.smtpPort ?? 587}
-                    onChange={(event) => set('smtpPort', Number(event.target.value))}
-                  >
-                    <option value={587}>STARTTLS — 587</option>
-                    <option value={465}>TLS — 465</option>
-                  </Select>
-                </Field>
-                {input('smtpFrom', 'Sender email', 'email', 254)}
-                {input('smtpUser', 'SMTP username', 'text', 200)}
-                {input('smtpPassword', 'SMTP password', 'password')}
-              </>
-            )}
-            {input('recipients', 'Fallback recipients (comma-separated)', 'text', 2500)}
-            <label className="flex items-center gap-2">
-              <Toggle
-                checked={value.onCall}
-                onChange={(event) => set('onCall', event.target.checked)}
-              />
-              Notify the on-call responder when covered
-            </label>
-            <label className="flex items-center gap-2">
-              <Toggle
-                checked={value.commentNotifications ?? false}
-                onChange={(event) => set('commentNotifications', event.target.checked)}
-              />
-              Send customer-facing incident comment emails
-            </label>
-            <Notice error={fields.commentNotifications} />
-          </>
-        ) : (
-          <>
-            {input(
-              'url',
-              ['servicenow', 'jira'].includes(value.type)
-                ? 'Instance Root URL'
-                : value.type === 'github'
-                  ? 'Repository API URL'
-                  : value.type === 'pagerduty'
-                    ? 'Events API URL'
-                    : 'Webhook URL',
-              value.type === 'servicenow' ? 'url' : 'password',
-              4096,
-            )}
-            {(providerFields[value.type] || []).map((field) =>
-              input(field.key, field.label, field.secret ? 'password' : 'text', field.max),
-            )}
-            {value.type === 'servicenow' && (
-              <>
-                <Field name="authType" label="Authentication" errors={fields}>
-                  <Select
-                    value={value.authType || 'basic'}
-                    onChange={(event) => set('authType', event.target.value)}
-                  >
-                    <option value="basic">Basic Auth</option>
-                    <option value="oauth">OAuth · Client Credentials</option>
-                  </Select>
-                </Field>
-                {value.authType === 'oauth' ? (
-                  <>
-                    {input('clientId', 'Client ID', 'text', 512)}
-                    {input('clientSecret', 'Client Secret', 'password', 4096)}
-                    {input('scope', 'OAuth Scope (optional)', 'text', 1000)}
-                    <p className="field-hint">
-                      Configure an inbound OAuth client credentials integration in ServiceNow with
-                      Incident API permissions. Tokens are obtained from your instance’s
-                      /oauth_token.do endpoint.
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    {input('username', 'Integration username', 'text', 200)}
-                    {input('password', 'Integration password', 'password')}
-                  </>
-                )}
-                {initial.existing && (
-                  <div className="space-y-3">
-                    <button
-                      type="button"
-                      className="btn-secondary"
-                      disabled={testing || save.busy}
-                      onClick={async () => {
-                        setTesting(true);
-                        setTestError('');
-                        setTestMessage('');
-                        try {
-                          const result = await writeApi(`/integrations/${initial.id}/test`, {
-                            method: 'POST',
-                            body: {},
-                          });
-                          setTestMessage(result.message);
-                        } catch (error) {
-                          setTestError(error.message);
-                        } finally {
-                          setTesting(false);
-                        }
-                      }}
-                    >
-                      Test Saved Connection
-                    </button>
-                    <p className="field-hint">
-                      Save any changes before testing. The test checks read access without creating
-                      an incident.
-                    </p>
-                    <Notice error={testError} />
-                    {testMessage && (
-                      <p role="status" className="text-sm text-emerald-700 dark:text-emerald-300">
-                        {testMessage}
-                      </p>
-                    )}
-                  </div>
-                )}
-              </>
-            )}
-          </>
-        )}
-        <ServicePills
-          services={services}
-          value={value.serviceIds}
-          onChange={(ids) => set('serviceIds', ids)}
-        />
-        <label className="flex items-center gap-2">
-          <Toggle
-            checked={value.recovery}
-            onChange={(event) => set('recovery', event.target.checked)}
-          />
-          Notify on recovery
-        </label>
-        <label className="flex items-center gap-2">
-          <Toggle
-            disabled={!!initial.demoBatchId}
-            checked={value.enabled}
-            onChange={(event) => set('enabled', event.target.checked)}
-          />
-          Enable delivery
-        </label>
-        <Notice error={fields.enabled} />
-        <RecordActions>
-          {initial.existing && (
-            <ConfirmDeleteButton
-              confirmation="Delete this integration? Future notifications will no longer use it."
-              confirmLabel="Remove"
-              type="button"
-              className="btn-danger"
-              disabled={save.busy}
-              onConfirm={() =>
-                save.run(
-                  `/integrations/${value.id}`,
-                  'DELETE',
-                  { revision: value.revision },
-                  onDeleted,
-                )
+        <StaticRecordFields readOnly={readOnly}>
+          <Notice error={save.error} />
+          {input('name', 'Name', 'text', 80)}
+          <Field name="type" label="Provider" errors={fields}>
+            <Select
+              disabled={initial.existing}
+              value={value.type}
+              onChange={(event) =>
+                setValue((current) => ({
+                  ...current,
+                  type: event.target.value,
+                  preset: undefined,
+                  url:
+                    event.target.value === 'pagerduty'
+                      ? 'https://events.pagerduty.com/v2/enqueue'
+                      : '',
+                  token: '',
+                  username: '',
+                  password: '',
+                  projectKey: '',
+                  issueTypeId: '',
+                  smtpHost: '',
+                  smtpUser: '',
+                  smtpPassword: '',
+                }))
               }
             >
-              Remove integration
-            </ConfirmDeleteButton>
+              {providers.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <p className="text-sm text-slate-500">{help[value.preset || value.type]}</p>
+          {value.type === 'email' ? (
+            <>
+              {initial.smtpConfigured && (
+                <label className="flex items-center gap-2">
+                  <Toggle
+                    checked={editSmtp}
+                    onChange={(event) => {
+                      setEditSmtp(event.target.checked);
+                      if (!event.target.checked)
+                        setValue((current) => ({
+                          ...current,
+                          smtpHost: '',
+                          smtpFrom: '',
+                          smtpUser: '',
+                          smtpPassword: '',
+                        }));
+                    }}
+                  />
+                  Replace saved SMTP settings
+                </label>
+              )}
+              {editSmtp && (
+                <>
+                  {input('smtpHost', 'SMTP host', 'text', 253)}
+                  <Field name="smtpPort" label="Encryption / port" errors={fields}>
+                    <Select
+                      value={value.smtpPort ?? 587}
+                      onChange={(event) => set('smtpPort', Number(event.target.value))}
+                    >
+                      <option value={587}>STARTTLS — 587</option>
+                      <option value={465}>TLS — 465</option>
+                    </Select>
+                  </Field>
+                  {input('smtpFrom', 'Sender email', 'email', 254)}
+                  {input('smtpUser', 'SMTP username', 'text', 200)}
+                  {input('smtpPassword', 'SMTP password', 'password')}
+                </>
+              )}
+              {input('recipients', 'Fallback recipients (comma-separated)', 'text', 2500)}
+              <label className="flex items-center gap-2">
+                <Toggle
+                  checked={value.onCall}
+                  onChange={(event) => set('onCall', event.target.checked)}
+                />
+                Notify the on-call responder when covered
+              </label>
+              <label className="flex items-center gap-2">
+                <Toggle
+                  checked={value.commentNotifications ?? false}
+                  onChange={(event) => set('commentNotifications', event.target.checked)}
+                />
+                Send customer-facing incident comment emails
+              </label>
+              <Notice error={fields.commentNotifications} />
+            </>
+          ) : (
+            <>
+              {input(
+                'url',
+                ['servicenow', 'jira'].includes(value.type)
+                  ? 'Instance Root URL'
+                  : value.type === 'github'
+                    ? 'Repository API URL'
+                    : value.type === 'pagerduty'
+                      ? 'Events API URL'
+                      : 'Webhook URL',
+                value.type === 'servicenow' ? 'url' : 'password',
+                4096,
+              )}
+              {(providerFields[value.type] || []).map((field) =>
+                input(field.key, field.label, field.secret ? 'password' : 'text', field.max),
+              )}
+              {value.type === 'servicenow' && (
+                <>
+                  <Field name="authType" label="Authentication" errors={fields}>
+                    <Select
+                      value={value.authType || 'basic'}
+                      onChange={(event) => set('authType', event.target.value)}
+                    >
+                      <option value="basic">Basic Auth</option>
+                      <option value="oauth">OAuth · Client Credentials</option>
+                    </Select>
+                  </Field>
+                  {value.authType === 'oauth' ? (
+                    <>
+                      {input('clientId', 'Client ID', 'text', 512)}
+                      {input('clientSecret', 'Client Secret', 'password', 4096)}
+                      {input('scope', 'OAuth Scope (optional)', 'text', 1000)}
+                      <p className="field-hint">
+                        Configure an inbound OAuth client credentials integration in ServiceNow with
+                        Incident API permissions. Tokens are obtained from your instance’s
+                        /oauth_token.do endpoint.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      {input('username', 'Integration username', 'text', 200)}
+                      {input('password', 'Integration password', 'password')}
+                    </>
+                  )}
+                  {initial.existing && (
+                    <div className="space-y-3">
+                      <button
+                        type="button"
+                        className="btn-secondary"
+                        disabled={testing || save.busy}
+                        onClick={async () => {
+                          setTesting(true);
+                          setTestError('');
+                          setTestMessage('');
+                          try {
+                            const result = await writeApi(`/integrations/${initial.id}/test`, {
+                              method: 'POST',
+                              body: {},
+                            });
+                            setTestMessage(result.message);
+                          } catch (error) {
+                            setTestError(error.message);
+                          } finally {
+                            setTesting(false);
+                          }
+                        }}
+                      >
+                        Test Saved Connection
+                      </button>
+                      <p className="field-hint">
+                        Save any changes before testing. The test checks read access without
+                        creating an incident.
+                      </p>
+                      <Notice error={testError} />
+                      {testMessage && (
+                        <p role="status" className="text-sm text-emerald-700 dark:text-emerald-300">
+                          {testMessage}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+            </>
           )}
-          <CancelButton onCancel={close} to="/integrations" disabled={save.busy} />
-          <button className="btn-primary" disabled={save.busy}>
-            {save.busy ? 'Saving…' : 'Save'}
-          </button>
-        </RecordActions>
+          <ServicePills
+            services={services}
+            value={value.serviceIds}
+            onChange={(ids) => set('serviceIds', ids)}
+          />
+          <label className="flex items-center gap-2">
+            <Toggle
+              checked={value.recovery}
+              onChange={(event) => set('recovery', event.target.checked)}
+            />
+            Notify on recovery
+          </label>
+          <label className="flex items-center gap-2">
+            <Toggle
+              disabled={!!initial.demoBatchId}
+              checked={value.enabled}
+              onChange={(event) => set('enabled', event.target.checked)}
+            />
+            Enable delivery
+          </label>
+          <Notice error={fields.enabled} />
+        </StaticRecordFields>
+        {!readOnly && (
+          <RecordActions>
+            {initial.existing && (
+              <ConfirmDeleteButton
+                confirmation="Delete this integration? Future notifications will no longer use it."
+                confirmLabel="Remove"
+                type="button"
+                className="btn-danger"
+                disabled={save.busy}
+                onConfirm={() =>
+                  save.run(
+                    `/integrations/${value.id}`,
+                    'DELETE',
+                    { revision: value.revision },
+                    onDeleted,
+                  )
+                }
+              >
+                Remove integration
+              </ConfirmDeleteButton>
+            )}
+            <CancelButton onCancel={close} to="/integrations" disabled={save.busy} />
+            <button className="btn-primary" disabled={save.busy}>
+              {save.busy ? 'Saving…' : 'Save'}
+            </button>
+          </RecordActions>
+        )}
       </ValidatedForm>
     </FormPage>
   );

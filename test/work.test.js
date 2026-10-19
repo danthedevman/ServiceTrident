@@ -84,3 +84,11 @@ test('runbooks validate bounded ordered steps and default older records to artic
     ),
   );
 });
+
+test('task and article record numbers support both sort directions', () => {
+  for (const kind of ['tasks', 'knowledge'])
+    for (const order of ['asc', 'desc']) {
+      const query = workQuery({ sortBy: 'number', order }, 'workspace', kind);
+      assert.equal(query.sort.number, order === 'asc' ? 1 : -1);
+    }
+});

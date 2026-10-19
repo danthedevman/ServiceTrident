@@ -10,11 +10,14 @@ After years of working with enterprise platforms, I wanted to take the parts tha
 
 I built ServiceTrident to bring that experience together in something useful that I could share for free. My goal is to give developers and small teams a place to manage their services and respond to problems without requiring a dedicated platform team just to get started. You can host it yourself, inspect the code, and adapt it to the way you work.
 
+Note: ServiceTrident's code were generated and refined with AI assistance, including ChatGPT and Codex.
+
 ## What you can do
 
 - Monitor HTTP/HTTPS services and keyword conditions, receive external events, triage correlated alerts, and investigate linked incidents through related lists.
 - Coordinate incident response with assignments, comments, work notes, mentions, watchers, and notifications.
-- Plan tasks on a Kanban board, schedule on-call coverage, and track root cause analyses.
+- Organize tasks with board and list views. Pin frequently used records in personal groups with record type and service context.
+- Schedule on-call coverage and track root cause analyses.
 - Maintain knowledge articles and runbooks, and share service health through a public status page.
 - Connect communication and ticketing tools, configure identity providers, and give external systems scoped record-creation access.
 - Use optional AI assistance with your own provider account for authorized search, drafts, and confirmed record actions.
@@ -88,17 +91,21 @@ docker compose down
 
 ### Try the app
 
-Create your first service and monitor, or open **Settings → Demo Data → Add Demo Data** to explore sample records and notifications. Existing demo batches must be deleted and recreated to receive newly added examples. Demo monitors are paused and sample alerts do not send external messages. Enable Demo AI separately to try simulated chat examples without a provider account.
+Use **Quick Setup** on Overview or in the global **Create** modal to create a service and monitor; notifications and on-call coverage are optional. Or open **Settings → Demo Data → Add Demo Data** to explore sample records and notifications. Existing demo batches must be deleted and recreated to receive newly added examples. Demo monitors are paused and sample alerts do not send external messages. Enable Demo AI separately to try simulated chat examples without a provider account.
+
+Tasks opens a workspace task board with a list view available.
 
 Use bundled **Help** for monitor authentication, integration setup, record workflows, permissions, and demo cleanup.
 
 ## Integrations and AI
 
-Supported connections include SMTP email, Slack, Microsoft Teams, Discord, PagerDuty, ServiceNow, Jira Cloud, GitHub Issues, and webhooks. Configure only the destinations your team needs, and verify delivery before relying on them. Third-party accounts, hosting, and delivery may incur charges.
+Admins open **Event Rules**, **Escalation Policies**, **Maintenance Windows**, **Probe Agents**, **Alert Grouping**, and **Integrations** from the main navigation (under **More** when collapsed). Supported connections include SMTP email, Slack, Microsoft Teams, Discord, PagerDuty, ServiceNow, Jira Cloud, GitHub Issues, and webhooks. Configure only the destinations your team needs, and verify delivery before relying on them. Third-party accounts, hosting, and delivery may incur charges.
 
 Optional OpenAI and Claude integrations use your own API credentials. AI respects workspace permissions; proposed changes require confirmation. Review generated content before saving, and account for provider usage costs. Demo AI uses fixed examples and simulated actions.
 
 External systems can submit deduplicated operational events and create incidents, tasks, and knowledge through scoped service accounts using API keys or OAuth client credentials. See the [External API guide](docs/external-api.md).
+
+Event routing with previews, acknowledgment-based escalation, expiring maintenance windows, delivery retries, independent probe confirmation and operational reports help teams manage incoming signals. See the [operational automation guide](docs/operational-automation.md) for setup and limits.
 
 ## Hosting and operations
 

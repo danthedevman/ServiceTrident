@@ -1,3 +1,4 @@
+import { StaticRecordFields } from '../../components/forms/record-field-layout.jsx';
 import { healthPolicy } from '../../../../shared/domain/service-health.js';
 import { Toggle } from '../../components/forms/toggle.jsx';
 import { FormPage } from '../../components/forms/form-page.jsx';
@@ -58,6 +59,7 @@ export function CatalogForm({
   groups,
   onSaved,
   onCancel,
+  readOnly = false,
 }) {
   const isService = kind === 'services';
   const [manualDown, setManualDown] = useState(item?.healthPolicy?.manualDown ?? false);
@@ -78,7 +80,7 @@ export function CatalogForm({
   /** Submit bounded catalog fields; the server independently validates references and cycles. */
   async function submit(event, reportErrors) {
     event.preventDefault();
-    if (busy) return;
+    if (busy || readOnly) return;
     const form = new FormData(event.currentTarget);
     setBusy(true);
     setError('');
@@ -120,154 +122,158 @@ export function CatalogForm({
           {error}
         </p>
       )}
-      <label className="field-label">
-        Name *
-        <input
-          autoFocus
-          name="name"
-          maxLength={80}
-          required
-          defaultValue={item?.name ?? ''}
-          placeholder={isService ? 'Customer portal' : 'Production'}
-        />
-      </label>
-      {isService && (
+      <StaticRecordFields readOnly={readOnly}>
         <label className="field-label">
-          Description
-          <AutoTextarea
-            name="description"
-            maxLength={1000}
-            defaultValue={item?.description ?? ''}
-            placeholder="What this service provides"
+          Name *
+          <input
+            autoFocus={!readOnly}
+            name="name"
+            maxLength={80}
+            required
+            defaultValue={item?.name ?? ''}
+            placeholder={isService ? 'Customer portal' : 'Production'}
           />
         </label>
-      )}
-      {isService && (
-        <section className="space-y-5">
-          <h2 className="font-semibold">Health Thresholds</h2>
-          <label className="flex items-center gap-2">
-            <Toggle
-              aria-describedby="manual-degraded-help"
-              checked={manualDegraded}
-              onChange={(event) => {
-                setManualDegraded(event.target.checked);
-                if (event.target.checked) setManualDown(false);
-              }}
-            />
-            Flag as degraded
-          </label>
-          <label className="flex items-center gap-2">
-            <Toggle
-              aria-describedby="manual-degraded-help"
-              checked={manualDown}
-              onChange={(event) => {
-                setManualDown(event.target.checked);
-                if (event.target.checked) setManualDegraded(false);
-              }}
-            />
-            Flag as down
-          </label>
-          <p id="manual-degraded-help" className="text-sm text-slate-500">
-            Manual flags stay enabled until you clear them. Down takes precedence over all other
-            health signals.
-          </p>
+        {isService && (
           <label className="field-label">
-            Degraded response time (ms)
-            <input
-              aria-describedby="response-time-help"
-              name="responseTimeMs"
-              type="number"
-              min="0"
-              max="120000"
-              step="1"
-              defaultValue={item?.healthPolicy?.responseTimeMs ?? 0}
+            Description
+            <AutoTextarea
+              name="description"
+              maxLength={1000}
+              defaultValue={item?.description ?? ''}
+              placeholder="What this service provides"
             />
           </label>
-          <p id="response-time-help" className="text-sm text-slate-500">
-            A successful check at or above this duration marks the service Degraded. Use 0 to
-            disable.
-          </p>
-          <label className="field-label">
-            Consecutive failures before Down
-            <input
-              aria-describedby="failure-threshold-help"
-              name="failuresBeforeDown"
-              type="number"
-              min="1"
-              max="10"
-              step="1"
-              required
-              defaultValue={item?.healthPolicy?.failuresBeforeDown ?? 1}
+        )}
+        {isService && (
+          <section className="space-y-5">
+            <h2 className="font-semibold">Health Thresholds</h2>
+            <label className="flex items-center gap-2">
+              <Toggle
+                aria-describedby="manual-degraded-help"
+                checked={manualDegraded}
+                onChange={(event) => {
+                  setManualDegraded(event.target.checked);
+                  if (event.target.checked) setManualDown(false);
+                }}
+              />
+              Flag as degraded
+            </label>
+            <label className="flex items-center gap-2">
+              <Toggle
+                aria-describedby="manual-degraded-help"
+                checked={manualDown}
+                onChange={(event) => {
+                  setManualDown(event.target.checked);
+                  if (event.target.checked) setManualDegraded(false);
+                }}
+              />
+              Flag as down
+            </label>
+            <p id="manual-degraded-help" className="text-sm text-slate-500">
+              Manual flags stay enabled until you clear them. Down takes precedence over all other
+              health signals.
+            </p>
+            <label className="field-label">
+              Degraded response time (ms)
+              <input
+                aria-describedby="response-time-help"
+                name="responseTimeMs"
+                type="number"
+                min="0"
+                max="120000"
+                step="1"
+                defaultValue={item?.healthPolicy?.responseTimeMs ?? 0}
+              />
+            </label>
+            <p id="response-time-help" className="text-sm text-slate-500">
+              A successful check at or above this duration marks the service Degraded. Use 0 to
+              disable.
+            </p>
+            <label className="field-label">
+              Consecutive failures before Down
+              <input
+                aria-describedby="failure-threshold-help"
+                name="failuresBeforeDown"
+                type="number"
+                min="1"
+                max="10"
+                step="1"
+                required
+                defaultValue={item?.healthPolicy?.failuresBeforeDown ?? 1}
+              />
+            </label>
+            <p id="failure-threshold-help" className="text-sm text-slate-500">
+              Each monitor is evaluated separately. Failed checks below this threshold show
+              Degraded; a successful check resets the failure count.
+            </p>
+          </section>
+        )}
+        {isService && (
+          <section className="space-y-5 border-t border-slate-200 pt-5 dark:border-slate-700">
+            <h2 className="font-semibold">Ownership and Contact</h2>
+            <ServiceChoices
+              name="ownerIds"
+              label="Service owners"
+              services={members
+                .filter((m) => !m.disabled || ownerIds.includes(m.id))
+                .map((m) => ({ id: m.id, name: m.displayName || m.email }))}
+              selected={ownerIds}
+              onChange={setOwnerIds}
             />
-          </label>
-          <p id="failure-threshold-help" className="text-sm text-slate-500">
-            Each monitor is evaluated separately. Failed checks below this threshold show Degraded;
-            a successful check resets the failure count.
-          </p>
-        </section>
-      )}
-      {isService && (
-        <section className="space-y-5 border-t border-slate-200 pt-5 dark:border-slate-700">
-          <h2 className="font-semibold">Ownership and Contact</h2>
-          <ServiceChoices
-            name="ownerIds"
-            label="Service owners"
-            services={members
-              .filter((m) => !m.disabled || ownerIds.includes(m.id))
-              .map((m) => ({ id: m.id, name: m.displayName || m.email }))}
-            selected={ownerIds}
-            onChange={setOwnerIds}
-          />
-          <ServiceChoices
-            name="ownerGroupIds"
-            label="Owning groups"
-            services={groups}
-            selected={ownerGroupIds}
-            onChange={setOwnerGroupIds}
-          />
-          <ReferenceField
-            referenceType="members"
-            label="Primary point of contact"
-            name="primaryContactId"
-            options={members
-              .filter((member) => !member.disabled || member.id === contactId)
-              .map((member) => ({ id: member.id, label: member.displayName || member.email }))}
-            value={contactId}
-            onChange={setContactId}
-          />
-        </section>
-      )}
-      <ServiceChoices
-        name={isService ? 'dependencyIds' : 'serviceIds'}
-        services={services.filter((service) => service.id !== item?.id || !isService)}
-        selected={selected}
-        onChange={setSelected}
-        label={isService ? 'Depends on these services' : 'Services in this collection'}
-      />
-      {isService && (
-        <CollectionField
-          collections={collections}
-          value={collectionIds}
-          onChange={setCollectionIds}
-          disabled={busy}
+            <ServiceChoices
+              name="ownerGroupIds"
+              label="Owning groups"
+              services={groups}
+              selected={ownerGroupIds}
+              onChange={setOwnerGroupIds}
+            />
+            <ReferenceField
+              referenceType="members"
+              label="Primary point of contact"
+              name="primaryContactId"
+              options={members
+                .filter((member) => !member.disabled || member.id === contactId)
+                .map((member) => ({ id: member.id, label: member.displayName || member.email }))}
+              value={contactId}
+              onChange={setContactId}
+            />
+          </section>
+        )}
+        <ServiceChoices
+          name={isService ? 'dependencyIds' : 'serviceIds'}
+          services={services.filter((service) => service.id !== item?.id || !isService)}
+          selected={selected}
+          onChange={setSelected}
+          label={isService ? 'Depends on these services' : 'Services in this collection'}
         />
+        {isService && (
+          <CollectionField
+            collections={collections}
+            value={collectionIds}
+            onChange={setCollectionIds}
+            disabled={busy}
+          />
+        )}
+        {isService && (
+          <p className="field-hint">
+            A dependency outage affects this service's current status. Cycles are not allowed. Add
+            component names such as API or Checkout when assigning monitors.
+          </p>
+        )}
+      </StaticRecordFields>
+      {!readOnly && (
+        <RecordActions>
+          <CancelButton onCancel={onCancel} to={`/${kind}`} disabled={busy} />
+          <button className="btn-primary" disabled={busy}>
+            {busy
+              ? 'Saving…'
+              : item
+                ? 'Save'
+                : `Create ${kind === 'services' ? 'Service' : 'Collection'}`}
+          </button>
+        </RecordActions>
       )}
-      {isService && (
-        <p className="field-hint">
-          A dependency outage affects this service's current status. Cycles are not allowed. Add
-          component names such as API or Checkout when assigning monitors.
-        </p>
-      )}
-      <RecordActions>
-        <CancelButton onCancel={onCancel} to={`/${kind}`} disabled={busy} />
-        <button className="btn-primary" disabled={busy}>
-          {busy
-            ? 'Saving…'
-            : item
-              ? 'Save'
-              : `Create ${kind === 'services' ? 'Service' : 'Collection'}`}
-        </button>
-      </RecordActions>
     </ValidatedForm>
   );
 }

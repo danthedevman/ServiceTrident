@@ -1,6 +1,8 @@
 const routes = {
   incidents: '/incidents',
   tasks: '/tasks',
+  projects: '/projects',
+  'project-milestones': '/project-milestones',
   rcas: '/rcas',
   knowledge: '/knowledge',
   services: '/services',
@@ -19,6 +21,7 @@ const routes = {
 const detailSources = new Set([
   'audit',
   'activity',
+  'project-activity',
   'comments',
   'deliveries',
   'invitations',
@@ -39,7 +42,7 @@ export function tableRecordLink(source, deletePath, row) {
   if (!detailSources.has(kind)) return null;
   const query = new URLSearchParams(source?.split('?')[1] || '');
   for (const key of [...query.keys()])
-    if (!['recordId', 'recordKind', 'monitorId', 'eventId', 'headerSet'].includes(key))
+    if (!['recordId', 'recordKind', 'monitorId', 'eventId', 'headerSet', 'projectId'].includes(key))
       query.delete(key);
   return `/records/${kind}/${encodeURIComponent(row.id)}${query.size ? `?${query}` : ''}`;
 }

@@ -1,3 +1,5 @@
+import { SearchInput } from '../../components/forms/search-input.jsx';
+import { StaticRecordFields } from '../../components/forms/record-field-layout.jsx';
 import { useListFilter } from '../../data/use-list-filter.js';
 import { useInfiniteScroll } from '../../data/use-infinite-scroll.js';
 import { ValidatedForm } from '../../components/forms/validated-form.jsx';
@@ -51,7 +53,7 @@ export function KnowledgeBasesPage() {
       </RecordHeader>
       <label className="field-label block max-w-md">
         <span className="sr-only">Search Knowledge Bases</span>
-        <input
+        <SearchInput
           type="search"
           placeholder="Search Knowledge Bases"
           maxLength={100}
@@ -160,19 +162,14 @@ export function KnowledgeBasePage({ create = false }) {
           }
           sidebar={<RecordMetadata item={item} />}
         >
-          {editing ? (
-            <KnowledgeBaseForm key={id} item={item} onClose={() => setEditing(false)} />
-          ) : (
-            <div className="record-details space-y-6">
-              <PageTitle>{item.title}</PageTitle>
-              <div>
-                <h2 className="field-label">Description</h2>
-                <p>{item.description || 'No description'}</p>
-              </div>
-              <KnowledgeBaseArticles key={id} knowledgeBaseId={id} />
-              <AIAssistant key={id} action="answer" knowledgeBaseId={id} />
-            </div>
-          )}
+          <KnowledgeBaseForm
+            key={`${id}-${editing ? 'edit' : item.revision}`}
+            readOnly={!editing || !['admin', 'responder'].includes(user?.role)}
+            item={item}
+            onClose={() => setEditing(false)}
+          />
+          <KnowledgeBaseArticles key={`articles:${id}`} knowledgeBaseId={id} />
+          <AIAssistant key={`ai:${id}`} action="answer" knowledgeBaseId={id} />
         </RecordWorkspace>
       ) : (
         <Skeleton className="h-64" />
@@ -181,7 +178,7 @@ export function KnowledgeBasePage({ create = false }) {
   );
 }
 
-function KnowledgeBaseForm({ item, onClose }) {
+function KnowledgeBaseForm({ item, onClose, readOnly = false }) {
   const [title, setTitle] = useState(item?.title ?? ''),
     [description, setDescription] = useState(item?.description ?? '');
   const save = useSave(),
@@ -191,6 +188,7 @@ function KnowledgeBaseForm({ item, onClose }) {
       className="form-body"
       onSubmit={(event) => {
         event.preventDefault();
+        if (readOnly) return;
         save.run(
           item ? `/knowledge-bases/${item.id}` : '/knowledge-bases',
           item ? 'PATCH' : 'POST',
@@ -202,31 +200,35 @@ function KnowledgeBaseForm({ item, onClose }) {
         );
       }}
     >
-      <PageTitle>{item ? 'Edit Knowledge Base' : 'Create Knowledge Base'}</PageTitle>
+      {!item && <PageTitle>Create Knowledge Base</PageTitle>}
       <Notice error={save.error} />
-      <Field label="Name" name="title" errors={save.fields}>
-        <input
-          value={title}
-          onChange={(event) => setTitle(event.target.value)}
-          required
-          maxLength={160}
-        />
-      </Field>
-      <Field label="Description" name="description" errors={save.fields}>
-        <AutoTextarea
-          value={description}
-          onChange={(event) => setDescription(event.target.value)}
-          maxLength={2000}
-        />
-      </Field>
-      <RecordActions>
-        <button type="button" className="btn-secondary" disabled={save.busy} onClick={onClose}>
-          Cancel
-        </button>
-        <button className="btn-primary" disabled={save.busy}>
-          {item ? 'Save' : 'Create Knowledge Base'}
-        </button>
-      </RecordActions>
+      <StaticRecordFields readOnly={readOnly}>
+        <Field label="Name" name="title" errors={save.fields}>
+          <input
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+            required
+            maxLength={160}
+          />
+        </Field>
+        <Field label="Description" name="description" errors={save.fields}>
+          <AutoTextarea
+            value={description}
+            onChange={(event) => setDescription(event.target.value)}
+            maxLength={2000}
+          />
+        </Field>
+      </StaticRecordFields>
+      {!readOnly && (
+        <RecordActions>
+          <button type="button" className="btn-secondary" disabled={save.busy} onClick={onClose}>
+            Cancel
+          </button>
+          <button className="btn-primary" disabled={save.busy}>
+            {item ? 'Save' : 'Create Knowledge Base'}
+          </button>
+        </RecordActions>
+      )}
     </ValidatedForm>
   );
 }
@@ -339,7 +341,7 @@ function KnowledgeBaseArticles({ knowledgeBaseId }) {
       <div className="flex flex-wrap items-end gap-3">
         <label className="field-label min-w-0 flex-1">
           <span className="sr-only">Search Articles</span>
-          <input
+          <SearchInput
             type="search"
             placeholder="Search articles"
             maxLength={100}

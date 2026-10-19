@@ -1,3 +1,7 @@
+import {
+  RecordFieldLayout,
+  RecordFieldsReadOnly,
+} from '../../components/forms/record-field-layout.jsx';
 import { EventsTable } from '../monitors/events.jsx';
 import { ColumnFilter } from '../../components/column-filter.jsx';
 import { useListFilter } from '../../data/use-list-filter.js';
@@ -301,6 +305,7 @@ export function IncidentPage({ edit = false }) {
         <ResolveIncidentDialog
           key={id}
           item={item}
+          layoutConfig={schema.data.layout}
           schema={schema.data.fields}
           onClose={() => setResolving(false)}
         />
@@ -342,6 +347,7 @@ export function IncidentPage({ edit = false }) {
           <IncidentEditor
             initialServiceId={alertSource.data?.item?.serviceId || params.get('serviceId') || ''}
             sourceAlert={alertSource.data?.item}
+            layoutConfig={schema.data.layout}
             schema={schema.data.fields}
             services={services.data.services}
             members={members.data.members}
@@ -398,6 +404,27 @@ export function IncidentPage({ edit = false }) {
                       </button>
                     )
                   ) : undefined
+                }
+                secondaryActions={
+                  canEdit && item.status === 'open' ? (
+                    <ConfirmDeleteButton
+                      className="btn-secondary"
+                      title="Acknowledge Incident"
+                      confirmLabel="Acknowledge"
+                      busyLabel="Acknowledge"
+                      confirmClassName="btn-primary"
+                      confirmation="Acknowledge this incident and stop pending escalation steps?"
+                      onConfirm={async () => {
+                        await writeApi(`/incidents/${id}/acknowledge`, {
+                          method: 'POST',
+                          body: { revision: item.revision, confirm: true },
+                        });
+                        await incident.refresh();
+                      }}
+                    >
+                      Acknowledge
+                    </ConfirmDeleteButton>
+                  ) : null
                 }
                 identityExtra={
                   <StateBadge
@@ -469,15 +496,14 @@ export function IncidentPage({ edit = false }) {
                 }
               >
                 <AttachmentLinks kind="incidents" recordId={item.id} />
-                {!editing && (
-                  <AIAssistant key={item.id} action="summary" kind="incidents" id={item.id} />
-                )}
+                <AIAssistant key={item.id} action="summary" kind="incidents" id={item.id} />
                 {canEdit && editing ? (
                   <IncidentEditor
                     key={`${id}-${formVersion}`}
                     incident={item}
                     resolving={resolving}
                     linkedArticles={incident.data.knowledge ?? []}
+                    layoutConfig={schema.data.layout}
                     schema={schema.data.fields}
                     services={services.data.services}
                     members={members.data.members}
@@ -487,102 +513,35 @@ export function IncidentPage({ edit = false }) {
                     }}
                   />
                 ) : (
-                  <section className="record-details space-y-6">
-                    <dl>
-                      <div>
-                        <dt>Title</dt>
-                        <dd>{item.title}</dd>
-                      </div>
-                    </dl>
-                    <dl className="grid gap-4 text-sm sm:grid-cols-2">
-                      <div>
-                        <dt className="font-medium">Service</dt>
-                        <dd>
-                          <ReferenceValue
-                            type="services"
-                            id={item.serviceId}
-                            label={item.serviceName}
-                          />
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="font-medium">Status</dt>
-                        <dd>
-                          <StateBadge status={item.status} label={item.statusLabel} />
-                        </dd>
-                      </div>
-                      <div>
-                        <dt>Severity</dt>
-                        <dd>
-                          <StateBadge status={item.severity} label={item.severityLabel} />
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="font-medium">Assignment group</dt>
-                        <dd>
-                          <ReferenceValue
-                            type="groups"
-                            id={item.assignmentGroupId}
-                            label={item.assignmentGroupName}
-                          />
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="font-medium">Assigned to</dt>
-                        <dd>
-                          <ReferenceValue
-                            type="members"
-                            id={item.assigneeId}
-                            label={memberName(item.assigneeId)}
-                          />
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="font-medium">Opened for</dt>
-                        <dd>
-                          <ReferenceValue
-                            type="members"
-                            id={item.openedForId}
-                            label={memberName(item.openedForId)}
-                          />
-                        </dd>
-                      </div>
-                    </dl>
-                    <dl>
-                      <div>
-                        <dt>Description</dt>
-                        <dd className="whitespace-pre-wrap break-words">
-                          {item.description || 'No description.'}
-                        </dd>
-                      </div>
-                    </dl>
-                    {(item.resolutionNotes || item.status === 'resolved') && (
-                      <dl>
-                        <div>
-                          <dt>
-                            {schema.data.fields.find((field) => field.id === 'resolutionNotes')
-                              ?.label || 'Resolution notes'}
-                          </dt>
-                          <dd className="whitespace-pre-wrap">{item.resolutionNotes || '—'}</dd>
-                        </div>
-                      </dl>
-                    )}
-                    {recordFields(schema.data.fields, item.fields).some(
-                      (field) => !field.archived,
-                    ) && (
-                      <dl className="grid gap-4 sm:grid-cols-2">
-                        {recordFields(schema.data.fields, item.fields)
-                          .filter((field) => !field.archived)
-                          .map((field) => (
-                            <div key={field.id}>
-                              <dt className="text-sm font-medium">{field.label}</dt>
-                              <dd className="whitespace-pre-wrap break-words text-sm">
-                                {String(item.custom[field.id] ?? '—')}
-                              </dd>
-                            </div>
-                          ))}
-                      </dl>
-                    )}
+                  <section className="record-details">
+                    <RecordFieldsReadOnly
+                      fields={[
+                        ...schema.data.fields,
+                        ...recordFields(schema.data.fields, item.fields).filter(
+                          (field) => !schema.data.fields.some((row) => row.id === field.id),
+                        ),
+                      ]}
+                      layout={schema.data.layout}
+                      item={{
+                        ...item,
+                        assigneeName: memberName(item.assigneeId),
+                        openedForName: memberName(item.openedForId),
+                      }}
+                      renderValue={(field) =>
+                        field.id === 'knowledgeIds' ? (
+                          <div className="space-y-1">
+                            {(incident.data.knowledge || []).map((article) => (
+                              <ReferenceValue
+                                key={article.id}
+                                type="knowledge"
+                                id={article.id}
+                                label={article.title}
+                              />
+                            ))}
+                          </div>
+                        ) : undefined
+                      }
+                    />
                   </section>
                 )}
                 <RecordTabs
@@ -826,6 +785,7 @@ export function IncidentPage({ edit = false }) {
 function IncidentEditor({
   incident,
   schema,
+  layoutConfig,
   services,
   members,
   onClose,
@@ -881,6 +841,10 @@ function IncidentEditor({
       incident?.severityOption ?? incident?.severity ?? initialChoice('severity', 'medium'),
   });
   const [note, setNote] = useState('');
+  const [initialDraft] = useState(() =>
+    JSON.stringify({ value, attachmentIds: draft.ids, note: '' }),
+  );
+  const dirty = JSON.stringify({ value, attachmentIds: draft.ids, note }) !== initialDraft;
   const custom = recordFields(schema, current?.fields).filter((field) => !field.archived);
   const layout = [
     ...schema
@@ -1035,6 +999,7 @@ function IncidentEditor({
   }
   const form = (
     <ValidatedForm
+      dirty={dirty}
       ref={formRef}
       className="form-body"
       noValidate
@@ -1071,7 +1036,12 @@ function IncidentEditor({
             : 'Created from service health. It resolves automatically after recovery. Resolving while the service is still down can create a new monitoring incident.'}
         </p>
       )}
-      {layout.map(control)}
+      <RecordFieldLayout
+        fields={layout}
+        layout={layoutConfig}
+        renderField={control}
+        editing={!!current}
+      />
       {current && (
         <Field name="note" label="Internal work note (responders and admins only)" errors={errors}>
           <AutoTextarea value={note} onChange={(e) => setNote(e.target.value)} maxLength={2000} />

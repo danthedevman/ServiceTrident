@@ -8,11 +8,15 @@ export const referenceRoutes = {
   groups: '/groups',
   members: '/workspace',
   incidents: '/incidents',
+  events: '/events',
+  alerts: '/alerts',
   knowledge: '/knowledge',
   knowledgeBases: '/knowledge/bases',
   tasks: '/tasks',
+  projects: '/projects',
   rcas: '/rcas',
   monitors: '/monitors',
+  notificationIntegrations: '/integrations',
   serviceAccounts: '/settings/service-accounts',
 };
 

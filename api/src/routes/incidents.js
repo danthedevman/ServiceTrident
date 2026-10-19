@@ -333,6 +333,9 @@ export function installIncidentsRoutes(app, db, appOrigin, machine = null) {
         resolutionNotes,
         ...(reopening
           ? {
+              acknowledgedAt: null,
+              acknowledgmentDurationMs: null,
+              resolutionDurationMs: null,
               resolvedAt: null,
               reopenedAt: now,
               resolutionCycle: (current.resolutionCycle ?? 0) + 1,
@@ -343,9 +346,22 @@ export function installIncidentsRoutes(app, db, appOrigin, machine = null) {
                 : {}),
             }
           : {}),
+        ...(status === 'acknowledged' && current?.status !== 'acknowledged'
+          ? {
+              acknowledgedAt: now,
+              acknowledgmentDurationMs: Math.max(
+                0,
+                +now - +new Date(current?.reopenedAt || current?.createdAt || now),
+              ),
+              acknowledgedById: String(req.user._id),
+            }
+          : {}),
         ...(status === 'resolved'
           ? {
               resolvedAt: current?.resolvedAt ?? now,
+              resolutionDurationMs:
+                current?.resolutionDurationMs ??
+                Math.max(0, +now - +new Date(current?.reopenedAt || current?.createdAt || now)),
               ...(['monitor', 'automation'].includes(current?.source)
                 ? { activeAutomatic: false }
                 : {}),

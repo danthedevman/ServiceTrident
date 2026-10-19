@@ -56,6 +56,7 @@ export function incidentQuery(query, req) {
   const sortBy = choice(
     query.sortBy ?? 'createdAt',
     [
+      'number',
       'createdAt',
       'updatedAt',
       'title',

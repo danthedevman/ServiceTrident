@@ -24,6 +24,7 @@ export async function statusData(db, userId, serializeMonitor, publicView = fals
             userId,
             monitorId: { $exists: true, $ne: null },
             sourceType: { $ne: 'external' },
+            probeId: { $exists: false },
             checkedAt: { $gte: since, $lt: until },
           },
         },

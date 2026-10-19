@@ -5,6 +5,8 @@ export const RECORD_PREFIXES = {
   events: 'EVT',
   eventAlerts: 'ALT',
   tasks: 'TASK',
+  projects: 'PRJ',
+  projectMilestones: 'MS',
   rcas: 'RCA',
   articles: 'KB',
   knowledgeBases: 'KBASE',
@@ -22,6 +24,7 @@ const direct = new Set([
   'events',
   'eventAlerts',
   'tasks',
+  'projectMilestones',
   'rcas',
   'articles',
   'knowledgeBases',
@@ -31,7 +34,7 @@ const direct = new Set([
 ]);
 const embedded = {
   catalogs: ['services', 'collections'],
-  operations: ['groups', 'shifts', 'integrations'],
+  operations: ['groups', 'shifts', 'integrations', 'projects'],
 };
 
 /** Stable identities are server-owned, workspace-scoped and independent of record content. */

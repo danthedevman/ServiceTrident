@@ -71,6 +71,27 @@ test(
       leftCollapsed: true,
       rightCollapsed: true,
     });
+    const groups = await request('/auth/preferences', owner.cookie, 'PATCH', {
+      navMonitorOpen: false,
+      navKnowledgeOpen: false,
+      navAutomationOpen: false,
+    });
+    assert.equal(groups.status, 200);
+    assert.equal(groups.data.preferences.navMonitorOpen, false);
+    assert.equal(
+      (await request('/auth/me', other.cookie)).data.user.uiPreferences?.navMonitorOpen ?? true,
+      true,
+    );
+    assert.equal(
+      (await request('/auth/preferences', owner.cookie, 'PATCH', { navMonitorOpen: 'false' }))
+        .status,
+      400,
+    );
+    await request('/auth/preferences', owner.cookie, 'PATCH', {
+      navMonitorOpen: true,
+      navKnowledgeOpen: true,
+      navAutomationOpen: true,
+    });
     await request('/auth/preferences', owner.cookie, 'PATCH', { filtersOpen: true });
     const tableLayouts = {
       '/incidents::incidents': { order: ['severity', 'title'], hidden: ['createdAt'] },

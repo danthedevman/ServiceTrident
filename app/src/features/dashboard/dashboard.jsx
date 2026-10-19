@@ -1,3 +1,5 @@
+import { queryClient } from '../../data/query-client.js';
+import { OperationalReporting } from './operational-reporting.jsx';
 import { UserCircleIcon, UserGroupIcon, ArrowUpRightIcon } from '@heroicons/react/24/outline';
 import { ReferenceField } from '../../components/forms/reference-field.jsx';
 import { RecordHeader } from '../../components/record-actions.jsx';
@@ -556,6 +558,7 @@ export function Dashboard() {
                 <option value="tasks">Tasks</option>
                 <option value="services">Service Health</option>
                 <option value="events">Events</option>
+                <option value="operational">Operational Reporting</option>
               </Select>
             </label>
             <RefreshButton
@@ -563,9 +566,17 @@ export function Dashboard() {
               label="Refresh dashboard"
               bare
               onClick={() =>
-                dashboardTab === 'events'
-                  ? eventMetrics.refresh()
-                  : Promise.all([response.refresh(), health.refresh()])
+                dashboardTab === 'operational'
+                  ? queryClient.invalidateQueries({
+                      predicate: (query) =>
+                        query.queryKey.some(
+                          (part) =>
+                            typeof part === 'string' && part.startsWith('/operational-report'),
+                        ),
+                    })
+                  : dashboardTab === 'events'
+                    ? eventMetrics.refresh()
+                    : Promise.all([response.refresh(), health.refresh()])
               }
             />
           </div>
@@ -577,7 +588,9 @@ export function Dashboard() {
         </p>
       )}
       {preferencesReady &&
-        (dashboardTab === 'overview' ? (
+        (dashboardTab === 'operational' ? (
+          <OperationalReporting />
+        ) : dashboardTab === 'overview' ? (
           <Overview
             data={data}
             chart={chart}
@@ -613,17 +626,85 @@ export function Dashboard() {
 }
 
 /** Summarize authorized domains with complete server counts and actionable report links. */
+function QuickStartGuide() {
+  const { user } = useContext(AuthContext);
+  const admin = user?.role === 'admin';
+  const steps = [
+    ['Create a service', 'Define what your team supports.', '/services/new', 'services'],
+    ['Add a monitor', 'Choose an endpoint and check interval.', '/monitors/new', 'monitoring'],
+    ['Configure notifications', 'Connect an alert destination.', '/integrations', 'integrations'],
+    ['Set on-call coverage', 'Choose who responds to incidents.', '/on-call', 'people'],
+  ];
+  return (
+    <section className="panel space-y-3 p-4" aria-labelledby="quick-start-heading">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 id="quick-start-heading" className="font-semibold">
+          Quick Start
+        </h2>
+        {admin && (
+          <Link
+            className="text-sm font-medium text-blue-700 hover:underline dark:text-blue-300"
+            to="/quick-start"
+          >
+            Quick Setup
+          </Link>
+        )}
+        <Link
+          className="text-sm text-blue-700 hover:underline dark:text-blue-300"
+          to="/help?topic=getting-started"
+        >
+          Getting Started guide
+        </Link>
+      </div>
+      <ol className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+        {steps.map(([title, description, to, topic], index) => (
+          <li key={title}>
+            <Link
+              className="flex h-full items-center gap-3 rounded-lg p-2 hover:bg-slate-50 dark:hover:bg-slate-800"
+              to={admin ? to : `/help?topic=${topic}`}
+            >
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-semibold text-blue-800 dark:bg-blue-950 dark:text-blue-200">
+                {index + 1}
+              </span>
+              <span className="min-w-0">
+                <strong className="text-sm">{title}</strong>
+                <span className="mt-1 block text-xs text-slate-500 dark:text-slate-400">
+                  {description}
+                </span>
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
 function Overview({ data, chart, services, reportHref }) {
-  if (!data?.overview || !chart) return null;
+  if (!data?.overview || !chart) return <QuickStartGuide />;
   const overview = data.overview;
   return (
     <div className="space-y-6">
-      <section className="space-y-4" aria-labelledby="overview-attention-title">
-        <h2 id="overview-attention-title" className="text-lg font-semibold">
-          Needs Attention
-        </h2>
+      <section className="space-y-3" aria-labelledby="overview-attention-title">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 id="overview-attention-title" className="text-lg font-semibold">
+              Needs Attention
+            </h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Prioritize urgent incidents, find owners, and unblock overdue work.
+            </p>
+          </div>
+          <Link
+            className="text-sm font-medium text-blue-700 hover:underline dark:text-blue-300"
+            to="/alerts"
+          >
+            View Alerts <span aria-hidden="true">→</span>
+          </Link>
+        </div>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <Score
+            compact
             label="Critical / High Incidents"
             tone={(data.severity.critical ?? 0) + (data.severity.high ?? 0) ? 'rose' : 'emerald'}
             value={(data.severity.critical ?? 0) + (data.severity.high ?? 0)}
@@ -631,6 +712,7 @@ function Overview({ data, chart, services, reportHref }) {
             href={reportHref('urgent')}
           />
           <Score
+            compact
             label="Unassigned Incidents"
             tone={data.unassigned ? 'amber' : 'emerald'}
             value={data.unassigned}
@@ -638,6 +720,7 @@ function Overview({ data, chart, services, reportHref }) {
             href={reportHref('unassigned')}
           />
           <Score
+            compact
             label="Overdue Tasks"
             tone={data.overdue ? 'amber' : 'emerald'}
             value={data.overdue}
@@ -645,6 +728,7 @@ function Overview({ data, chart, services, reportHref }) {
             href={reportHref('overdue')}
           />
           <Score
+            compact
             label="Services Down"
             tone={
               services.some((service) => service.status === 'down')
@@ -662,12 +746,13 @@ function Overview({ data, chart, services, reportHref }) {
           />
         </div>
       </section>
+      <QuickStartGuide />
       <section className="grid gap-4 lg:grid-cols-2" aria-label="Assignment overview">
         {[
           ['My Assignments', 'my', UserCircleIcon],
           ['My Team', 'team', UserGroupIcon],
         ].map(([title, scope, Icon]) => (
-          <article key={scope} className="panel space-y-4 rounded-xl p-5">
+          <article key={scope} className="panel min-w-0 space-y-4 rounded-xl p-5">
             <header className="flex items-center justify-between gap-3">
               <h2 className="flex items-center gap-2 font-semibold">
                 <Icon className="h-5 w-5 text-blue-700 dark:text-blue-300" aria-hidden="true" />
@@ -681,7 +766,12 @@ function Overview({ data, chart, services, reportHref }) {
                 </span>
               )}
             </header>
-            <div className="grid grid-cols-2 gap-3">
+            <p className="text-sm text-slate-500">
+              {scope === 'my'
+                ? 'Work assigned directly to you.'
+                : 'Work assigned to groups you belong to.'}
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
               {['incidents', 'tasks'].map((kind) => {
                 const report = `${scope}-${kind}`,
                   work = data.assignedWork?.[report];
@@ -699,7 +789,7 @@ function Overview({ data, chart, services, reportHref }) {
                         aria-hidden="true"
                       />
                     </span>
-                    <span className="mt-3 block text-3xl font-semibold tabular-nums">
+                    <span className="mt-3 block text-2xl font-semibold tabular-nums">
                       {number(work?.total ?? 0)}
                     </span>
                     <span

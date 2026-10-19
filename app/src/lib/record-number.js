@@ -3,6 +3,8 @@ const prefixes = {
   events: 'EVT',
   eventAlerts: 'ALT',
   tasks: 'TASK',
+  projects: 'PRJ',
+  'project-milestones': 'MS',
   rcas: 'RCA',
   knowledge: 'KB',
   knowledgeBases: 'KBASE',

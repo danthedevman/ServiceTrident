@@ -80,6 +80,21 @@ export function withEventIncidents(db, workspaceId, cursor) {
     close: () => cursor.close?.(),
     async *[Symbol.asyncIterator]() {
       const enrich = async (rows) => {
+        // Aggregations bypass lazy numbering. Backfill only missing identities in this bounded batch.
+        const missing = rows.filter((row) => !row.number && row._id);
+        if (missing.length) {
+          const numbered = await db
+            .collection('events')
+            .find(
+              { userId: workspaceId, _id: { $in: missing.map((row) => row._id) } },
+              { projection: { number: 1 } },
+            )
+            .toArray();
+          const numbers = new Map(numbered.map((row) => [String(row._id), row.number]));
+          rows = rows.map((row) =>
+            row.number ? row : { ...row, number: numbers.get(String(row._id)) },
+          );
+        }
         const links = await eventIncidents(db, workspaceId, rows);
         return rows.map((row) => {
           const incidents = links.get(eventLinkKey(row)) || [];

@@ -78,6 +78,13 @@ export function validateMonitor(body, { requireService = false } = {}) {
   if (typeof followRedirects !== 'boolean')
     throw new InputError('followRedirects must be a boolean.');
   return {
+    confirmationProbeId: body.confirmationProbeId
+      ? /^[a-f\d]{24}$/.test(body.confirmationProbeId)
+        ? body.confirmationProbeId
+        : (() => {
+            throw new InputError('Choose a valid confirmation probe.');
+          })()
+      : null,
     keyword: monitorKeyword(body.keyword, {
       method: method ?? 'GET',
       authenticated: body.authentication?.mode

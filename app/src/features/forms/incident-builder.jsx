@@ -1,3 +1,6 @@
+import { SearchInput } from '../../components/forms/search-input.jsx';
+import { DEFAULT_FORM_LAYOUT } from '../../../../shared/forms/layout.js';
+import { LayoutEditor } from './layout-editor.jsx';
 import { AutoTextarea } from '../../components/forms/auto-textarea.jsx';
 import { RecordHeader } from '../../components/record-actions.jsx';
 import { ConfirmDeleteButton } from '../../components/confirm-delete-button.jsx';
@@ -257,6 +260,7 @@ function Builder({ initial, path, kind, onCancel }) {
   const [snapshot, setSnapshot] = useState(initial);
   const [search, setSearch] = useState('');
   const [fieldView, setFieldView] = useState('active');
+  const [layout, setLayout] = useState(initial.layout || DEFAULT_FORM_LAYOUT);
   const [fields, setFields] = useState(initial.fields),
     [revision, setRevision] = useState(initial.revision),
     [savedIds, setSavedIds] = useState(initial.fields.map((field) => field.id)),
@@ -305,6 +309,7 @@ function Builder({ initial, path, kind, onCancel }) {
               className="btn-secondary gap-2"
               onClick={() => {
                 setFields(snapshot.fields);
+                setLayout(snapshot.layout || DEFAULT_FORM_LAYOUT);
                 setRevision(snapshot.revision);
                 setSavedIds(snapshot.fields.map((field) => field.id));
                 setSaved(false);
@@ -353,8 +358,8 @@ function Builder({ initial, path, kind, onCancel }) {
                 className="btn-primary"
                 disabled={save.busy}
                 onClick={() =>
-                  save.run(path, 'PUT', { fields, revision }, () => {
-                    setSnapshot({ fields, revision: revision + 1 });
+                  save.run(path, 'PUT', { fields, layout, revision }, () => {
+                    setSnapshot({ fields, layout, revision: revision + 1 });
                     setRevision(revision + 1);
                     setSavedIds(fields.map((row) => row.id));
                     setSaved(true);
@@ -395,6 +400,27 @@ function Builder({ initial, path, kind, onCancel }) {
                     onChange={(event) => update({ helpText: event.target.value })}
                   />
                 </Field>
+                <label className="field-label">
+                  Section
+                  <Select
+                    aria-label="Section"
+                    value={layout.assignments[field.id] || ''}
+                    onChange={(event) => {
+                      const assignments = { ...layout.assignments };
+                      if (event.target.value) assignments[field.id] = event.target.value;
+                      else delete assignments[field.id];
+                      setLayout({ ...layout, assignments });
+                      setSaved(false);
+                    }}
+                  >
+                    <option value="">Ungrouped Fields</option>
+                    {layout.sections.map((section) => (
+                      <option key={section.id} value={section.id}>
+                        {section.label}
+                      </option>
+                    ))}
+                  </Select>
+                </label>
                 <label className="flex items-center gap-2">
                   <Toggle
                     checked={field.required}
@@ -452,6 +478,12 @@ function Builder({ initial, path, kind, onCancel }) {
                         if (savedIds.includes(field.id)) update({ archived: !field.archived });
                         else {
                           setFields(fields.filter((row) => row.id !== field.id));
+                          setLayout({
+                            ...layout,
+                            assignments: Object.fromEntries(
+                              Object.entries(layout.assignments).filter(([id]) => id !== field.id),
+                            ),
+                          });
                           setSelected(null);
                           setSaved(false);
                         }
@@ -473,6 +505,14 @@ function Builder({ initial, path, kind, onCancel }) {
           </section>
         }
       >
+        <LayoutEditor
+          layout={layout}
+          disabled={!editing || save.busy}
+          onChange={(next) => {
+            setLayout(next);
+            setSaved(false);
+          }}
+        />
         <section className="panel space-y-4 p-5">
           <h2 className="font-semibold">Form Fields</h2>
           <p className="text-sm text-slate-500">
@@ -493,7 +533,7 @@ function Builder({ initial, path, kind, onCancel }) {
             </Select>
           </label>
           <Field label="Search Fields" name="fieldSearch">
-            <input
+            <SearchInput
               type="search"
               value={search}
               placeholder="Search by label or field type"

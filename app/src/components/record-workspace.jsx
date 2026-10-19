@@ -1,3 +1,5 @@
+import { PinRecordAction } from '../features/records/pinned.jsx';
+import { RecordFieldEditing } from './forms/record-field-layout.jsx';
 import { Modal } from './modal.jsx';
 import { RecordExportActions } from './record-export-actions.jsx';
 import { DateTime } from '../preferences/date-time.jsx';
@@ -102,6 +104,7 @@ export function RecordWorkspace({
                 <div className="flex flex-wrap items-center gap-2">
                   {(showFormBuilder || secondaryActions || (item?.id && kind)) && (
                     <ActionMenu label="Record actions">
+                      <PinRecordAction item={item} kind={kind} />
                       {secondaryActions}
                       <RecordExportActions kind={kind} item={item} path={exportPath} />
                       {showFormBuilder && (
@@ -154,7 +157,7 @@ export function RecordWorkspace({
               </div>
             )}
             <RelatedCountsContext.Provider value={item?.id ? { kind, id: item.id } : null}>
-              {children}
+              <RecordFieldEditing onEdit={onEdit}>{children}</RecordFieldEditing>
             </RelatedCountsContext.Provider>
           </RecordActionContext.Provider>
         </div>

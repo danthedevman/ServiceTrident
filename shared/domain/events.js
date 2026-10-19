@@ -109,6 +109,13 @@ export async function reconcileEventAlert(db, event) {
       )?.name;
     }
     const values = {
+      suppressed: event.suppressed === true,
+      assignmentGroupId: event.assignmentGroupId || null,
+      assignmentGroupName: event.assignmentGroupName || '',
+      cycleKey:
+        !current || (current.status === 'resolved' && event.signal === 'firing')
+          ? String(event._id)
+          : current.cycleKey || String(current._id),
       title: event.title,
       description: event.description ?? event.error ?? '',
       severity: event.severity,

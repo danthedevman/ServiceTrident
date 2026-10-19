@@ -1,4 +1,9 @@
-import { historyParent, historyBreadcrumbs, recordAncestors } from '../lib/navigation-context.js';
+import {
+  historyParent,
+  historyBreadcrumbs,
+  recordAncestors,
+  eventBreadcrumbs,
+} from '../lib/navigation-context.js';
 import React from 'react';
 import { onCallLabel } from '../lib/on-call-label.js';
 import { dashboardReport } from '../../../shared/domain/dashboard-reports.js';
@@ -12,8 +17,13 @@ const sections = {
   dashboard: 'Dashboard',
   help: 'Help',
   settings: 'Settings',
+  'quick-start': 'Quick Setup',
+  'operational-reporting': 'Operational Reporting',
   incidents: 'Incidents',
   tasks: 'Tasks',
+  pinned: 'Pinned',
+  projects: 'Projects',
+  'project-milestones': 'Milestones',
   rcas: 'RCAs',
   knowledge: 'Knowledge Bases',
   services: 'Services',
@@ -23,6 +33,11 @@ const sections = {
   alerts: 'Alerts',
   groups: 'Groups',
   integrations: 'Integrations',
+  'alert-grouping': 'Alert Grouping',
+  'event-rules': 'Event Rules',
+  'escalation-policies': 'Escalation Policies',
+  'maintenance-windows': 'Maintenance Windows',
+  'probe-agents': 'Probe Agents',
   workspace: 'Users',
   'on-call': 'On Call',
   status: 'Status Page',
@@ -46,8 +61,29 @@ export function Breadcrumbs({ resolveNames = true }) {
     resolveNames &&
     nested &&
     id &&
-    !['new', 'fields', 'invite', 'settings', 'articles', 'bases', 'ai'].includes(id)
-      ? ['monitors', 'incidents', 'tasks', 'rcas', 'knowledge', 'events', 'alerts'].includes(kind)
+    ![
+      'new',
+      'fields',
+      'invite',
+      'settings',
+      'articles',
+      'bases',
+      'ai',
+      'overview',
+      'milestones',
+      'activity',
+    ].includes(id)
+      ? [
+          'monitors',
+          'incidents',
+          'tasks',
+          'rcas',
+          'knowledge',
+          'events',
+          'alerts',
+          'projects',
+          'project-milestones',
+        ].includes(kind)
         ? `/${kind === 'alerts' ? 'event-alerts' : kind}/${id}`
         : catalog
           ? kind === 'workspace'
@@ -76,8 +112,14 @@ export function Breadcrumbs({ resolveNames = true }) {
   const currentEvent = useResource(
     resolveNames && kind === 'monitors' && action === 'events' ? pathname : null,
   );
+  const taskProjectId = null;
+  const taskProject = { data: null };
   const articleRecord =
-    kind === 'knowledge' && id && !['new', 'fields', 'articles', 'bases', 'ai'].includes(id);
+    kind === 'knowledge' &&
+    id &&
+    !['new', 'fields', 'articles', 'bases', 'ai', 'overview', 'milestones', 'activity'].includes(
+      id,
+    );
   const articleCreate = kind === 'knowledge' && id === 'new';
   const articleBaseId = articleRecord
     ? data?.item?.knowledgeBaseId
@@ -109,6 +151,8 @@ export function Breadcrumbs({ resolveNames = true }) {
   const nouns = {
     incidents: 'incident',
     tasks: 'task',
+    projects: 'project',
+    'project-milestones': 'milestone',
     rcas: 'RCA',
     knowledge: 'article',
     services: 'service',
@@ -121,6 +165,33 @@ export function Breadcrumbs({ resolveNames = true }) {
   };
   const noun = nouns[kind] || 'record',
     crumbs = [{ label: sections[kind], to: `/${kind}` }];
+  if (kind === 'tasks' && taskProjectId)
+    crumbs.splice(
+      0,
+      crumbs.length,
+      ...recordAncestors(
+        'tasks',
+        data?.item || { projectId: taskProjectId },
+        taskProject.data?.item,
+      ),
+    );
+  if (kind === 'project-milestones')
+    crumbs.splice(
+      0,
+      crumbs.length,
+      { label: 'Projects', to: '/projects' },
+      { label: 'Milestones', to: '/projects/milestones' },
+    );
+  if (
+    kind === 'tasks' &&
+    ((!id && new URLSearchParams(search).get('view') === 'archived') ||
+      data?.item?.status === 'archived')
+  ) {
+    crumbs.push({
+      label: 'Archived Tasks',
+      to: `/tasks?view=archived${taskProjectId ? `&projectId=${taskProjectId}` : ''}`,
+    });
+  }
   if (articleRecord || articleCreate)
     crumbs.splice(
       0,
@@ -159,7 +230,11 @@ export function Breadcrumbs({ resolveNames = true }) {
         dashboardReport(params.get('report'), params.get('value') || '')?.title ||
         'Report Not Found',
     });
-  } else if (id === 'new')
+  } else if (kind === 'projects' && ['overview', 'milestones', 'activity'].includes(id))
+    crumbs.push({
+      label: id === 'overview' ? 'Overview' : id === 'milestones' ? 'Milestones' : 'Activity',
+    });
+  else if (id === 'new')
     crumbs.push({ label: `Create ${noun.charAt(0).toUpperCase()}${noun.slice(1)}` });
   else if (id === 'fields') crumbs.push({ label: 'Form Builder' });
   else if (id === 'invite') crumbs.push({ label: 'Invite Teammate' });
@@ -184,32 +259,15 @@ export function Breadcrumbs({ resolveNames = true }) {
     if (action === 'events') crumbs.push({ label: 'Check Event' });
   }
   if (kind === 'monitors' && action === 'events')
+    crumbs.splice(0, crumbs.length, ...eventBreadcrumbs(currentEvent.data?.event, { id, name }));
+  if (kind === 'events' && id)
+    crumbs.splice(0, crumbs.length, ...eventBreadcrumbs(data?.event, data?.monitor));
+  if (kind === 'alerts' && id)
     crumbs.splice(
       0,
       crumbs.length,
-      { label: 'Events', to: '/events' },
-      { label: name || 'Monitor', to: `/monitors/${id}` },
-      {
-        label: currentEvent.data?.event?.number
-          ? `Event ${currentEvent.data.event.number}`
-          : 'Check Event',
-      },
-    );
-  if (['events', 'alerts'].includes(kind) && id)
-    crumbs.splice(
-      0,
-      crumbs.length,
-      {
-        label: kind === 'alerts' ? 'Alerts' : 'Events',
-        to: kind === 'alerts' ? '/alerts' : '/events',
-      },
-      {
-        label:
-          data?.item?.title ||
-          data?.event?.title ||
-          data?.event?.number ||
-          (kind === 'events' ? 'Event' : 'Alert'),
-      },
+      { label: 'Alerts', to: '/alerts' },
+      { label: data?.item?.title || 'Alert' },
     );
   return (
     <nav aria-label="Breadcrumb">

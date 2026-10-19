@@ -19,6 +19,8 @@ const collections = [
   'eventAlerts',
   'incidents',
   'tasks',
+  'projectMilestones',
+  'projectActivity',
   'rcas',
   'articles',
   'knowledgeBases',
@@ -121,9 +123,14 @@ export function installDemoRoutes(app, db) {
         { _id: workspaceId },
         {
           $push: {
+            projects: { $each: fixtures.projects },
             groups: { $each: fixtures.groups },
             shifts: { $each: fixtures.shifts },
             integrations: { $each: fixtures.integrations },
+            eventRules: { $each: fixtures.eventRules },
+            escalationPolicies: { $each: fixtures.escalationPolicies },
+            maintenanceWindows: { $each: fixtures.maintenanceWindows },
+            monitorProbes: { $each: fixtures.monitorProbes },
           },
           $inc: { revision: 1 },
         },
@@ -188,9 +195,14 @@ export function installDemoRoutes(app, db) {
         { _id: workspaceId },
         {
           $pull: {
+            projects: { demoBatchId: batchId },
             groups: { demoBatchId: batchId },
             shifts: { demoBatchId: batchId },
             integrations: { demoBatchId: batchId },
+            eventRules: { demoBatchId: batchId },
+            escalationPolicies: { demoBatchId: batchId },
+            maintenanceWindows: { demoBatchId: batchId },
+            monitorProbes: { demoBatchId: batchId },
           },
           $inc: { revision: 1 },
         },

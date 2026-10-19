@@ -1,3 +1,4 @@
+import { navigationActive } from '../app/src/lib/navigation-active.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { uiPreferences, preferencePatch } from '../shared/domain/ui-preferences.js';
@@ -6,6 +7,10 @@ import { auditStamp, auditFields } from '../shared/domain/audit.js';
 test('layout preferences accept only boolean changes and exclude unrelated user data', () => {
   assert.deepEqual(uiPreferences({ leftCollapsed: true, rightCollapsed: 'true', role: 'admin' }), {
     leftCollapsed: true,
+    navMonitorOpen: true,
+    navProjectsOpen: true,
+    navKnowledgeOpen: true,
+    navAutomationOpen: true,
     rightCollapsed: false,
     rightPanelWidth: 320,
     filtersOpen: false,
@@ -123,4 +128,22 @@ test('primary neutral themes and Events dashboard are valid preferences', () => 
     dashboardTab: 'events',
   });
   assert.equal(uiPreferences().colorScheme, 'black');
+});
+
+test('navigation sections accept only per-user boolean disclosure preferences', () => {
+  assert.deepEqual(
+    preferencePatch({ navMonitorOpen: false, navKnowledgeOpen: true, navAutomationOpen: false }),
+    { navMonitorOpen: false, navKnowledgeOpen: true, navAutomationOpen: false },
+  );
+  assert.throws(() => preferencePatch({ navMonitorOpen: 'false' }));
+});
+
+test('event records keep Events active on direct and nested monitor routes', () => {
+  for (const path of ['/events/123', '/monitors/123/events/456']) {
+    assert.equal(navigationActive('/events', path), true);
+    assert.equal(navigationActive('/monitors', path), false);
+  }
+  assert.equal(navigationActive('/monitors', '/monitors/123'), true);
+  assert.equal(navigationActive('/events', '/events-other'), false);
+  assert.equal(navigationActive('/', '/dashboard'), true);
 });

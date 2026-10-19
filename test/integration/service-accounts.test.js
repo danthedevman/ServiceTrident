@@ -64,6 +64,8 @@ test(
     const foreign = (
       await json('/services', 'POST', { name: 'Foreign service', description: '' }, other)
     ).data.item;
+    const defaultProjectId = (await json('/task-fields', 'GET', undefined, admin)).data
+      .defaultProjectId;
     const accountInput = {
       name: 'External source',
       description: 'Synthetic account',
@@ -212,7 +214,11 @@ test(
         await json(
           '/external/v1/tasks',
           'POST',
-          { title: 'Bad relationship', incidentId: foreignIncident.id },
+          {
+            projectId: defaultProjectId,
+            title: 'Bad relationship',
+            incidentId: foreignIncident.id,
+          },
           bearer,
         )
       ).status,
@@ -223,7 +229,11 @@ test(
         await json(
           '/external/v1/tasks',
           'POST',
-          { title: 'Scoped task', incidentId: incident.data.incident.id },
+          {
+            projectId: defaultProjectId,
+            title: 'Scoped task',
+            incidentId: incident.data.incident.id,
+          },
           bearer,
         )
       ).status,
@@ -235,6 +245,7 @@ test(
           '/external/v1/tasks',
           'POST',
           {
+            projectId: defaultProjectId,
             title: 'Mismatched service',
             serviceId: service2.id,
             incidentId: incident.data.incident.id,
@@ -332,7 +343,7 @@ test(
         await json(
           '/external/v1/tasks',
           'POST',
-          { title: 'OAuth task', serviceId: service.id },
+          { projectId: defaultProjectId, title: 'OAuth task', serviceId: service.id },
           tokenBearer,
         )
       ).status,
@@ -371,7 +382,7 @@ test(
         await json(
           '/external/v1/tasks',
           'POST',
-          { title: 'Old token', serviceId: service.id },
+          { projectId: defaultProjectId, title: 'Old token', serviceId: service.id },
           tokenBearer,
         )
       ).status,
@@ -425,7 +436,7 @@ test(
         await json(
           '/external/v1/tasks',
           'POST',
-          { title: 'Revoked', serviceId: service.id },
+          { projectId: defaultProjectId, title: 'Revoked', serviceId: service.id },
           { Authorization: `Bearer ${newToken.data.access_token}` },
         )
       ).status,

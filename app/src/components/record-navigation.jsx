@@ -51,6 +51,8 @@ const RecordNavigationContext = createContext(null);
 const names = {
   incidents: 'Incident',
   tasks: 'Task',
+  projects: 'Project',
+  'project-milestones': 'Milestone',
   rcas: 'RCA',
   knowledge: 'Knowledge',
   services: 'Service',
@@ -73,7 +75,7 @@ export function recordTabKey(location) {
   if (/^\/monitors\/[a-f\d]{24}\/events\/[a-f\d]{24}\/?$/i.test(path)) return path;
   if (/^\/knowledge\/bases\/(?:[a-f\d]{24}|new)\/?$/i.test(path)) return path;
   if (
-    /^\/(incidents|tasks|rcas|knowledge|services|collections|monitors|groups|integrations|workspace|on-call)\/(?:[a-f\d]{24}|new)(?:\/(?:edit|password))?\/?$/i.test(
+    /^\/(incidents|tasks|rcas|knowledge|services|collections|monitors|groups|integrations|workspace|on-call|projects|project-milestones)\/(?:[a-f\d]{24}|new)(?:\/(?:edit|password))?\/?$/i.test(
       path,
     )
   )

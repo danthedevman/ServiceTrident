@@ -111,3 +111,19 @@ External intake requires events:create through the existing machine-only authent
 Create Incident from an alert uses the normal reviewed form and native permission/schema validation. eventAlertId is validated against the workspace and service on creation; incident links are fetched in bounded batches. Raw events expire after 30 days; alert summaries persist. New demo batches include both sources, alert states, and incident links; old batches are not rewritten.
 
 Monitor keyword rules use bounded literal text matching on unauthenticated GET previews. Found/missing conditions produce failed checks through the existing service health and incident policy; inconclusive truncated captures fail explicitly. Authenticated response bodies remain uncaptured. Related event/alert/incident tables authorize the parent, use exact trigger or explicit alert relationships, page on the server, and count separately from lazy panel rows. Settings uses URL-selected vertical categories. Public status uses a parser-inserted, same-origin appearance stylesheet before first paint, then reveals content when its saved appearance resolves. The stylesheet is public-visibility checked, serves only fixed colors, is not cached, and stops applying once the interactive view is ready. `CLAUDE.md` delegates to `AGENTS.md`.
+
+The sidebar uses one authorized hierarchy for desktop, compact and mobile navigation. Dashboard, Incidents, Tasks and Services form the unheaded primary section. Desktop disclosure buttons group Monitor & Respond, Knowledge & Reports and Automation & Connections, with boolean account preferences. Entering a grouped route opens its section; manual toggles remain effective until route entry. Compact and mobile navigation retain the four primary links and render the other groups in More. Headings stay on one line, and navigation/menu scroll owners keep all links reachable.
+
+## Personal pins and record editing
+
+
+Personal pins are bounded to 200 internal record URLs in 1–20 named groups on the authenticated user document. The server accepts only known internal record-route shapes, rejects external URLs and allows only bounded parent-record scope on history URLs and uses independent revision checks. Pins contain bounded labels, internal links, optional canonical record numbers and a short service/parent label, rather than record payloads, and confer no permissions; the target record API rechecks current access. User list/detail projections exclude the pin collection. In-memory form snapshots guard Cancel without persisting draft values; Keep Editing preserves the form and Discard Changes invokes its ordinary cancel handler.
+
+
+Task navigation uses the main Tasks link above Pinned. Task forms do not require or expose Project. Legacy project associations remain stored; project workspace routes redirect to Tasks. Form layout sections default to showing their name; `showName: false` hides only the heading.
+
+Record Number columns use the shared remote sort controls; native incident, task/article, and monitor-check queries allowlist `number`, as do numbered table sources. Sorting occurs before paging and exports reuse the same order.
+
+Knowledge base form remounts during read/edit transitions use sibling keys distinct from the Articles and AI sections. Keep related-panel keys unique and stable across editing so React retains one panel per section.
+
+Immutable alert, event and log views use RecordDetailSection with explicit labeled entries and the shared read-only field layout. Data selection stays allowlisted; diagnostic payloads remain escaped text. References retain authorized record routes and dates retain profile formatting.

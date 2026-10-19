@@ -25,6 +25,7 @@ export function validateWork(body, kind, schema = null) {
     serviceId: body.serviceId ? identifier(body.serviceId, 'serviceId') : null,
   };
   if (task) {
+    result.projectId = body.projectId ? identifier(body.projectId, 'projectId') : null;
     result.description = text(body.description ?? '', 'description', 5000, false);
     result.priority = choice(body.priority ?? 'medium', ['low', 'medium', 'high'], 'priority');
     result.incidentId = body.incidentId ? identifier(body.incidentId, 'incidentId') : null;
@@ -106,6 +107,7 @@ export function workQuery(query, workspaceId, kind) {
         ? {
             priority: { $ifNull: ['$priorityLabel', '$priority'] },
             dueDate: '$dueDate',
+            projectName: { $ifNull: ['$projectName', 'Unassigned'] },
             assignmentGroupName: { $ifNull: ['$assignmentGroupName', 'Unassigned'] },
             assignee: { $ifNull: ['$assigneeName', 'Unassigned'] },
           }
@@ -125,11 +127,15 @@ export function workQuery(query, workspaceId, kind) {
   if (!task && query.knowledgeBaseId)
     filter.knowledgeBaseId = identifier(query.knowledgeBaseId, 'knowledgeBaseId');
   if (query.serviceId) filter.serviceId = identifier(query.serviceId, 'serviceId');
+  if (task && query.projectId)
+    filter.projectId =
+      query.projectId === 'unassigned' ? null : identifier(query.projectId, 'projectId');
   if (query.incidentId && task) filter.incidentId = identifier(query.incidentId, 'incidentId');
   const sortBy = choice(
     query.sortBy ?? 'updatedAt',
     task
       ? [
+          'number',
           'title',
           'status',
           'priority',
@@ -139,7 +145,7 @@ export function workQuery(query, workspaceId, kind) {
           'assignmentGroupName',
           'boardRank',
         ]
-      : ['title', 'status', 'createdAt', 'updatedAt'],
+      : ['number', 'title', 'status', 'createdAt', 'updatedAt'],
     'sortBy',
   );
   const order = choice(query.order ?? 'desc', ['asc', 'desc'], 'order');

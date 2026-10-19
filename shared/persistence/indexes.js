@@ -1,6 +1,12 @@
 /** Install the shared index and retention contract on the selected backend. */
 export async function initializeDatabase(db) {
   await Promise.all([
+    db.collection('projectActivity').createIndex({ workspaceId: 1, projectId: 1, createdAt: -1 }),
+    db.collection('projectMilestones').createIndex({ workspaceId: 1, projectId: 1, targetDate: 1 }),
+    db.collection('tasks').createIndex({ workspaceId: 1, projectId: 1, status: 1, updatedAt: -1 }),
+    db.collection('probeJobs').createIndex({ workspaceId: 1, probeId: 1, status: 1, createdAt: 1 }),
+    db.collection('probeJobs').createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
+    db.collection('incidents').createIndex({ workspaceId: 1, status: 1, createdAt: -1 }),
     db
       .collection('incidentComments')
       .createIndex({ workspaceId: 1, alertRecipientIds: 1, createdAt: -1, _id: -1 }),
@@ -92,6 +98,8 @@ export async function initializeDatabase(db) {
     db.collection('events').createIndex({ checkedAt: 1 }, { expireAfterSeconds: 30 * 86400 }),
   ]);
   await Promise.all([
+    db.collection('projectActivity').createIndex({ workspaceId: 1, projectId: 1, createdAt: -1 }),
+    db.collection('projectMilestones').createIndex({ workspaceId: 1, projectId: 1, targetDate: 1 }),
     db.collection('contactTokens').createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
     db.collection('marketingInquiries').createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
     db.collection('marketingInquiries').createIndex({ createdAt: -1 }),

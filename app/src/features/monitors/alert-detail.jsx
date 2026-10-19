@@ -1,4 +1,6 @@
-import { PageTitle } from '../../components/page-title.jsx';
+import { RecordDetailSection } from '../../components/record-detail-section.jsx';
+import { DateTime } from '../../preferences/date-time.jsx';
+import { displayValue } from '../../lib/display-value.js';
 import React, { useContext } from 'react';
 import { Link } from 'react-router-dom';
 import { useParams } from 'react-router-dom';
@@ -87,10 +89,60 @@ export function EventAlertDetail() {
       ) : (
         item && (
           <>
-            <section className="panel space-y-4 p-6">
-              <PageTitle>{item.title}</PageTitle>
-              <p className="whitespace-pre-wrap break-words">{item.description}</p>
-            </section>
+            <RecordDetailSection
+              title="Alert Details"
+              columns={1}
+              entries={[
+                ['Title', item.title],
+                ['Description', item.description],
+              ]}
+            />
+            <RecordDetailSection
+              title="Source and Status"
+              entries={[
+                ['Status', <Badge status={item.status} />],
+                ['Severity', <Badge status={item.severity} />],
+                ['Source', item.sourceName],
+                ['Source Type', displayValue(item.sourceType || 'unknown')],
+                [
+                  'Service',
+                  <ReferenceValue type="services" id={item.serviceId} label={item.serviceName} />,
+                ],
+                ...(item.monitorId
+                  ? [
+                      [
+                        'Monitor',
+                        <ReferenceValue
+                          type="monitors"
+                          id={item.monitorId}
+                          label={item.sourceName}
+                        />,
+                      ],
+                    ]
+                  : []),
+                ...(item.assignmentGroupId
+                  ? [
+                      [
+                        'Assignment Group',
+                        <ReferenceValue
+                          type="groups"
+                          id={item.assignmentGroupId}
+                          label={item.assignmentGroupName}
+                        />,
+                      ],
+                    ]
+                  : []),
+                ['Last Occurred At', <DateTime value={item.lastOccurredAt} />],
+                ...(item.latestEventId
+                  ? [
+                      [
+                        'Latest Event',
+                        <ReferenceValue type="events" id={item.latestEventId} label="View Event" />,
+                      ],
+                    ]
+                  : []),
+              ]}
+            />
             <EventRelatedLists alertId={id} />
           </>
         )

@@ -1,3 +1,7 @@
+import {
+  RecordFieldLayout,
+  RecordFieldsReadOnly,
+} from '../../components/forms/record-field-layout.jsx';
 import { useListFilter } from '../../data/use-list-filter.js';
 import { recordFields } from '../../../../shared/forms/form-options.js';
 import { PlusIcon, AdjustmentsHorizontalIcon } from '@heroicons/react/24/outline';
@@ -147,6 +151,7 @@ export function RcaPage({ create = false }) {
           type="button"
           className="btn-secondary"
           disabled={save.busy}
+          form={formId}
           onClick={() => (create ? navigate('/rcas') : setEditor(null))}
         >
           Cancel
@@ -160,9 +165,11 @@ export function RcaPage({ create = false }) {
     editor && canEdit ? (
       <ValidatedForm id={formId} noValidate className="form-body" onSubmit={submit}>
         <Notice error={save.error} />
-        {fields
-          .filter((field) => !field.archived)
-          .map((field) => {
+        <RecordFieldLayout
+          fields={fields}
+          layout={schema.data?.layout}
+          editing={!create}
+          renderField={(field) => {
             const key = field.id;
             if (field.type !== 'builtin')
               return (
@@ -231,70 +238,36 @@ export function RcaPage({ create = false }) {
                 )}
               </Field>
             );
-          })}
+          }}
+        />
       </ValidatedForm>
     ) : item ? (
-      <article className="knowledge-reader rca-reader">
-        <header className="knowledge-reader-header">
-          <span className="knowledge-type">Root Cause Analysis</span>
-          <h1>{item.title}</h1>
-          {item.summary && <p className="knowledge-summary whitespace-pre-wrap">{item.summary}</p>}
-          <div className="flex flex-wrap gap-3 text-sm text-slate-500">
-            <span>{RCA_STATUSES[item.status]}</span>
-            {item.createdBy && <span>By {item.createdBy}</span>}
-            {item.updatedAt && (
-              <span>
-                Updated <DateTime value={item.updatedAt} />
-              </span>
-            )}
-          </div>
-        </header>
-        <div className="knowledge-reading-content space-y-8">
-          {fields
-            .filter((field) => field.id in RCA_SECTIONS && field.id !== 'summary')
-            .map(({ id: key, label }) => (
-              <section key={key}>
-                <h2>{label}</h2>
-                <p className="whitespace-pre-wrap break-words">{item[key] || 'Not recorded'}</p>
-              </section>
-            ))}
-          {customFields.map((field) => (
-            <section key={field.id}>
-              <h2>{field.label}</h2>
-              <p className="whitespace-pre-wrap break-words">
-                {String(item.custom?.[field.id] ?? 'Not recorded')}
-              </p>
-            </section>
-          ))}
-          {[
-            ['Related Incidents', 'incidents', resource.data.incidents],
-            ['Corrective Action Tasks', 'tasks', resource.data.tasks],
-          ].map(([label, kind, rows]) => (
-            <section key={kind} className="space-y-2">
-              <h2 className="font-semibold">
-                {label}
-                {rows.length ? ` (${rows.length})` : ''}
-              </h2>
-              {rows.length ? (
-                <ul className="space-y-2">
-                  {rows.map((row) => (
-                    <li key={row.id}>
-                      <RecordLink
-                        className="text-blue-700 hover:underline dark:text-blue-300"
-                        to={`/${kind}/${row.id}`}
-                      >
-                        {row.number ? `${row.number} · ` : ''}
-                        {row.title}
-                      </RecordLink>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p>No linked records.</p>
-              )}
-            </section>
-          ))}
-        </div>
+      <article className="record-details rca-reader">
+        <RecordFieldsReadOnly
+          fields={[
+            ...fields,
+            ...customFields.filter((field) => !fields.some((row) => row.id === field.id)),
+          ]}
+          layout={schema.data?.layout}
+          item={{ ...item, statusLabel: RCA_STATUSES[item.status] }}
+          renderValue={(field) =>
+            ['incidentIds', 'taskIds'].includes(field.id) ? (
+              <div className="space-y-2">
+                {(field.id === 'incidentIds' ? resource.data.incidents : resource.data.tasks).map(
+                  (row) => (
+                    <RecordLink
+                      key={row.id}
+                      className="block text-blue-700 hover:underline dark:text-blue-300"
+                      to={`/${field.id === 'incidentIds' ? 'incidents' : 'tasks'}/${row.id}`}
+                    >
+                      {row.title}
+                    </RecordLink>
+                  ),
+                )}
+              </div>
+            ) : undefined
+          }
+        />
       </article>
     ) : (
       <Skeleton className="h-64 w-full" />

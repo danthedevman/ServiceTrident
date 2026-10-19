@@ -233,21 +233,41 @@ export function installIntegrationsRoutes(app, db, appOrigin, request = provider
   app.get('/api/deliveries', requireAdmin, async (req, res) => {
     const rows = await db
       .collection('deliveries')
-      .find({ workspaceId: req.workspaceId }, { projection: { leaseUntil: 0 } })
+      .find({ workspaceId: req.workspaceId }, { projection: { leaseUntil: 0, leaseToken: 0 } })
       .sort({ createdAt: -1 })
       .limit(500)
       .toArray();
     res.json({ deliveries: rows.map(({ _id, ...row }) => ({ id: String(_id), ...row })) });
   });
   app.post('/api/deliveries/:id/retry', requireAdmin, async (req, res) => {
+    if (req.body.confirm !== true) throw new InputError('Confirm retrying this failed delivery.');
     const result = await db.collection('deliveries').updateOne(
       {
         _id: req.params.id,
         workspaceId: req.workspaceId,
         demoBatchId: { $exists: false },
         status: 'failed',
+        $and: [
+          { $or: [{ manualRetries: { $exists: false } }, { manualRetries: { $lt: 3 } }] },
+          {
+            $or: [
+              { lastManualRetryAt: { $exists: false } },
+              { lastManualRetryAt: { $lte: new Date(Date.now() - 60000) } },
+            ],
+          },
+        ],
       },
-      { $set: { status: 'pending', attempts: 0, nextAttemptAt: new Date() } },
+      {
+        $set: {
+          status: 'pending',
+          deliveryState: 'queued',
+          attempts: 0,
+          nextAttemptAt: new Date(),
+          lastManualRetryAt: new Date(),
+        },
+        $inc: { manualRetries: 1 },
+        $unset: { leaseUntil: '', leaseToken: '' },
+      },
     );
     if (!result.matchedCount) throw new InputError('Only failed deliveries can be retried.', 409);
     res.json({ ok: true });

@@ -1,3 +1,4 @@
+import { StaticRecordFields } from '../../components/forms/record-field-layout.jsx';
 import React, { useState } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import {
@@ -75,7 +76,7 @@ function CredentialReveal({ result, onClose }) {
   );
 }
 
-function AccountForm({ item, onCancel, onSaved }) {
+function AccountForm({ item, onCancel, onSaved, readOnly = false }) {
   const [draft, setDraft] = useState(
     item
       ? {
@@ -95,7 +96,7 @@ function AccountForm({ item, onCancel, onSaved }) {
   const change = (event) =>
     setDraft((value) => ({ ...value, [event.target.name]: event.target.value }));
   async function submit() {
-    if (busy) return;
+    if (busy || readOnly) return;
     setBusy(true);
     setError('');
     setFields({});
@@ -124,123 +125,127 @@ function AccountForm({ item, onCancel, onSaved }) {
         {item ? 'Edit Service Account' : 'Add Service Account'}
       </h2>
       <Notice error={error} />
-      <Field label="Name" name="name" errors={fields}>
-        <input name="name" required maxLength={100} value={draft.name} onChange={change} />
-      </Field>
-      <Field label="Description" name="description" errors={fields}>
-        <AutoTextarea
-          name="description"
-          maxLength={1000}
-          value={draft.description}
-          onChange={change}
-        />
-      </Field>
-      <label className="field-label flex items-center gap-3">
-        <Toggle
-          checked={draft.enabled}
-          onChange={(event) => setDraft({ ...draft, enabled: event.target.checked })}
-        />
-        Enabled
-      </label>
-      <fieldset
-        className="space-y-3"
-        aria-describedby={fields.scopes ? 'account-scopes-error' : undefined}
-      >
-        <legend className="field-label mb-3">Allowed Scopes</legend>
-        {SERVICE_ACCOUNT_SCOPES.map((scope) => (
-          <label className="flex items-center gap-3 text-sm" key={scope.value}>
-            <input
-              type="checkbox"
-              checked={draft.scopes.includes(scope.value)}
-              onChange={(event) =>
-                setDraft({
-                  ...draft,
-                  scopes: event.target.checked
-                    ? [...draft.scopes, scope.value]
-                    : draft.scopes.filter((value) => value !== scope.value),
-                })
-              }
-            />
-            {scope.label}
-          </label>
-        ))}
-        {fields.scopes && (
-          <p id="account-scopes-error" className="text-sm text-rose-700 dark:text-rose-300">
-            {fields.scopes}
-          </p>
-        )}
-      </fieldset>
-      <fieldset className="space-y-3">
-        <legend className="field-label mb-3">Service Access</legend>
+      <StaticRecordFields readOnly={readOnly}>
+        <Field label="Name" name="name" errors={fields}>
+          <input name="name" required maxLength={100} value={draft.name} onChange={change} />
+        </Field>
+        <Field label="Description" name="description" errors={fields}>
+          <AutoTextarea
+            name="description"
+            maxLength={1000}
+            value={draft.description}
+            onChange={change}
+          />
+        </Field>
         <label className="field-label flex items-center gap-3">
           <Toggle
-            checked={draft.serviceIds === null}
-            onChange={(event) =>
-              setDraft({ ...draft, serviceIds: event.target.checked ? null : [] })
-            }
+            checked={draft.enabled}
+            onChange={(event) => setDraft({ ...draft, enabled: event.target.checked })}
           />
-          Allow all workspace services and unassigned records
+          Enabled
         </label>
-        {draft.serviceIds !== null && (
-          <ReferenceField
-            label="Permitted Services"
-            name="serviceIds"
-            referenceType="services"
-            multiple
-            required
-            options={(services.data?.services ?? []).map((service) => ({
-              id: service.id,
-              label: service.name,
-            }))}
-            value={draft.serviceIds}
-            onChange={(serviceIds) => setDraft({ ...draft, serviceIds })}
-            error={fields.serviceIds}
-          />
-        )}
-      </fieldset>
-      {!item && (
-        <fieldset className="space-y-3">
-          <legend className="field-label mb-3">Authentication</legend>
-          <label className="field-label flex items-center gap-3">
-            <Toggle
-              checked={draft.apiKeyEnabled}
-              onChange={(event) => setDraft({ ...draft, apiKeyEnabled: event.target.checked })}
-            />
-            API Key
-          </label>
-          <label className="field-label flex items-center gap-3">
-            <Toggle
-              checked={draft.oauthEnabled}
-              onChange={(event) => setDraft({ ...draft, oauthEnabled: event.target.checked })}
-            />
-            OAuth Client Credentials
-          </label>
-          {fields.apiKeyEnabled && (
-            <p className="text-sm text-rose-700 dark:text-rose-300">{fields.apiKeyEnabled}</p>
+        <fieldset
+          className="space-y-3"
+          aria-describedby={fields.scopes ? 'account-scopes-error' : undefined}
+        >
+          <legend className="field-label mb-3">Allowed Scopes</legend>
+          {SERVICE_ACCOUNT_SCOPES.map((scope) => (
+            <label className="flex items-center gap-3 text-sm" key={scope.value}>
+              <input
+                type="checkbox"
+                checked={draft.scopes.includes(scope.value)}
+                onChange={(event) =>
+                  setDraft({
+                    ...draft,
+                    scopes: event.target.checked
+                      ? [...draft.scopes, scope.value]
+                      : draft.scopes.filter((value) => value !== scope.value),
+                  })
+                }
+              />
+              {scope.label}
+            </label>
+          ))}
+          {fields.scopes && (
+            <p id="account-scopes-error" className="text-sm text-rose-700 dark:text-rose-300">
+              {fields.scopes}
+            </p>
           )}
-          <Field label="Credential Lifetime (days)" name="expiresInDays" errors={fields}>
-            <input
-              name="expiresInDays"
-              type="number"
-              min={1}
-              max={365}
-              required
-              value={draft.expiresInDays}
+        </fieldset>
+        <fieldset className="space-y-3">
+          <legend className="field-label mb-3">Service Access</legend>
+          <label className="field-label flex items-center gap-3">
+            <Toggle
+              checked={draft.serviceIds === null}
               onChange={(event) =>
-                setDraft({ ...draft, expiresInDays: Number(event.target.value) })
+                setDraft({ ...draft, serviceIds: event.target.checked ? null : [] })
               }
             />
-          </Field>
+            Allow all workspace services and unassigned records
+          </label>
+          {draft.serviceIds !== null && (
+            <ReferenceField
+              label="Permitted Services"
+              name="serviceIds"
+              referenceType="services"
+              multiple
+              required
+              options={(services.data?.services ?? []).map((service) => ({
+                id: service.id,
+                label: service.name,
+              }))}
+              value={draft.serviceIds}
+              onChange={(serviceIds) => setDraft({ ...draft, serviceIds })}
+              error={fields.serviceIds}
+            />
+          )}
         </fieldset>
+        {!item && (
+          <fieldset className="space-y-3">
+            <legend className="field-label mb-3">Authentication</legend>
+            <label className="field-label flex items-center gap-3">
+              <Toggle
+                checked={draft.apiKeyEnabled}
+                onChange={(event) => setDraft({ ...draft, apiKeyEnabled: event.target.checked })}
+              />
+              API Key
+            </label>
+            <label className="field-label flex items-center gap-3">
+              <Toggle
+                checked={draft.oauthEnabled}
+                onChange={(event) => setDraft({ ...draft, oauthEnabled: event.target.checked })}
+              />
+              OAuth Client Credentials
+            </label>
+            {fields.apiKeyEnabled && (
+              <p className="text-sm text-rose-700 dark:text-rose-300">{fields.apiKeyEnabled}</p>
+            )}
+            <Field label="Credential Lifetime (days)" name="expiresInDays" errors={fields}>
+              <input
+                name="expiresInDays"
+                type="number"
+                min={1}
+                max={365}
+                required
+                value={draft.expiresInDays}
+                onChange={(event) =>
+                  setDraft({ ...draft, expiresInDays: Number(event.target.value) })
+                }
+              />
+            </Field>
+          </fieldset>
+        )}
+      </StaticRecordFields>
+      {!readOnly && (
+        <div className="form-actions">
+          <button type="button" className="btn-secondary" disabled={busy} onClick={onCancel}>
+            Cancel
+          </button>
+          <button className="btn-primary" disabled={busy}>
+            {item ? 'Save' : 'Create Service Account'}
+          </button>
+        </div>
       )}
-      <div className="form-actions">
-        <button type="button" className="btn-secondary" disabled={busy} onClick={onCancel}>
-          Cancel
-        </button>
-        <button className="btn-primary" disabled={busy}>
-          {item ? 'Save' : 'Create Service Account'}
-        </button>
-      </div>
     </ValidatedForm>
   );
 }
@@ -314,13 +319,14 @@ function AccountRecord({ id }) {
           )
         }
       >
-        {editing ? (
-          <AccountForm
-            item={item}
-            onCancel={() => setEditing(false)}
-            onSaved={() => setEditing(false)}
-          />
-        ) : (
+        <AccountForm
+          key={`${item.id}-${editing ? 'edit' : item.revision}`}
+          readOnly={!editing}
+          item={item}
+          onCancel={() => setEditing(false)}
+          onSaved={() => setEditing(false)}
+        />
+        {!editing && (
           <div className="space-y-5">
             <div className="panel space-y-4 p-6">
               <PageTitle>{item.name}</PageTitle>

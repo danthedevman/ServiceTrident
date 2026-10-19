@@ -1,3 +1,5 @@
+import { navigationActive } from '../lib/navigation-active.js';
+import { useUiPreferences } from '../preferences/ui-preferences.jsx';
 import { createPortal } from 'react-dom';
 import { ActionMenu } from '../components/action-menu.jsx';
 import { Tooltip } from '../components/tooltip.jsx';
@@ -7,6 +9,7 @@ import { GlobalSearch } from '../features/search/global-search.jsx';
 import { prefetchRoute } from '../data/query-client.js';
 import {
   Cog6ToothIcon,
+  MapPinIcon,
   QuestionMarkCircleIcon,
   MagnifyingGlassIcon,
   ClipboardDocumentListIcon,
@@ -24,28 +27,77 @@ import {
   FolderIcon,
   ChartBarSquareIcon,
   ChevronUpIcon,
-  ChevronDoubleLeftIcon,
-  ChevronDoubleRightIcon,
+  ChevronDownIcon,
+  AdjustmentsHorizontalIcon,
+  ArrowsRightLeftIcon,
+  ArrowTrendingUpIcon,
+  WrenchScrewdriverIcon,
+  GlobeAltIcon,
+  PuzzlePieceIcon,
   XMarkIcon,
   UserCircleIcon,
   ArrowRightStartOnRectangleIcon,
 } from '@heroicons/react/24/outline';
 import React, { useEffect, useRef, useState } from 'react';
-import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ThemeToggle } from '../preferences/theme.jsx';
 
-const links = [
-  ['/', 'Dashboard', Squares2X2Icon],
-  ['/incidents', 'Incidents', ExclamationTriangleIcon],
-  ['/alerts', 'Alerts', BellAlertIcon],
-  ['/events', 'Events', SignalIcon],
-  ['/monitors', 'Monitors', CpuChipIcon],
-  ['/tasks', 'Tasks', ClipboardDocumentListIcon],
-  ['/services', 'Services', ServerStackIcon],
-  ['/rcas', 'RCAs', DocumentMagnifyingGlassIcon],
-  ['/on-call', 'On Call', CalendarDaysIcon],
-  ['/knowledge', 'Knowledge', BookOpenIcon],
-  ['/status', 'Status Page', ChartBarSquareIcon],
+/** A sidebar pane beside the main canvas, matching the drawer action. */
+function DrawerIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" {...props}>
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <path d="M9 4v16M5.5 8h1M5.5 11h1" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+// One hierarchy drives expanded, compact and mobile navigation.
+const navigationGroups = [
+  {
+    links: [
+      ['/', 'Dashboard', Squares2X2Icon],
+      ['/incidents', 'Incidents', ExclamationTriangleIcon],
+      ['/services', 'Services', ServerStackIcon],
+      ['/tasks', 'Tasks', ClipboardDocumentListIcon],
+      ['/pinned', 'Pinned', MapPinIcon],
+    ],
+  },
+  {
+    id: 'monitor',
+    label: 'Monitor & Respond',
+    preference: 'navMonitorOpen',
+    links: [
+      ['/alerts', 'Alerts', BellAlertIcon],
+      ['/events', 'Events', SignalIcon],
+      ['/monitors', 'Monitors', CpuChipIcon],
+      ['/on-call', 'On Call', CalendarDaysIcon],
+    ],
+  },
+  {
+    id: 'knowledge',
+    label: 'Knowledge & Reports',
+    preference: 'navKnowledgeOpen',
+    links: [
+      ['/knowledge', 'Knowledge', BookOpenIcon],
+      ['/rcas', 'RCAs', DocumentMagnifyingGlassIcon],
+      ['/operational-reporting', 'Operational Reporting', ChartBarSquareIcon],
+      ['/status', 'Status Page', ChartBarSquareIcon],
+    ],
+  },
+  {
+    id: 'automation',
+    label: 'Automation & Connections',
+    preference: 'navAutomationOpen',
+    links: [
+      ['/event-rules', 'Event Rules', ArrowsRightLeftIcon],
+      ['/escalation-policies', 'Escalation Policies', ArrowTrendingUpIcon],
+      ['/maintenance-windows', 'Maintenance Windows', WrenchScrewdriverIcon],
+      ['/alert-grouping', 'Alert Grouping', AdjustmentsHorizontalIcon],
+      ['/integrations', 'Integrations', PuzzlePieceIcon],
+      ['/probe-agents', 'Probe Agents', GlobeAltIcon],
+    ],
+  },
 ];
 
 /** Bottom-anchored disclosure with ordinary keyboard-accessible links and buttons. */
@@ -161,6 +213,7 @@ export function Sidebar({
   toolbarTarget,
   mobileActions,
 }) {
+  const preferences = useUiPreferences();
   const dialog = useRef(null);
   const compact = collapsed;
   const toggle = () => setCollapsed(!collapsed);
@@ -209,9 +262,47 @@ export function Sidebar({
     }
     setCreateOpen(true);
   };
-  const visibleLinks = user
-    ? links.filter(([to]) => user.role !== 'user' || to === '/incidents')
-    : [];
+  const groups = navigationGroups
+    .map((group) => ({
+      ...group,
+      links: user
+        ? group.links.filter(([to]) =>
+            group.id === 'automation'
+              ? user.role === 'admin'
+              : user.role !== 'user' || ['/incidents', '/pinned'].includes(to),
+          )
+        : [],
+    }))
+    .filter((group) => group.links.length);
+  useEffect(() => {
+    if (!preferences.ready) return;
+    const active = groups.find(
+      (group) => group.id && group.links.some(([to]) => navigationActive(to, pathname)),
+    );
+    if (active && !preferences[active.preference])
+      preferences.setPreference(active.preference, true);
+    // Expand when entering a route, while allowing an explicit collapse on the current page.
+  }, [pathname, user?.role, preferences.ready]);
+  const renderLink = ([to, label, Icon], compact) => (
+    <Tooltip key={to} label={compact ? label : null}>
+      <Link
+        to={to}
+        onMouseEnter={() => prefetchRoute(to, user)}
+        onFocus={() => prefetchRoute(to, user)}
+        aria-current={navigationActive(to, pathname) ? 'page' : undefined}
+        onClick={close}
+        title={compact ? label : undefined}
+        className={`nav-link sidenav-link ${navigationActive(to, pathname) ? 'active' : ''} ${compact ? '' : 'sidenav-link-expanded'} flex items-center gap-3 ${compact ? 'mx-auto h-9 w-9 justify-center !gap-0 !p-0' : ''}`}
+      >
+        <span className="sidenav-link-icon" aria-hidden="true">
+          <Icon className="h-5 w-5" />
+        </span>
+        <span className={compact ? 'sr-only' : ''}>
+          {user?.role === 'user' && to === '/incidents' ? 'My incidents' : label}
+        </span>
+      </Link>
+    </Tooltip>
+  );
   const content = (compact, mobile = false) => (
     <>
       <div
@@ -230,7 +321,7 @@ export function Sidebar({
                 title="Expand Navigation"
                 onClick={() => setCollapsed(false)}
               >
-                <ChevronDoubleRightIcon className="h-5 w-5" aria-hidden="true" />
+                <DrawerIcon className="h-5 w-5" aria-hidden="true" />
               </button>
             </Tooltip>
           </div>
@@ -269,9 +360,9 @@ export function Sidebar({
                 {mobile ? (
                   <XMarkIcon className="h-5 w-5" aria-hidden="true" />
                 ) : compact ? (
-                  <ChevronDoubleRightIcon className="h-5 w-5" aria-hidden="true" />
+                  <DrawerIcon className="h-5 w-5" aria-hidden="true" />
                 ) : (
-                  <ChevronDoubleLeftIcon className="h-5 w-5" aria-hidden="true" />
+                  <DrawerIcon className="h-5 w-5" aria-hidden="true" />
                 )}
               </span>
             </button>
@@ -282,36 +373,63 @@ export function Sidebar({
         aria-label="Main navigation"
         className={`min-h-0 flex-1 space-y-1 ${compact ? 'px-2 pb-2' : 'px-3 pb-3'} pt-0 overflow-y-auto overflow-x-hidden`}
       >
-        {(compact ? visibleLinks.slice(0, 7) : visibleLinks).map(([to, label, Icon]) => (
-          <Tooltip key={to} label={compact ? label : null}>
-            <NavLink
-              to={to}
-              onMouseEnter={() => prefetchRoute(to, user)}
-              onFocus={() => prefetchRoute(to, user)}
-              end={to === '/'}
-              onClick={close}
-              title={compact ? label : undefined}
-              className={`nav-link sidenav-link ${compact ? '' : 'sidenav-link-expanded'} ${to === '/settings' && /^\/(groups|workspace)(\/|$)/.test(pathname) ? 'active' : ''} flex items-center gap-3 ${compact ? 'mx-auto h-9 w-9 justify-center !gap-0 !p-0' : ''}`}
-            >
-              <span className="sidenav-link-icon" aria-hidden="true">
-                <Icon className="h-5 w-5" />
-              </span>
-              <span className={compact ? 'sr-only' : ''}>
-                {user?.role === 'user' && to === '/incidents' ? 'My incidents' : label}
-              </span>
-            </NavLink>
-          </Tooltip>
-        ))}
-        {compact && visibleLinks.length > 7 && (
-          <div className="flex justify-center">
-            <Tooltip label="More">
+        {groups.find((group) => !group.id)?.links.map((link) => renderLink(link, compact))}
+        {!(compact || mobile) &&
+          groups
+            .filter((group) => group.id)
+            .map((group) => (
+              <section key={group.id} className="pt-3" aria-label={group.label}>
+                <button
+                  type="button"
+                  className="sidenav-group-heading flex w-full min-w-0 items-center justify-between gap-2 rounded px-2 py-2 text-left text-xs font-semibold text-blue-700 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500 dark:text-blue-300 dark:hover:bg-slate-800"
+                  aria-expanded={preferences[group.preference]}
+                  aria-controls={`sidenav-${group.id}`}
+                  title={group.label}
+                  onClick={() =>
+                    preferences.setPreference(group.preference, !preferences[group.preference])
+                  }
+                >
+                  <span className="min-w-0 truncate whitespace-nowrap">{group.label}</span>
+                  <ChevronDownIcon
+                    className={`h-3.5 w-3.5 shrink-0 ${preferences[group.preference] ? '' : '-rotate-90'}`}
+                    aria-hidden="true"
+                  />
+                </button>
+                {preferences[group.preference] && (
+                  <div id={`sidenav-${group.id}`} className="space-y-1">
+                    {group.links.map((link) => renderLink(link, false))}
+                  </div>
+                )}
+              </section>
+            ))}
+        {(compact || mobile) && groups.some((group) => group.id) && (
+          <div className={compact ? 'flex justify-center' : ''}>
+            <Tooltip label={compact ? 'More' : null}>
               <span>
                 <ActionMenu label="More" borderless horizontal>
-                  {visibleLinks.slice(7).map(([to, label]) => (
-                    <NavLink key={to} to={to} className="nav-link" onClick={close}>
-                      {label}
-                    </NavLink>
-                  ))}
+                  {groups
+                    .filter((group) => group.id)
+                    .map((group) => (
+                      <section key={group.id} aria-label={group.label}>
+                        <h3
+                          title={group.label}
+                          className="sidenav-group-menu-heading whitespace-nowrap px-3 pb-1 pt-3 text-xs font-semibold text-blue-700 dark:text-blue-300"
+                        >
+                          {group.label}
+                        </h3>
+                        {group.links.map(([to, label]) => (
+                          <Link
+                            key={to}
+                            to={to}
+                            aria-current={navigationActive(to, pathname) ? 'page' : undefined}
+                            className={`nav-link ${navigationActive(to, pathname) ? 'active' : ''}`}
+                            onClick={close}
+                          >
+                            {label}
+                          </Link>
+                        ))}
+                      </section>
+                    ))}
                 </ActionMenu>
               </span>
             </Tooltip>
@@ -452,6 +570,13 @@ function CreateDialog({ role, onNavigate, onClose }) {
       : []),
     ...(role === 'admin'
       ? [
+          {
+            to: '/quick-start',
+            title: 'Quick Setup',
+            description:
+              'Create a service and monitor with optional notifications and on-call coverage.',
+            Icon: AdjustmentsHorizontalIcon,
+          },
           {
             to: '/workspace/new',
             title: 'User',

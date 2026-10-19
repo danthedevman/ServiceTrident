@@ -47,7 +47,7 @@ Demo chat link fixtures point only to synthetic demo records. Capture verifies t
 
 On-call fixtures include a millisecond-precision start. Capture verifies that Edit Coverage preserves the exact UTC value and accepts fractional seconds, preventing false overlaps at adjoining shift boundaries.
 
-The Overview screenshot shows Needs Attention first, using the shared full-size score cards used by other dashboard views. Check responsive wrapping and vertical scrolling when refreshing this screenshot.
+The Overview screenshot shows compact Needs Attention reports first, followed by Quick Start and assignment panels. Check responsive wrapping and vertical scrolling when refreshing this screenshot.
 
 `incident-comment-authors.png` uses synthetic comment and work-note authors. Verify both author names link to the synthetic user record; reference labels and icons in lists stay inline with long labels truncated. User records remain admin-only.
 
@@ -104,3 +104,23 @@ Use `HELP_CAPTURE_FOCUS=event-management` for independent Alerts/Events lists, c
 Use `HELP_CAPTURE_FOCUS=event-filters` for Events filter grid alignment, full-width column conditions, saved filters on reload, and mobile scrolling; `HELP_CAPTURE_FOCUS=settings-keyword` covers vertical Settings, keyword controls, and saved public appearance on reload. New captures are `settings-navigation.png` and `monitor-keyword.png`.
 
 `HELP_CAPTURE_FOCUS=event-related-bottom` verifies monitor events opened from Events keep Incidents and Alerts after all diagnostics, including mobile scrolling. The public appearance check records canvas colors on animation frames, including the hidden-content bootstrap, to catch a neutral background flash.
+
+Use `HELP_CAPTURE_FOCUS=sidebar-drawer` to check authorized navigation destinations in expanded, collapsed and mobile views. Use `HELP_CAPTURE_FOCUS=standalone-tasks` for task board/list navigation and archived lists. Refresh readme-tasks-dark.png and task-archived.png after changes.
+
+`HELP_CAPTURE_FOCUS=quick-setup` verifies dashboard and global Create entry points, service/monitor form steps and optional notification/on-call skipping. Quick Setup saves each completed record immediately and keeps unfinished input in memory only.
+
+`HELP_CAPTURE_FOCUS=help-topics` visits every bundled topic, adjacent navigation, search results and mobile scrolling. Run it when adding a Help topic; optional card metadata must never prevent rendering a guide.
+
+`HELP_CAPTURE_FOCUS=navigation-groups` verifies the five primary links, disclosure keyboard operation, saved choices, active-route expansion, single-line headings, sidebar scrolling and identical authorized order in desktop, compact More and mobile More. Capture navigation-groups.png and navigation-groups-mobile.png using only isolated fixtures.
+
+Record field pencils appear inside read-only values for authorized editors. `HELP_CAPTURE_FOCUS=record-layouts` checks mobile placement, whole-form editing and focus, no pencils in Edit, double-click editing, and viewer restrictions.
+
+Use `HELP_CAPTURE_FOCUS=pin-details` for personal pin descriptions and the Pinned header. `HELP_CAPTURE_FOCUS=alert-grouping` verifies bounded grouping-window validation. `HELP_CAPTURE_FOCUS=readonly-pencils` checks field affordances without changing Form Builder configuration.
+
+Use `HELP_CAPTURE_FOCUS=standalone-tasks` to verify main Tasks board/list navigation, project-free forms and list search icons. `record-layouts` verifies Show section name defaults on, can be disabled, and preserves the same fields in read/edit mode. `navigation-groups` verifies Tasks immediately above Pinned across desktop, compact and mobile navigation.
+
+Use `HELP_CAPTURE_FOCUS=knowledge-base-edit` to verify one Articles section across repeated double-click Edit, Cancel, and Save transitions, plus mobile scrolling. Refresh knowledge-base-articles.png with Details closed using only the isolated fixtures.
+
+Use `HELP_CAPTURE_FOCUS=immutable-record-fields` for labeled alert/event/log sections, record references and desktop/mobile scrolling. Refresh event-alert.png and external-event.png after changing these views; keep record Details closed in published captures.
+
+The `event-navigation` check covers nested monitor-check URLs and direct Events record URLs, monitor-name breadcrumbs, external-source breadcrumbs, and Events active navigation.

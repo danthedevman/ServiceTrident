@@ -1,4 +1,7 @@
-import { DateTime } from '../../preferences/date-time.jsx';
+import {
+  StaticRecordFields,
+  RecordFieldEditing,
+} from '../../components/forms/record-field-layout.jsx';
 import { onCallLabel } from '../../lib/on-call-label.js';
 import { useRecordTabLabel } from '../../components/record-navigation.jsx';
 import { ValidatedForm } from '../../components/forms/validated-form.jsx';
@@ -10,7 +13,6 @@ import { RecordWorkspace, RecordMetadata } from '../../components/record-workspa
 import { FormPage } from '../../components/forms/form-page.jsx';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ReferenceField } from '../../components/forms/reference-field.jsx';
-import { ReferenceValue, ReferenceValues } from '../../components/reference-value.jsx';
 import { Modal } from '../../components/modal.jsx';
 import React, { useContext, useId, useState } from 'react';
 import { ChevronLeftIcon, ChevronRightIcon, PlusIcon } from '@heroicons/react/24/outline';
@@ -223,41 +225,14 @@ function Calendar({ schedule, members, services, admin, form, id, onReset }) {
           </>
         }
       >
-        <section className="record-details space-y-6">
-          <dl className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <dt>Teammate</dt>
-              <dd>
-                <ReferenceValue type="members" id={existing.userId} label={name(existing.userId)} />
-              </dd>
-            </div>
-            <div>
-              <dt>Services</dt>
-              <dd>
-                <ReferenceValues
-                  type="services"
-                  ids={existing.serviceIds}
-                  getLabel={(value) =>
-                    services.find((service) => service.id === value)?.name || 'Unavailable service'
-                  }
-                  empty="All services"
-                />
-              </dd>
-            </div>
-            <div>
-              <dt>Start</dt>
-              <dd>
-                <DateTime value={existing.start} />
-              </dd>
-            </div>
-            <div>
-              <dt>End</dt>
-              <dd>
-                <DateTime value={existing.end} />
-              </dd>
-            </div>
-          </dl>
-        </section>
+        <CoverageFields
+          readOnly
+          value={{ ...existing, start: utcInput(existing.start), end: utcInput(existing.end) }}
+          services={services}
+          people={active}
+          name={name}
+          onChange={() => {}}
+        />
       </RecordWorkspace>
     ) : (
       <p role="alert">Coverage not found.</p>
@@ -324,39 +299,17 @@ function Calendar({ schedule, members, services, admin, form, id, onReset }) {
             />
           </Field>
         </>
-      ) : (
-        <ReferenceField
-          referenceType="members"
-          label="On-call teammate"
-          options={active.map((member) => ({ id: member.id, label: name(member.id) }))}
-          value={editor.userId}
-          onChange={(userId) => setEditor({ ...editor, userId })}
-          error={save.fields.userId}
-        />
-      )}
-      <ServicePills
+      ) : null}
+      <CoverageFields
+        value={editor}
         services={services}
-        value={editor.serviceIds}
-        onChange={(serviceIds) => setEditor({ ...editor, serviceIds })}
+        people={active}
+        name={name}
+        omitPerson={rotation}
+        omitEnd={rotation}
+        onChange={(patch) => setEditor({ ...editor, ...patch })}
+        errors={save.fields}
       />
-      <Field name="start" label="Start" errors={save.fields}>
-        <input
-          type="datetime-local"
-          step="0.001"
-          value={editor.start}
-          onChange={(e) => setEditor({ ...editor, start: e.target.value })}
-        />
-      </Field>
-      {!rotation && (
-        <Field name="end" label="End" errors={save.fields}>
-          <input
-            type="datetime-local"
-            step="0.001"
-            value={editor.end}
-            onChange={(e) => setEditor({ ...editor, end: e.target.value })}
-          />
-        </Field>
-      )}
     </ValidatedForm>
   ) : null;
   if (id && admin)
@@ -403,46 +356,20 @@ function Calendar({ schedule, members, services, admin, form, id, onReset }) {
             </>
           }
         >
-          <dl className="space-y-4">
-            <div>
-              <dt className="field-label">On Call</dt>
-              <dd>
-                <ReferenceValue
-                  type="members"
-                  id={viewedShift.userId}
-                  label={name(viewedShift.userId)}
-                />
-              </dd>
-            </div>
-            <div>
-              <dt className="field-label">Services</dt>
-              <dd>
-                {viewedShift.serviceIds.length ? (
-                  <ReferenceValues
-                    type="services"
-                    ids={viewedShift.serviceIds}
-                    getLabel={(serviceId) =>
-                      services.find((service) => service.id === serviceId)?.name
-                    }
-                  />
-                ) : (
-                  'All services'
-                )}
-              </dd>
-            </div>
-            <div>
-              <dt className="field-label">Start</dt>
-              <dd>
-                <DateTime value={viewedShift.start} />
-              </dd>
-            </div>
-            <div>
-              <dt className="field-label">End</dt>
-              <dd>
-                <DateTime value={viewedShift.end} />
-              </dd>
-            </div>
-          </dl>
+          <RecordFieldEditing onEdit={admin ? editViewed : undefined}>
+            <CoverageFields
+              readOnly
+              value={{
+                ...viewedShift,
+                start: utcInput(viewedShift.start),
+                end: utcInput(viewedShift.end),
+              }}
+              services={services}
+              people={active}
+              name={name}
+              onChange={() => {}}
+            />
+          </RecordFieldEditing>
         </Modal>
       )}
       {quickDate && admin && (
@@ -594,5 +521,58 @@ function Calendar({ schedule, members, services, admin, form, id, onReset }) {
         ]}
       />
     </>
+  );
+}
+
+function CoverageFields({
+  value,
+  onChange,
+  services,
+  people,
+  name,
+  readOnly,
+  omitPerson,
+  omitEnd,
+  errors = {},
+}) {
+  return (
+    <StaticRecordFields readOnly={readOnly}>
+      {!omitPerson && (
+        <ReferenceField
+          referenceType="members"
+          name="userId"
+          label="On-call teammate"
+          options={people.map((member) => ({ id: member.id, label: name(member.id) }))}
+          value={value.userId}
+          onChange={(userId) => onChange({ userId })}
+          error={errors.userId}
+        />
+      )}
+      <ServicePills
+        services={services}
+        value={value.serviceIds}
+        onChange={(serviceIds) => onChange({ serviceIds })}
+      />
+      <Field name="start" label="Start" helpText="UTC" errors={errors}>
+        <input
+          name="start"
+          type="datetime-local"
+          step="0.001"
+          value={value.start}
+          onChange={(event) => onChange({ start: event.target.value })}
+        />
+      </Field>
+      {!omitEnd && (
+        <Field name="end" label="End" helpText="UTC" errors={errors}>
+          <input
+            name="end"
+            type="datetime-local"
+            step="0.001"
+            value={value.end}
+            onChange={(event) => onChange({ end: event.target.value })}
+          />
+        </Field>
+      )}
+    </StaticRecordFields>
   );
 }

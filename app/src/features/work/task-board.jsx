@@ -1,3 +1,6 @@
+import { SearchInput } from '../../components/forms/search-input.jsx';
+import { PinRecordAction } from '../records/pinned.jsx';
+import { RecordFieldEditing } from '../../components/forms/record-field-layout.jsx';
 import { useListFilter } from '../../data/use-list-filter.js';
 import { RecordExportActions } from '../../components/record-export-actions.jsx';
 import { useBoardDragScroll } from './use-board-drag-scroll.js';
@@ -38,7 +41,7 @@ const TaskEditor = lazy(() =>
 );
 
 /** Lanes load continuously in bounded requests; writes use saved revisions. */
-export function TaskBoard({ serviceId, incidentId }) {
+export function TaskBoard({ serviceId, incidentId, projectId = '', embedded = false }) {
   const { user } = useContext(AuthContext);
   const canEdit = ['admin', 'responder'].includes(user?.role);
   const boardSettings = useResource('/task-board-settings', 30000);
@@ -67,7 +70,7 @@ export function TaskBoard({ serviceId, incidentId }) {
   const board = useRef(null);
   useBoardDragScroll(board, !!dragged || !!draggedLane);
   const locked = useRef(false);
-  const scope = new URLSearchParams({ serviceId, incidentId });
+  const scope = new URLSearchParams({ serviceId, incidentId, projectId });
   async function reorderLane(from, target, side = 'before') {
     if (user?.role !== 'admin' || from === target || locked.current || !boardSettings.data) return;
     const order = destinations.map((lane) => lane.id).filter((id) => id !== from);
@@ -139,48 +142,50 @@ export function TaskBoard({ serviceId, incidentId }) {
   }
 
   return (
-    <div className="task-board-page">
+    <div className={`task-board-page ${embedded ? 'project-task-board' : ''}`}>
       <div className="task-board-toolbar">
-        <RecordHeader>
-          <header className="flex items-center justify-end gap-3">
-            <PageTitle>Tasks</PageTitle>
-            <div className="flex flex-wrap gap-2">
-              {user?.role === 'admin' && (
-                <ActionMenu label="Tasks actions">
-                  <Link to="/tasks/fields">
-                    <AdjustmentsHorizontalIcon className="h-5 w-5" aria-hidden="true" />
-                    Form Builder
-                  </Link>
-                </ActionMenu>
-              )}
-              <Link
-                className="btn-secondary !p-2.5"
-                aria-label="List View"
-                title="List View"
-                to={`/tasks?${scope}&view=list`}
-              >
-                <ListBulletIcon className="h-5 w-5" aria-hidden="true" />
-              </Link>
-              <Link
-                className="btn-secondary !p-2.5"
-                aria-label="Archived Tasks"
-                title="Archived Tasks"
-                to={`/tasks?${scope}&view=archived`}
-              >
-                <ArchiveBoxIcon className="h-5 w-5" aria-hidden="true" />
-              </Link>
-              {canEdit && (
-                <Link className="btn-primary" to={`/tasks/new?${scope}`}>
-                  <PlusIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
-                  Create
+        {!embedded && (
+          <RecordHeader>
+            <header className="flex items-center justify-end gap-3">
+              <PageTitle>Tasks</PageTitle>
+              <div className="flex flex-wrap gap-2">
+                {user?.role === 'admin' && (
+                  <ActionMenu label="Tasks actions">
+                    <Link to="/tasks/fields">
+                      <AdjustmentsHorizontalIcon className="h-5 w-5" aria-hidden="true" />
+                      Form Builder
+                    </Link>
+                  </ActionMenu>
+                )}
+                <Link
+                  className="btn-secondary !p-2.5"
+                  aria-label="List View"
+                  title="List View"
+                  to={`/tasks?${scope}&view=list`}
+                >
+                  <ListBulletIcon className="h-5 w-5" aria-hidden="true" />
                 </Link>
-              )}
-            </div>
-          </header>
-        </RecordHeader>
+                <Link
+                  className="btn-secondary !p-2.5"
+                  aria-label="Archived Tasks"
+                  title="Archived Tasks"
+                  to={`/tasks?${scope}&view=archived`}
+                >
+                  <ArchiveBoxIcon className="h-5 w-5" aria-hidden="true" />
+                </Link>
+                {canEdit && (
+                  <Link className="btn-primary" to={`/tasks/new?${scope}`}>
+                    <PlusIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    Create
+                  </Link>
+                )}
+              </div>
+            </header>
+          </RecordHeader>
+        )}
         <label className="field-label block max-w-md">
           <span className="sr-only">Search Tasks</span>
-          <input
+          <SearchInput
             type="search"
             placeholder="Search Tasks"
             value={search}
@@ -205,9 +210,10 @@ export function TaskBoard({ serviceId, incidentId }) {
       >
         {destinations.map((lane, index) => (
           <TaskLane
-            key={`${lane.id}:${serviceId}:${incidentId}:${search}`}
+            key={`${lane.id}:${projectId}:${serviceId}:${incidentId}:${search}`}
             lane={lane}
             destinations={destinations}
+            projectId={projectId}
             serviceId={serviceId}
             incidentId={incidentId}
             search={search}
@@ -287,6 +293,7 @@ function TaskDialog({ id, schema, canEdit, onClose }) {
               </button>
               {item && (
                 <ActionMenu label="Task actions">
+                  <PinRecordAction item={item} kind="tasks" to={`/tasks/${id}`} />
                   <RecordExportActions kind="tasks" item={item} />
                 </ActionMenu>
               )}
@@ -309,48 +316,55 @@ function TaskDialog({ id, schema, canEdit, onClose }) {
           )
         }
       >
-        {resource.error && (
-          <p role="alert" className="text-rose-700 dark:text-rose-300">
-            {resource.error}
-          </p>
-        )}
-        {item ? (
-          editing ? (
-            <RecordHeaderContext.Provider value={null}>
-              <RecordActionContext.Provider value={toolbar}>
-                <Suspense
-                  fallback={
-                    <div aria-busy="true">
-                      <Skeleton className="h-64 w-full" />
-                    </div>
-                  }
-                >
-                  <TaskEditor
-                    kind="tasks"
-                    focusTitle
-                    item={item}
-                    onClose={() => leave('view')}
-                    onSaved={() => {
-                      setEditing(false);
-                      setDirty(false);
-                    }}
-                    onBusyChange={setBusy}
-                    onDirtyChange={setDirty}
-                  />
-                </Suspense>
-              </RecordActionContext.Provider>
-            </RecordHeaderContext.Provider>
+        <RecordFieldEditing onEdit={canEdit && !editing ? () => setEditing(true) : undefined}>
+          {resource.error && (
+            <p role="alert" className="text-rose-700 dark:text-rose-300">
+              {resource.error}
+            </p>
+          )}
+          {item ? (
+            editing ? (
+              <RecordHeaderContext.Provider value={null}>
+                <RecordActionContext.Provider value={toolbar}>
+                  <Suspense
+                    fallback={
+                      <div aria-busy="true">
+                        <Skeleton className="h-64 w-full" />
+                      </div>
+                    }
+                  >
+                    <TaskEditor
+                      kind="tasks"
+                      focusTitle
+                      item={item}
+                      onClose={() => leave('view')}
+                      onSaved={() => {
+                        setEditing(false);
+                        setDirty(false);
+                      }}
+                      onBusyChange={setBusy}
+                      onDirtyChange={setDirty}
+                    />
+                  </Suspense>
+                </RecordActionContext.Provider>
+              </RecordHeaderContext.Provider>
+            ) : (
+              <TaskDetails
+                item={item}
+                visibleFields={visibleFields}
+                schema={schema?.fields}
+                layout={schema?.layout}
+              />
+            )
           ) : (
-            <TaskDetails item={item} visibleFields={visibleFields} />
-          )
-        ) : (
-          !resource.error && (
-            <div aria-busy="true" className="space-y-4">
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-48 w-full" />
-            </div>
-          )
-        )}
+            !resource.error && (
+              <div aria-busy="true" className="space-y-4">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-48 w-full" />
+              </div>
+            )
+          )}
+        </RecordFieldEditing>
       </Modal>
       {discardTo && (
         <Modal
@@ -396,6 +410,7 @@ function TaskLane({
   lane,
   destinations,
   serviceId,
+  projectId,
   incidentId,
   search,
   canEdit,
@@ -422,6 +437,7 @@ function TaskLane({
   const cards = useRef(null),
     sentinel = useRef(null);
   const query = new URLSearchParams({
+    projectId,
     status: lane.status,
     statusOption: lane.id,
     serviceId,

@@ -1,3 +1,4 @@
+import { probeConfidence } from '@servicetrident/shared/domain/probe-confidence';
 import { auditFields } from '@servicetrident/shared/domain/audit';
 
 /** @param {object} monitor @returns {object} Client-safe monitor representation. */
@@ -35,6 +36,9 @@ export function serializeMonitor(monitor, { includeAuthenticationConfig = false 
     method: monitor.method ?? 'GET',
     followRedirects: monitor.followRedirects === true,
     keyword: monitor.keyword ?? null,
+    confirmationProbeId: monitor.confirmationProbeId || null,
+    confidence: probeConfidence(monitor),
+    confirmationCheck: monitor.confirmationCheck || null,
     authentication,
     authenticationConfigured: !!monitor.authSecret,
     paused,

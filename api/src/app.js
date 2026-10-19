@@ -1,3 +1,9 @@
+import { installPinRoutes } from './routes/pins.js';
+import { installProjectHubRoutes } from './routes/project-hub.js';
+import { installProjectRoutes } from './routes/projects.js';
+import { installOperationalReporting } from './routes/operational-reporting.js';
+import { installProbeSettings, installProbeEndpoints } from './routes/monitor-probes.js';
+import { installOperationalAutomation } from './routes/operational-automation.js';
 import { publicAppearanceCss } from '@servicetrident/shared/status/appearance';
 import { installCollaborationRoutes } from './routes/collaboration.js';
 import { validateInputShape } from './middleware/input-shape.js';
@@ -76,6 +82,7 @@ export function createApp(db, { aiFetch, oidcFetch, integrationRequest } = {}) {
   app.use(express.json({ limit: '256kb' }));
   app.use('/api', validateInputShape);
   const machine = installMachineRoutes(app, db);
+  installProbeEndpoints(app, db);
   installStatusSubscriptions(app, db, appOrigin);
   app.use('/api', (req, res, next) => {
     if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
@@ -184,10 +191,16 @@ export function createApp(db, { aiFetch, oidcFetch, integrationRequest } = {}) {
   installDemoRoutes(app, db);
   app.use('/api', demoWriteGuard(db));
   installAttachmentRoutes(app, db);
+  installProbeSettings(app, db);
+  installOperationalReporting(app, db);
+  installOperationalAutomation(app, db);
   installOperationsRoutes(app, db, appOrigin, integrationRequest, machine);
   installKnowledgeBases(app, db);
   installAI(app, db, aiFetch);
   installCollaborationRoutes(app, db);
+  installProjectRoutes(app, db);
+  installPinRoutes(app, db);
+  installProjectHubRoutes(app, db);
   installWorkRoutes(app, db, machine);
   installRcaRoutes(app, db);
   installRecordDeletionRoutes(app, db);

@@ -47,6 +47,17 @@ export function installReferenceRoutes(app, db) {
             : type === 'monitors'
               ? { userId: req.workspaceId }
               : { workspaceId: req.workspaceId };
+      if (type === 'tasks' && req.query.projectId) {
+        const projectId = String(req.query.projectId);
+        if (
+          !/^[a-f\d]{24}$/i.test(projectId) ||
+          (await settings(db, req.workspaceId)).projects?.every(
+            (p) => p.id !== projectId || p.deleting,
+          )
+        )
+          throw new InputError('Project not found.', 404);
+        base.projectId = projectId;
+      }
       if (type === 'members' && req.query.groupId) {
         const groupId = String(req.query.groupId);
         if (!/^[a-f\d]{24}$/i.test(groupId)) throw new InputError('Invalid group.');
@@ -104,6 +115,16 @@ export function installReferenceRoutes(app, db) {
     let rows;
     if (['services', 'collections'].includes(type))
       rows = (await catalog(db, req.workspaceId))[type];
+    else if (type === 'notificationIntegrations') {
+      if (req.role !== 'admin') throw new InputError('Admin access required.', 403);
+      rows = ((await settings(db, req.workspaceId)).integrations || []).filter(
+        (row) =>
+          row.enabled &&
+          !row.demoBatchId &&
+          ['email', 'slack', 'teams', 'discord', 'pagerduty', 'opsgenie'].includes(row.type),
+      );
+    } else if (type === 'projects')
+      rows = ((await settings(db, req.workspaceId)).projects ?? []).filter((row) => !row.deleting);
     else if (type === 'groups') rows = (await settings(db, req.workspaceId)).groups ?? [];
     else throw new InputError('Reference unavailable.', 404);
     const matches = rows

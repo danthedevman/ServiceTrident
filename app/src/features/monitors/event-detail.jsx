@@ -1,5 +1,6 @@
+import { displayValue } from '../../lib/display-value.js';
 import { EventRelatedLists } from './related-events.jsx';
-import { PageTitle } from '../../components/page-title.jsx';
+import { RecordDetailSection } from '../../components/record-detail-section.jsx';
 import { RecordWorkspace, RecordSection } from '../../components/record-workspace.jsx';
 import { ReferenceValue } from '../../components/reference-value.jsx';
 import { useRecordTabLabel } from '../../components/record-navigation.jsx';
@@ -10,7 +11,6 @@ import { DataTable } from '../../components/data-table.jsx';
 import { useResource } from '../../data/use-resource.js';
 
 import React from 'react';
-import { RecordLink } from '../../components/record-navigation.jsx';
 
 import { useParams } from 'react-router-dom';
 
@@ -84,8 +84,8 @@ export function EventDetail() {
                   ? [
                       ['Source', event.sourceName],
                       ['Severity', event.severity],
-                      ['Type', event.eventType],
-                      ['Signal', event.signal],
+                      ['Type', displayValue(event.eventType || 'unknown')],
+                      ['Signal', displayValue(event.signal || 'unknown')],
                     ]
                   : []),
                 [
@@ -146,39 +146,37 @@ function EventContent({ data, loading, error }) {
     return (
       <>
         <ErrorNotice>{error}</ErrorNotice>
-        <section className="panel space-y-4 p-6">
-          <PageTitle>{event.title}</PageTitle>
-          <p className="whitespace-pre-wrap break-words">{event.description}</p>
-          <dl className="space-y-3 text-sm">
-            <div>
-              <dt>Occurred At</dt>
-              <dd>
-                <DateTime value={event.occurredAt} />
-              </dd>
-            </div>
-            <div>
-              <dt>Received At</dt>
-              <dd>
-                <DateTime value={event.receivedAt || event.checkedAt} />
-              </dd>
-            </div>
-            <div>
-              <dt>External ID</dt>
-              <dd className="break-all">{event.externalId}</dd>
-            </div>
-            {event.correlationKey && (
-              <div>
-                <dt>Correlation Key</dt>
-                <dd className="break-all">{event.correlationKey}</dd>
-              </div>
-            )}
-          </dl>
-          {event.alertId && (
-            <RecordLink to={`/alerts/${event.alertId}`} className="text-blue-600">
-              View Alert
-            </RecordLink>
-          )}
-        </section>
+        <RecordDetailSection
+          title="Event Details"
+          columns={1}
+          entries={[
+            ['Title', event.title],
+            ['Description', event.description],
+          ]}
+        />
+        <RecordDetailSection
+          title="Source and Correlation"
+          entries={[
+            ['Source', event.sourceName],
+            ['Source Type', 'External'],
+            ['Severity', <Badge status={event.severity} />],
+            ['Type', displayValue(event.eventType || 'unknown')],
+            ['Signal', displayValue(event.signal || 'unknown')],
+            [
+              'Service',
+              <ReferenceValue type="services" id={event.serviceId} label={event.serviceName} />,
+            ],
+            ['Occurred At', <DateTime value={event.occurredAt} />],
+            ['Received At', <DateTime value={event.receivedAt || event.checkedAt} />],
+            ['External ID', event.externalId],
+            ['Correlation Key', event.correlationKey],
+            ...(event.alertId
+              ? [['Alert', <ReferenceValue type="alerts" id={event.alertId} label="View Alert" />]]
+              : []),
+            ['Notifications Suppressed', !!event.suppressed],
+          ]}
+        />
+        <ErrorNotice>{event.actionError}</ErrorNotice>
         {event.payload && (
           <section className="panel space-y-3 p-6">
             <h2 className="font-semibold">Payload</h2>
@@ -195,24 +193,20 @@ function EventContent({ data, loading, error }) {
     return (
       <section className="space-y-6">
         <ErrorNotice>{error}</ErrorNotice>
-        <dl className="panel space-y-4 p-6">
-          {[
+        <RecordDetailSection
+          title="Check Details"
+          entries={[
             ['Protocol', details.protocol],
             ['Operation', details.operation || 'Connection check'],
             ['Result', details.result],
             ['Duration', `${event.durationMs} ms`],
-            ['Checked at', <DateTime value={event.checkedAt} />],
+            ['Checked At', <DateTime value={event.checkedAt} />],
             [
               'TLS',
               details.tls === undefined ? 'Not recorded' : details.tls ? 'Enabled' : 'Disabled',
             ],
-          ].map(([label, value]) => (
-            <div key={label}>
-              <dt className="text-sm text-slate-500">{label}</dt>
-              <dd>{value}</dd>
-            </div>
-          ))}
-        </dl>
+          ]}
+        />
         <EventRelatedLists eventId={event.id} />
       </section>
     );
@@ -224,9 +218,13 @@ function EventContent({ data, loading, error }) {
       ) : (
         event && (
           <>
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-              <DateTime value={event.checkedAt} />
-            </p>
+            <RecordDetailSection
+              title="Check Details"
+              entries={[
+                ['Checked At', <DateTime value={event.checkedAt} />],
+                ...(event.region ? [['Probe Region', event.region]] : []),
+              ]}
+            />
             <div className={layouts.scores}>
               <Stat
                 title="HTTP Status"

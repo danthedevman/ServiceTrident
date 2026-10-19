@@ -277,12 +277,13 @@ export function EventsTable({
                     <Badge status={row.severity || (row.status === 'down' ? 'high' : 'info')} />
                   ),
                 },
-                ...['externalId', 'correlationKey', 'signal'].map((key) => ({
+                ...['externalId', 'correlationKey', 'signal', 'region'].map((key) => ({
                   key,
                   label: {
                     externalId: 'External ID',
                     correlationKey: 'Correlation Key',
                     signal: 'Signal',
+                    region: 'Region',
                   }[key],
                   value: (row) => row[key] || '—',
                 })),

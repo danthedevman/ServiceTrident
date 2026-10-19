@@ -2852,3 +2852,46 @@ body:has([data-app-shell]) {
     max-height: 12rem;
   }
 }
+
+/* Reserve space inside read-only values for the edit affordance, including narrow screens. */
+.record-field-with-edit dd,
+.record-field-with-edit input:not([type='hidden']):not([type='checkbox']):not([type='radio']),
+.record-field-with-edit textarea,
+.record-field-with-edit [role='combobox'] {
+  padding-right: 3rem;
+}
+
+.record-field-with-edit .reference-control {
+  padding-right: 2.75rem;
+}
+.record-field-with-edit .reference-control input {
+  padding-right: 0.5rem;
+}
+.static-record-fields[data-readonly='true'] .reference-control {
+  background-color: var(--color-slate-100);
+}
+[data-theme='dark'] .static-record-fields[data-readonly='true'] .reference-control {
+  background-color: var(--color-slate-800);
+}
+.static-record-fields[data-readonly='true'] .reference-control input:not([type='checkbox']) {
+  background: transparent;
+}
+
+.project-task-board {
+  min-height: 28rem;
+}
+.project-task-board .task-board-toolbar {
+  padding: 0 0 1rem;
+}
+.project-task-board .task-board {
+  padding: 0 0 1rem;
+}
+
+/* Disabled native controls suppress double-click events. Let the read-only field
+   wrapper receive the gesture while reference links remain independently usable. */
+.static-record-fields[data-readonly='true'] input,
+.static-record-fields[data-readonly='true'] textarea,
+.static-record-fields[data-readonly='true'] select,
+.static-record-fields[data-readonly='true'] .select-trigger {
+  pointer-events: none;
+}

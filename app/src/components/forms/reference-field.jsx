@@ -1,3 +1,4 @@
+import { ReadOnlyFieldsContext } from './read-only-context.js';
 import { RecordLink, useRecordEditMarker } from '../record-navigation.jsx';
 import { useInfiniteResource, useResource } from '../../data/use-resource.js';
 import React, { useContext, useEffect, useLayoutEffect, useId, useRef, useState } from 'react';
@@ -45,10 +46,12 @@ export function ReferenceField({
   onSearch,
   referenceType,
   groupId,
+  projectId,
   excludeId,
   required = false,
   assignToMe = false,
 }) {
+  const readOnly = useContext(ReadOnlyFieldsContext);
   const id = useId(),
     [search, setSearch] = useState(''),
     [open, setOpen] = useState(false),
@@ -104,12 +107,12 @@ export function ReferenceField({
   }, [search]);
   const remote = useInfiniteResource(
     referenceType && open && !disabled
-      ? `/references/${referenceType}?${new URLSearchParams({ q: query, ...(groupId ? { groupId } : {}), ...(excludeId ? { excludeId } : {}) })}`
+      ? `/references/${referenceType}?${new URLSearchParams({ q: query, ...(groupId ? { groupId } : {}), ...(projectId ? { projectId } : {}), ...(excludeId ? { excludeId } : {}) })}`
       : null,
   );
   const saved = useResource(
     referenceType && ids.length
-      ? `/references/${referenceType}?${new URLSearchParams({ selected: ids.join(',') })}`
+      ? `/references/${referenceType}?${new URLSearchParams({ selected: ids.join(','), ...(projectId ? { projectId } : {}) })}`
       : null,
   );
   // A record can move between server pages while someone edits it; show each ID once.
@@ -201,7 +204,7 @@ export function ReferenceField({
         <label htmlFor={id} className={hideLabel ? 'sr-only' : 'field-label'}>
           {label}
         </label>
-        {selfAssignment && !disabled && (
+        {selfAssignment && !disabled && !readOnly && (
           <button
             type="button"
             className="shrink-0 text-sm font-medium text-blue-700 hover:underline disabled:opacity-50 dark:text-blue-300"
@@ -227,6 +230,7 @@ export function ReferenceField({
         ids.map((selected) => <input key={selected} type="hidden" name={name} value={selected} />)}
       <div className="relative">
         <div
+          data-selected-ids={ids.join(',')}
           className={`reference-control ${multiple ? '' : 'reference-single'} ${disabled ? 'reference-disabled' : ''}`}
           onClick={(event) => {
             if (event.target === event.currentTarget) input.current?.focus();
@@ -242,18 +246,20 @@ export function ReferenceField({
                   {selectedLabel(selected)}
                 </span>
                 {recordLink(selected)}
-                <button
-                  type="button"
-                  disabled={disabled}
-                  className="shrink-0 rounded p-1"
-                  aria-label={`Remove ${selectedLabel(selected)}`}
-                  onClick={() => {
-                    onChange(ids.filter((item) => item !== selected));
-                    input.current?.focus();
-                  }}
-                >
-                  <XMarkIcon className="h-4 w-4" aria-hidden="true" />
-                </button>
+                {!readOnly && (
+                  <button
+                    type="button"
+                    disabled={disabled}
+                    className="shrink-0 rounded p-1"
+                    aria-label={`Remove ${selectedLabel(selected)}`}
+                    onClick={() => {
+                      onChange(ids.filter((item) => item !== selected));
+                      input.current?.focus();
+                    }}
+                  >
+                    <XMarkIcon className="h-4 w-4" aria-hidden="true" />
+                  </button>
+                )}
               </span>
             ))}
           <input
@@ -281,7 +287,10 @@ export function ReferenceField({
                 .join(' ') || undefined
             }
             placeholder={
-              placeholder ?? (multiple && ids.length ? 'Search to add more…' : 'Search to select…')
+              readOnly
+                ? 'Unassigned'
+                : (placeholder ??
+                  (multiple && ids.length ? 'Search to add more…' : 'Search to select…'))
             }
             onFocus={(event) => {
               showResults();
@@ -330,7 +339,7 @@ export function ReferenceField({
             }}
           />
           {!multiple && ids.length > 0 && recordLink(ids[0])}
-          {!multiple && ids.length > 0 && (
+          {!multiple && ids.length > 0 && !readOnly && (
             <button
               type="button"
               disabled={disabled}

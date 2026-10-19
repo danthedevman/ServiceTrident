@@ -1,4 +1,9 @@
-import { normalizedMonitorEvent, reconcileEventAlert } from '@servicetrident/shared/domain/events';
+import { stableEventId } from '@servicetrident/shared/domain/events';
+import {
+  prepareOperationalEvent,
+  completeOperationalEvent,
+} from '@servicetrident/shared/domain/operational-events';
+import { normalizedMonitorEvent } from '@servicetrident/shared/domain/events';
 import { unseal } from '@servicetrident/shared/integrations/secrets';
 import { InputError } from '@servicetrident/shared/validation/input-error';
 import { ObjectId } from 'mongodb';
@@ -76,6 +81,43 @@ export async function processMonitor(db, monitorId, check = checkWebsite, { queu
     { returnDocument: 'after' },
   );
   if (!monitor) return false;
+  if (monitor.confirmationProbeId && !monitor.authSecret && !monitor.demoBatchId) {
+    const config = await db.collection('operations').findOne({ _id: monitor.userId });
+    if (
+      config?.monitorProbes?.some(
+        (probe) =>
+          probe.id === monitor.confirmationProbeId &&
+          probe.enabled &&
+          new Date(probe.expiresAt) > new Date(),
+      )
+    ) {
+      const jobId = stableEventId(
+        'probe-job',
+        String(monitor._id),
+        monitor.lastStartedAt.toISOString(),
+      );
+      await db.collection('probeJobs').updateOne(
+        { _id: jobId },
+        {
+          $setOnInsert: {
+            workspaceId: monitor.userId,
+            monitorId: monitor._id,
+            probeId: monitor.confirmationProbeId,
+            url: monitor.url,
+            method: monitor.method || 'GET',
+            followRedirects: monitor.followRedirects === true,
+            keyword: monitor.keyword || null,
+            status: 'queued',
+            createdAt: monitor.lastStartedAt,
+            expiresAt: new Date(
+              +monitor.lastStartedAt + (monitor.intervalMinutes * 120 + 120) * 1000,
+            ),
+          },
+        },
+        { upsert: true },
+      );
+    }
+  }
   const method = monitor.method ?? 'GET';
   const followRedirects = monitor.followRedirects === true;
   const result = await check(monitor.url, {
@@ -138,8 +180,15 @@ export async function processMonitor(db, monitorId, check = checkWebsite, { queu
   );
   if (await db.collection('monitors').findOne({ _id }, { projection: { _id: 1 } })) {
     event._id = new ObjectId();
-    await db.collection('events').insertOne(event);
-    await reconcileEventAlert(db, event);
+    const routed = await prepareOperationalEvent(db, event);
+    await db
+      .collection('monitors')
+      .updateOne(
+        { _id, userId: monitor.userId, 'lastCheck.checkedAt': event.checkedAt },
+        { $set: { 'lastCheck.notificationSuppressed': routed.suppressed === true } },
+      );
+    await db.collection('events').insertOne(routed);
+    await completeOperationalEvent(db, routed);
     if (!(await db.collection('monitors').findOne({ _id }, { projection: { _id: 1 } }))) {
       await db.collection('events').deleteMany({ monitorId: _id, userId: monitor.userId });
       await db

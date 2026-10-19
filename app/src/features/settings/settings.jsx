@@ -1,10 +1,9 @@
-import { AlertGroupingSettings } from './alert-grouping.jsx';
 import { PageTitle } from '../../components/page-title.jsx';
 import { AuthContext } from '../../auth/auth-context.js';
 import { ConfirmDeleteButton } from '../../components/confirm-delete-button.jsx';
 import { DateTime } from '../../preferences/date-time.jsx';
 import React, { useContext, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, useSearchParams } from 'react-router-dom';
 import { useResource } from '../../data/use-resource.js';
 import { Notice } from '../../components/forms/fields.jsx';
 import { useSave } from '../../data/use-save.js';
@@ -51,7 +50,6 @@ function AdminSettings({ section }) {
   }
   return (
     <div className="space-y-6">
-      {section === 'alert-grouping' && <AlertGroupingSettings />}
       {section === 'audit' && (
         <section className="panel space-y-4 p-6">
           <h2 className="text-lg font-semibold">Audit Log</h2>
@@ -61,18 +59,6 @@ function AdminSettings({ section }) {
           </p>
           <Link className="btn-primary" to="/settings/audit">
             View audit log
-          </Link>
-        </section>
-      )}
-      {section === 'integrations' && (
-        <section className="panel space-y-4 p-6">
-          <h2 className="text-lg font-semibold">Integrations</h2>
-          <p>
-            Connect email, Slack, Microsoft Teams, or ServiceNow and choose where service-impact
-            notifications go.
-          </p>
-          <Link className="btn-primary" to="/integrations">
-            Manage integrations
           </Link>
         </section>
       )}
@@ -242,14 +228,22 @@ export function SettingsPage() {
   const marketing = useResource(user?.role === 'admin' ? '/settings/marketing' : null);
   if (loading) return null;
   if (!user || user.role === 'user') return <p>Workspace access is required.</p>;
+  const moved = {
+    'alert-grouping': 'alert-grouping',
+    integrations: 'integrations',
+    eventRules: 'event-rules',
+    escalationPolicies: 'escalation-policies',
+    maintenanceWindows: 'maintenance-windows',
+    probes: 'probe-agents',
+  };
+  if (user.role === 'admin' && Object.hasOwn(moved, params.get('section')))
+    return <Navigate to={`/${moved[params.get('section')]}`} replace />;
   const admin = user.role === 'admin';
   const entries = [
     ['groups', 'Groups', '/groups', 'View groups and their members.'],
     ...(admin
       ? [
           ['users', 'Users', '/workspace', 'Manage user profiles, roles, and account access.'],
-          ['alert-grouping', 'Alert Grouping'],
-          ['integrations', 'Integrations'],
           ['identity-providers', 'Identity Providers'],
           ['service-accounts', 'Service Accounts'],
           ['audit', 'Audit Log'],

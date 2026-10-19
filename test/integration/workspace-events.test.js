@@ -85,10 +85,12 @@ test('workspace Events enforce roles, tenant isolation, filters, safe exports, m
     { ...event, _id: new ObjectId(), checkedAt: new Date(Date.now() - 31 * 86400000) },
     { ...event, _id: new ObjectId(), userId: new ObjectId(outside.data.user.id) },
   ]);
+  await db.collection('events').updateMany({ userId: workspaceId }, { $unset: { number: '' } });
   for (const person of [owner, responder, viewer]) {
     const result = await request('/tables/events?sortBy=checkedAt&order=desc', person.cookie);
     assert.equal(result.status, 200);
     assert.equal(result.data.total, 2);
+    for (const row of result.data.rows) assert.match(row.number, /^EVT\d{7,}$/);
     assert.equal(result.data.rows[0].monitorName, 'Demo Check');
     assert.equal(result.data.rows[0].serviceName, 'Demo Service');
     assert.ok(!JSON.stringify(result.data).includes('Private synthetic'));

@@ -41,7 +41,17 @@ export function tableQuery(query, columns, dateColumn) {
 /** SQL/Mongo filtering precedes pagination. Export uses this exact same predicate and ordering. */
 export function databaseTable(db, name, base, fields, view, dateColumn) {
   if (
-    ['incidents', 'tasks', 'articles', 'monitors', 'users', 'knowledgeBases', 'rcas'].includes(name)
+    [
+      'incidents',
+      'tasks',
+      'articles',
+      'monitors',
+      'users',
+      'serviceAccounts',
+      'knowledgeBases',
+      'rcas',
+      'projectMilestones',
+    ].includes(name)
   )
     fields = { number: 'number', ...fields };
   return {
@@ -82,7 +92,8 @@ export function databaseTable(db, name, base, fields, view, dateColumn) {
 
 /** Bounded embedded configuration is filtered on the server, never in the browser. */
 export function embeddedTable(rows, fields, dateColumn) {
-  if (rows.some((row) => row.number) && !fields.includes('number')) fields = ['number', ...fields];
+  // Keep number sorting valid for empty numbered lists as well.
+  if (!fields.includes('number')) fields = [...fields, 'number'];
   return {
     fields,
     dateColumn,

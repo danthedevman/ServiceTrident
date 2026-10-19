@@ -1,3 +1,4 @@
+import { RecordDetailSection } from '../../components/record-detail-section.jsx';
 import { useRecordTabLabel } from '../../components/record-navigation.jsx';
 import { useDateTime } from '../../preferences/date-time.jsx';
 import { DateTime } from '../../preferences/date-time.jsx';
@@ -13,6 +14,7 @@ import { displayValue } from '../../lib/display-value.js';
 const names = {
   audit: 'Audit Entry',
   activity: 'Activity',
+  'project-activity': 'Project Activity',
   comments: 'Discussion Entry',
   deliveries: 'Delivery Log',
   invitations: 'Invitation',
@@ -35,6 +37,7 @@ const labels = {
   ownerId: 'Owner ID',
 };
 function parent(kind, query) {
+  if (kind === 'project-activity') return '/projects/activity';
   if (['activity', 'comments'].includes(kind))
     return `/incidents/${encodeURIComponent(query.get('recordId') || '')}`;
   if (kind === 'attachments')
@@ -87,7 +90,7 @@ export function TableRecordPage() {
     >
       <ErrorNotice>{resource.error}</ErrorNotice>
       {item ? (
-        <section className="record-details space-y-5" aria-label={`${title} Details`}>
+        <section className="record-details space-y-5" aria-label={title}>
           <h2 className="text-lg font-semibold">{item.name || item.title || title}</h2>
           {kind === 'attachments' && (
             <a
@@ -97,37 +100,21 @@ export function TableRecordPage() {
               Download Attachment
             </a>
           )}
-          <dl className="grid gap-5 sm:grid-cols-2">
-            {resource.data.fields.map((field) => (
-              <div
-                key={field}
-                className={
-                  ['note', 'body', 'message', 'value', 'error'].includes(field)
-                    ? 'sm:col-span-2'
-                    : ''
-                }
-              >
-                <dt className="field-label">
-                  {labels[field] || displayValue(field.replace(/([a-z])([A-Z])/g, '$1 $2'))}
-                </dt>
-                <dd className="mt-1 whitespace-pre-wrap break-words text-sm">
-                  {item[field] === undefined || item[field] === null || item[field] === '' ? (
-                    '—'
-                  ) : isTimestampField(field) ? (
-                    <DateTime value={item[field]} />
-                  ) : typeof item[field] === 'boolean' ? (
-                    item[field] ? (
-                      'Yes'
-                    ) : (
-                      'No'
-                    )
-                  ) : (
-                    String(item[field])
-                  )}
-                </dd>
-              </div>
-            ))}
-          </dl>
+          <RecordDetailSection
+            title={`${title} Details`}
+            entries={resource.data.fields.map((field) => [
+              labels[field] || displayValue(field.replace(/([a-z])([A-Z])/g, '$1 $2')),
+              item[field] == null || item[field] === '' ? (
+                '—'
+              ) : isTimestampField(field) ? (
+                <DateTime value={item[field]} />
+              ) : typeof item[field] === 'boolean' ? (
+                item[field]
+              ) : (
+                String(item[field])
+              ),
+            ])}
+          />
         </section>
       ) : (
         !resource.error && <Skeleton className="h-64" />

@@ -1,8 +1,8 @@
 import {
-  externalEventInput,
-  stableEventId,
-  reconcileEventAlert,
-} from '@servicetrident/shared/domain/events';
+  prepareOperationalEvent,
+  completeOperationalEvent,
+} from '@servicetrident/shared/domain/operational-events';
+import { externalEventInput, stableEventId } from '@servicetrident/shared/domain/events';
 import express from 'express';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { ObjectId } from 'mongodb';
@@ -304,6 +304,12 @@ export function installMachineRoutes(app, db) {
               }
             : {}),
         };
+        event = await prepareOperationalEvent(db, event);
+        if (account.serviceIds.length && !account.serviceIds.includes(event.serviceId))
+          throw new InputError(
+            'Event routing targets a service outside this account’s permitted services.',
+            403,
+          );
         try {
           await db.collection('events').insertOne(event);
         } catch (error) {
@@ -314,7 +320,7 @@ export function installMachineRoutes(app, db) {
             throw new InputError('This external ID was already used for a different event.', 409);
         }
       }
-      await reconcileEventAlert(db, event);
+      await completeOperationalEvent(db, event);
       res.locals.auditRecordId = String(event._id);
       return res.status(duplicate ? 200 : 201).json({
         event: { id: String(event._id), number: event.number, alertId: event.alertId ?? null },
@@ -343,6 +349,7 @@ export function installMachineRoutes(app, db) {
         'assignmentGroupId',
         'assigneeId',
         'dueDate',
+        'projectId',
         'custom',
       ],
       knowledge: [

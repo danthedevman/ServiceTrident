@@ -107,6 +107,12 @@ export function installEventRoutes(app, db) {
       'alertId',
       'externalId',
       'payload',
+      'region',
+      'probeId',
+      'matchedRuleIds',
+      'suppressed',
+      'actionError',
+      'ruleIncidentId',
       'correlationKey',
       'occurredAt',
       'receivedAt',
@@ -259,8 +265,18 @@ export function installEventRoutes(app, db) {
       checkedAt: { $gte: new Date(Date.now() - 30 * 86400000) },
     });
     if (!event) throw new InputError('Check event not found or expired.', 404);
-    const { _id, checkedAt, status, statusCode, durationMs, error, details, timing, number } =
-      event;
+    const {
+      _id,
+      checkedAt,
+      status,
+      statusCode,
+      durationMs,
+      error,
+      details,
+      timing,
+      number,
+      region,
+    } = event;
     // Both identity and timestamp must match the same saved trigger, never separate array entries.
     const incidents = await db
       .collection('incidents')
@@ -291,6 +307,7 @@ export function installEventRoutes(app, db) {
         serviceId: monitor.serviceId ? String(monitor.serviceId) : null,
       },
       event: {
+        region,
         id: _id.toHexString(),
         ...Object.fromEntries(
           [

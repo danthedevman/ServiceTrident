@@ -77,7 +77,24 @@ export function RecordExportActions({ kind, item, path: explicitPath }) {
                 .map((row) => `${row.number || ''} ${row.title}`.trim())
                 .join('\n'),
             }))
-          : [];
+          : kind === 'projects'
+            ? [
+                ['Owners', data.owners],
+                ['Owning Groups', data.groups],
+              ].map(([label, rows]) => ({
+                key: label,
+                label,
+                value: (rows || []).map((r) => r.label).join(', '),
+              }))
+            : kind === 'project-milestones'
+              ? [
+                  {
+                    key: 'Tasks',
+                    label: 'Tasks',
+                    value: (data.tasks || []).map((r) => r.label).join('\n'),
+                  },
+                ]
+              : [];
       const rows = recordExportRows(kind, record, schema?.fields, {
         format,
         tableFields: data.fields,

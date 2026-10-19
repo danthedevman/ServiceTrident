@@ -24,7 +24,7 @@ test(
     });
     const base = `http://127.0.0.1:${server.address().port}/api`;
     const request = async (path, cookie, method = 'GET', body) => {
-      const response = await fetch(base + path, {
+        const response = await fetch(base + path, {
         method,
         headers: {
           'Content-Type': 'application/json',

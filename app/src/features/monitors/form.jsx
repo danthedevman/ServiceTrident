@@ -1,3 +1,4 @@
+import { StaticRecordFields } from '../../components/forms/record-field-layout.jsx';
 import {
   monitorIntervalMinutes,
   convertMonitorInterval,
@@ -32,7 +33,7 @@ export function EditMonitor() {
 /** Create or edit validated monitor settings.
  * @param {{monitor?: object}} props
  */
-export function MonitorForm({ monitor, onReset }) {
+export function MonitorForm({ monitor, onReset, readOnly = false }) {
   const preferences = useResource(monitor ? null : '/settings/workspace');
   if (!monitor && !preferences.data)
     return (
@@ -47,14 +48,20 @@ export function MonitorForm({ monitor, onReset }) {
       </div>
     );
   return (
-    <MonitorEditor monitor={monitor} onReset={onReset} defaults={preferences.data?.settings} />
+    <MonitorEditor
+      monitor={monitor}
+      readOnly={readOnly}
+      onReset={onReset}
+      defaults={preferences.data?.settings}
+    />
   );
 }
 
 /** Apply defaults once, retaining a user's draft during background updates. */
-function MonitorEditor({ monitor, onReset, defaults }) {
+function MonitorEditor({ monitor, onReset, defaults, readOnly }) {
   const [searchParams] = useSearchParams();
   const serviceState = useResource('/services', 0);
+  const probes = useResource(readOnly ? null : '/monitor-probes');
   const [serviceId, setServiceId] = useState(
     monitor?.serviceId ?? searchParams.get('serviceId') ?? '',
   );
@@ -105,6 +112,7 @@ function MonitorEditor({ monitor, onReset, defaults }) {
         method: monitor ? 'PATCH' : 'POST',
         body: {
           authentication: auth,
+          confirmationProbeId: form.get('confirmationProbeId') || null,
           keyword: form.get('keywordText')?.trim()
             ? {
                 text: form.get('keywordText'),
@@ -138,195 +146,224 @@ function MonitorEditor({ monitor, onReset, defaults }) {
         className="form-body"
       >
         <ErrorNotice>{error}</ErrorNotice>
-        <label className="field-label">
-          Monitor name *
-          <input
-            name="name"
-            required
-            maxLength={80}
-            placeholder="Service health endpoint"
-            defaultValue={monitor?.name ?? ''}
-            autoFocus
-          />
-        </label>
-        <ErrorNotice>{serviceState.error}</ErrorNotice>
-        <ReferenceField
-          referenceType="services"
-          label={monitor ? 'Service' : 'Service *'}
-          name="serviceId"
-          required={!monitor}
-          options={(serviceState.data?.services ?? []).map((service) => ({
-            id: service.id,
-            label: service.name,
-          }))}
-          value={serviceId}
-          onChange={setServiceId}
-          disabled={serviceState.loading || !!serviceState.error}
-        />
-
-        {serviceId && (
+        <StaticRecordFields readOnly={readOnly}>
           <label className="field-label">
-            Component / subservice
+            Monitor name *
             <input
-              name="component"
-              maxLength={80}
-              defaultValue={monitor?.component ?? ''}
-              placeholder="API, Checkout, or Frontend"
-            />
-            <span className="field-hint">
-              Optional. Monitors with the same component name are grouped together.
-            </span>
-          </label>
-        )}
-        <label className="field-label">
-          Endpoint URL *
-          <input
-            name="url"
-            type="url"
-            required
-            maxLength={2048}
-            placeholder="https://example.com"
-            defaultValue={monitor?.url ?? ''}
-          />
-          <span className="field-hint">
-            Public HTTP or HTTPS endpoints on their standard ports.
-          </span>
-        </label>
-        <label className="field-label">
-          Request type
-          <Select name="method" defaultValue={monitor?.method ?? defaults?.defaultMethod ?? 'GET'}>
-            <option value="HEAD">HEAD — headers only</option>
-            <option value="GET">GET — headers and response body</option>
-          </Select>
-          <span className="field-hint">
-            HEAD is a lightweight availability check. Unauthenticated GET checks also save a text
-            body preview (up to 16 KiB). Some endpoints do not support HEAD.
-          </span>
-        </label>
-        <fieldset className="space-y-4">
-          <legend className="font-semibold">Keyword trigger</legend>
-          <label className="field-label">
-            Keyword
-            <input
-              className="input"
-              name="keywordText"
-              maxLength={200}
-              defaultValue={monitor?.keyword?.text ?? ''}
-            />
-          </label>
-          <label className="field-label">
-            Trigger when
-            <Select
-              aria-label="Trigger when"
-              name="keywordCondition"
-              defaultValue={monitor?.keyword?.condition ?? 'missing'}
-            >
-              <option value="missing">Keyword is missing</option>
-              <option value="contains">Keyword is found</option>
-            </Select>
-          </label>
-          <label className="field-label">
-            Case sensitive
-            <Toggle
-              name="keywordCaseSensitive"
-              value="true"
-              defaultChecked={monitor?.keyword?.caseSensitive === true}
-            />
-          </label>
-          <p className="field-hint">
-            Optional literal text match in the first 16 KiB of an unauthenticated GET response. A
-            triggered condition counts as a failed check and follows the existing alert and incident
-            policy. Leave Keyword empty to disable. Unreadable or inconclusive bodies fail the
-            check.
-          </p>
-        </fieldset>
-        <label className="field-label">
-          Follow redirects
-          <Toggle
-            name="followRedirects"
-            value="true"
-            checked={followRedirects && authentication.mode === 'none'}
-            disabled={authentication.mode !== 'none'}
-            onChange={(event) => setFollowRedirects(event.target.checked)}
-            className="mt-2 block"
-          />
-          {authentication.mode !== 'none' ? (
-            <span className="field-hint">
-              Authenticated checks do not follow redirects and require a 2xx response. Use the final
-              protected HTTPS endpoint.
-            </span>
-          ) : (
-            <>
-              <span className="field-hint">
-                Enable for HTTP-to-HTTPS upgrades, redirects to a www hostname, or moved pages when
-                you want to check the destination too. Up to 3 redirects are allowed; every
-                destination must pass public-network validation.
-              </span>
-              <span className="field-hint">
-                When disabled, a 3xx response counts as up for the original URL only. The
-                destination is recorded but is not checked.
-              </span>
-            </>
-          )}
-        </label>
-        <div className="space-y-2">
-          <label className="field-label" htmlFor={intervalId}>
-            Check every *
-          </label>
-          <div className="flex flex-wrap items-center gap-3">
-            <input
-              id={intervalId}
-              className="max-w-32"
-              name="intervalMinutes"
-              type="number"
-              min={intervalUnit === 'hours' ? 1 / 60 : 1}
-              max={intervalUnit === 'hours' ? 24 : 1440}
-              step={intervalUnit === 'hours' ? 'any' : 1}
-              value={intervalValue}
-              onChange={(event) => setIntervalValue(event.target.value)}
+              name="name"
               required
+              maxLength={80}
+              placeholder="Service health endpoint"
+              defaultValue={monitor?.name ?? ''}
+              autoFocus={!readOnly}
             />
-            <div className="w-36">
+          </label>
+          <ErrorNotice>{serviceState.error}</ErrorNotice>
+          <ReferenceField
+            referenceType="services"
+            label={monitor ? 'Service' : 'Service *'}
+            name="serviceId"
+            required={!monitor}
+            options={(serviceState.data?.services ?? []).map((service) => ({
+              id: service.id,
+              label: service.name,
+            }))}
+            value={serviceId}
+            onChange={setServiceId}
+            disabled={serviceState.loading || !!serviceState.error}
+          />
+
+          {serviceId && (
+            <label className="field-label">
+              Component / subservice
+              <input
+                name="component"
+                maxLength={80}
+                defaultValue={monitor?.component ?? ''}
+                placeholder="API, Checkout, or Frontend"
+              />
+              <span className="field-hint">
+                Optional. Monitors with the same component name are grouped together.
+              </span>
+            </label>
+          )}
+          <label className="field-label">
+            Endpoint URL *
+            <input
+              name="url"
+              type="url"
+              required
+              maxLength={2048}
+              placeholder="https://example.com"
+              defaultValue={monitor?.url ?? ''}
+            />
+            <span className="field-hint">
+              Public HTTP or HTTPS endpoints on their standard ports.
+            </span>
+          </label>
+          <label className="field-label">
+            Request type
+            <Select
+              name="method"
+              defaultValue={monitor?.method ?? defaults?.defaultMethod ?? 'GET'}
+            >
+              <option value="HEAD">HEAD — headers only</option>
+              <option value="GET">GET — headers and response body</option>
+            </Select>
+            <span className="field-hint">
+              HEAD is a lightweight availability check. Unauthenticated GET checks also save a text
+              body preview (up to 16 KiB). Some endpoints do not support HEAD.
+            </span>
+          </label>
+          <label className="field-label">
+            Confirmation probe
+            <Select
+              aria-label="Confirmation probe"
+              name="confirmationProbeId"
+              defaultValue={monitor?.confirmationProbeId || ''}
+            >
+              <option value="">Primary location only</option>
+              {(probes.data?.probes || [])
+                .filter((probe) => probe.enabled)
+                .map((probe) => (
+                  <option key={probe.id} value={probe.id}>
+                    {probe.name} · {probe.region}
+                  </option>
+                ))}
+            </Select>
+            <span className="field-hint">
+              An independent agent must run on another host. Matching fresh results confirm health;
+              disagreement is degraded and missing results remain unknown. Authenticated monitors
+              cannot share checks with agents.
+            </span>
+          </label>
+          <fieldset className="space-y-4">
+            <legend className="font-semibold">Keyword trigger</legend>
+            <label className="field-label">
+              Keyword
+              <input
+                className="input"
+                name="keywordText"
+                maxLength={200}
+                defaultValue={monitor?.keyword?.text ?? ''}
+              />
+            </label>
+            <label className="field-label">
+              Trigger when
               <Select
-                aria-label="Interval unit"
-                name="intervalUnit"
-                value={intervalUnit}
-                onChange={(event) => {
-                  setIntervalValue(
-                    convertMonitorInterval(intervalValue, intervalUnit, event.target.value),
-                  );
-                  setIntervalUnit(event.target.value);
-                }}
+                aria-label="Trigger when"
+                name="keywordCondition"
+                defaultValue={monitor?.keyword?.condition ?? 'missing'}
               >
-                <option value="minutes">Minutes</option>
-                <option value="hours">Hours</option>
+                <option value="missing">Keyword is missing</option>
+                <option value="contains">Keyword is found</option>
               </Select>
+            </label>
+            <label className="field-label">
+              Case sensitive
+              <Toggle
+                name="keywordCaseSensitive"
+                value="true"
+                defaultChecked={monitor?.keyword?.caseSensitive === true}
+              />
+            </label>
+            <p className="field-hint">
+              Optional literal text match in the first 16 KiB of an unauthenticated GET response. A
+              triggered condition counts as a failed check and follows the existing alert and
+              incident policy. Leave Keyword empty to disable. Unreadable or inconclusive bodies
+              fail the check.
+            </p>
+          </fieldset>
+          <label className="field-label">
+            Follow redirects
+            <Toggle
+              name="followRedirects"
+              value="true"
+              checked={followRedirects && authentication.mode === 'none'}
+              disabled={authentication.mode !== 'none'}
+              onChange={(event) => setFollowRedirects(event.target.checked)}
+              className="mt-2 block"
+            />
+            {authentication.mode !== 'none' ? (
+              <span className="field-hint">
+                Authenticated checks do not follow redirects and require a 2xx response. Use the
+                final protected HTTPS endpoint.
+              </span>
+            ) : (
+              <>
+                <span className="field-hint">
+                  Enable for HTTP-to-HTTPS upgrades, redirects to a www hostname, or moved pages
+                  when you want to check the destination too. Up to 3 redirects are allowed; every
+                  destination must pass public-network validation.
+                </span>
+                <span className="field-hint">
+                  When disabled, a 3xx response counts as up for the original URL only. The
+                  destination is recorded but is not checked.
+                </span>
+              </>
+            )}
+          </label>
+          <div className="space-y-2">
+            <label className="field-label" htmlFor={intervalId}>
+              Check every *
+            </label>
+            <div className="flex flex-wrap items-center gap-3">
+              <input
+                id={intervalId}
+                className="max-w-32"
+                name="intervalMinutes"
+                type="number"
+                min={intervalUnit === 'hours' ? 1 / 60 : 1}
+                max={intervalUnit === 'hours' ? 24 : 1440}
+                step={intervalUnit === 'hours' ? 'any' : 1}
+                value={intervalValue}
+                onChange={(event) => setIntervalValue(event.target.value)}
+                required
+              />
+              <div className="w-36">
+                <Select
+                  aria-label="Interval unit"
+                  name="intervalUnit"
+                  value={intervalUnit}
+                  onChange={(event) => {
+                    setIntervalValue(
+                      convertMonitorInterval(intervalValue, intervalUnit, event.target.value),
+                    );
+                    setIntervalUnit(event.target.value);
+                  }}
+                >
+                  <option value="minutes">Minutes</option>
+                  <option value="hours">Hours</option>
+                </Select>
+              </div>
             </div>
+            <p className="field-hint">
+              Use 1 minute to 24 hours, in whole-minute increments. For example, 1.5 hours is 90
+              minutes.
+            </p>
           </div>
-          <p className="field-hint">
-            Use 1 minute to 24 hours, in whole-minute increments. For example, 1.5 hours is 90
-            minutes.
-          </p>
-        </div>
-        <div className="rounded-xl bg-blue-50 dark:bg-blue-950 px-4 py-3 text-sm leading-6 text-blue-800 dark:text-blue-300">
-          {monitor
-            ? 'Changes keep your existing history. Changing the URL or request type resets the current status until the next check. Checks remain at least one minute apart.'
-            : 'Your first check will start shortly after creation. Each check records the HTTP result and response time.'}
-        </div>
-        <MonitorAuthentication
-          value={authentication}
-          onChange={setAuthentication}
-          configured={
-            monitor?.authenticationConfigured &&
-            authentication.mode === monitor?.authentication?.mode
-          }
-        />
-        <RecordActions>
-          <CancelButton onCancel={onReset} to="/monitors" disabled={busy} />
-          <button className="btn-primary" disabled={busy}>
-            {busy ? 'Saving…' : monitor ? 'Save' : 'Create Monitor'}
-          </button>
-        </RecordActions>
+          <div className="rounded-xl bg-blue-50 dark:bg-blue-950 px-4 py-3 text-sm leading-6 text-blue-800 dark:text-blue-300">
+            {monitor
+              ? 'Changes keep your existing history. Changing the URL or request type resets the current status until the next check. Checks remain at least one minute apart.'
+              : 'Your first check will start shortly after creation. Each check records the HTTP result and response time.'}
+          </div>
+          <MonitorAuthentication
+            value={authentication}
+            onChange={setAuthentication}
+            configured={
+              monitor?.authenticationConfigured &&
+              authentication.mode === monitor?.authentication?.mode
+            }
+          />
+        </StaticRecordFields>
+        {!readOnly && (
+          <RecordActions>
+            <CancelButton onCancel={onReset} to="/monitors" disabled={busy} />
+            <button className="btn-primary" disabled={busy}>
+              {busy ? 'Saving…' : monitor ? 'Save' : 'Create Monitor'}
+            </button>
+          </RecordActions>
+        )}
       </ValidatedForm>
     </FormPage>
   );

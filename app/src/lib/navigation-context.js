@@ -38,6 +38,12 @@ export function recordAncestors(kind, record = {}, base = {}) {
 
 /** History follows its actual list or authorized parent rather than a generic “Details” dead end. */
 export function historyBreadcrumbs(type, record = {}, context, parent = {}, base = {}) {
+  if (type === 'project-activity')
+    return [
+      { label: 'Projects', to: '/projects' },
+      { label: 'Activity', to: '/projects/activity' },
+      { label: 'Activity Entry' },
+    ];
   const last = {
     label:
       record.name ||
@@ -96,4 +102,26 @@ export function historyBreadcrumbs(type, record = {}, context, parent = {}, base
       last,
     ];
   return [{ label: 'Settings', to: '/settings' }, last];
+}
+
+/** Both event routes retain the main list and identify the authorized originating monitor. */
+export function eventBreadcrumbs(event = {}, monitor) {
+  return [
+    { label: 'Events', to: '/events' },
+    ...(recordId(monitor?.id)
+      ? [
+          {
+            label: monitor.name ? `Monitor: ${monitor.name}` : 'Monitor',
+            to: `/monitors/${monitor.id}`,
+          },
+        ]
+      : []),
+    {
+      label: monitor
+        ? event.number
+          ? `Event ${event.number}`
+          : 'Check Event'
+        : event.title || event.number || 'Event',
+    },
+  ];
 }

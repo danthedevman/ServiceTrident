@@ -1,3 +1,4 @@
+import { SearchInput } from './forms/search-input.jsx';
 import React from 'react';
 
 /** Search all table columns; the server applies the query across the full dataset. */
@@ -5,7 +6,7 @@ export function TableSearch({ search, onSearch }) {
   return (
     <label className="field-label block min-w-0">
       <span className="sr-only">Search list</span>
-      <input
+      <SearchInput
         type="search"
         aria-label="Search list"
         className="!mt-0"

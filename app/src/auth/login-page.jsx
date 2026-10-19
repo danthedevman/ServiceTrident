@@ -2,9 +2,9 @@ import { WorkspaceSignIn } from './workspace-sign-in.jsx';
 import { writeApi } from '../data/query-client.js';
 
 import { AuthContext } from './auth-context.js';
-import React, { useContext, useState } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 
-import { Link, Navigate } from 'react-router-dom';
+import { Link, Navigate, useLocation } from 'react-router-dom';
 
 import { ValidatedForm } from '../components/forms/validated-form.jsx';
 
@@ -18,6 +18,15 @@ import { ErrorNotice } from '../components/feedback.jsx';
  */
 export function AuthPage({ register = false }) {
   const { user, setUser } = useContext(AuthContext);
+  const location = useLocation();
+  const [workspaceLogin, setWorkspaceLogin] = useState(
+    () =>
+      new URLSearchParams(location.search).has('workspace') ||
+      new URLSearchParams(location.search).has('ssoError'),
+  );
+  useEffect(() => {
+    document.title = `${register ? 'Create account' : 'Sign in'} · ServiceTrident`;
+  }, [register]);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   if (user) return <Navigate to="/" replace />;
@@ -44,16 +53,17 @@ export function AuthPage({ register = false }) {
     }
   };
   return (
-    <main
-      id="main"
-      className="flex min-h-dvh items-center justify-center px-5 py-16"
-    >
+    <main id="main" className="flex min-h-dvh items-center justify-center px-5 py-16">
       <div className="absolute right-[max(1rem,env(safe-area-inset-right))] top-[max(1rem,env(safe-area-inset-top))]">
         <ThemeToggle />
       </div>
       <section className="panel w-full max-w-[400px] p-7 sm:p-9">
-        <div className="mb-8 flex justify-center"><Logo /></div>
-        <h1 className="text-center text-xl font-semibold">{register ? 'Create account' : 'Sign in'}</h1>
+        <div className="mb-8 flex justify-center">
+          <Logo />
+        </div>
+        <h1 className="text-center text-xl font-semibold">
+          {register ? 'Create account' : 'Sign in'}
+        </h1>
 
         <ValidatedForm
           key={register ? 'register' : 'login'}
@@ -87,14 +97,25 @@ export function AuthPage({ register = false }) {
               minLength={12}
               maxLength={128}
               required
-              placeholder={register ? "At least 12 characters" : undefined}
+              placeholder={register ? 'At least 12 characters' : undefined}
             />
           </label>
           <button className="btn-primary w-full" disabled={busy} aria-busy={busy}>
             {register ? 'Create Account' : 'Sign in'}
           </button>
         </ValidatedForm>
-        {!register && <WorkspaceSignIn />}
+        {!register &&
+          (workspaceLogin ? (
+            <WorkspaceSignIn />
+          ) : (
+            <button
+              type="button"
+              className="mt-5 w-full text-center text-sm text-blue-700 hover:underline dark:text-blue-300"
+              onClick={() => setWorkspaceLogin(true)}
+            >
+              Sign in with your organization
+            </button>
+          ))}
         <p className="mt-6 text-center text-sm text-slate-500 dark:text-slate-400">
           {register ? 'Already have an account?' : 'New here?'}{' '}
           <Link

@@ -1,3 +1,4 @@
+import { SearchInput } from '../../components/forms/search-input.jsx';
 import { Select } from '../../components/forms/select.jsx';
 import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -46,7 +47,7 @@ export function GlobalSearch({ role, onClose }) {
         <div className="grid gap-4 sm:grid-cols-[1fr_180px]">
           <label className="field-label">
             Search
-            <input
+            <SearchInput
               ref={inputRef}
               autoFocus
               type="search"

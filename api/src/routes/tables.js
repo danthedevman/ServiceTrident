@@ -1,3 +1,4 @@
+import { projectScope, projectStats } from '../repositories/project-hub.js';
 import {
   retainedEvents,
   incidentEventsFilter,
@@ -51,6 +52,64 @@ async function source(db, req) {
     req.role !== 'admin'
   )
     throw new InputError('Administrator access required.', 403);
+  if (kind === 'projects') {
+    const data = await projectStats(db, req);
+    const { config } = await projectScope(db, req);
+    const people = await members(db, workspaceId);
+    return embeddedTable(
+      data.projects.map((p) => ({
+        ...p,
+        owners: (p.ownerIds || [])
+          .map(
+            (id) =>
+              people.find((u) => String(u._id || u.id) === id)?.displayName || 'Unavailable user',
+          )
+          .join(', '),
+        groups: (p.ownerGroupIds || [])
+          .map((id) => (config.groups || []).find((g) => g.id === id)?.name || 'Unavailable group')
+          .join(', '),
+      })),
+      ['name', 'description', 'owners', 'groups', 'total', 'done', 'progress', 'updatedAt'],
+      'updatedAt',
+    );
+  }
+  if (['project-milestones', 'project-activity'].includes(kind)) {
+    const { filter } = await projectScope(db, req);
+    if (kind === 'project-milestones' && req.query.status) {
+      if (
+        !['planned', 'in_progress', 'blocked', 'completed', 'archived'].includes(req.query.status)
+      )
+        throw new InputError('Choose a valid milestone status.');
+      filter.status = req.query.status;
+    }
+    return databaseTable(
+      db,
+      kind === 'project-milestones' ? 'projectMilestones' : 'projectActivity',
+      filter,
+      kind === 'project-milestones'
+        ? fields(
+            'title',
+            'description',
+            'projectId',
+            'projectName',
+            'status',
+            'targetDate',
+            'updatedAt',
+          )
+        : fields(
+            'createdAt',
+            'actor',
+            'actorId',
+            'action',
+            'body',
+            'taskId',
+            'taskTitle',
+            'projectId',
+          ),
+      ({ _id, workspaceId, ...row }) => ({ id: String(_id), ...row }),
+      kind === 'project-milestones' ? 'updatedAt' : 'createdAt',
+    );
+  }
   if (kind === 'rcas') {
     const filter = { workspaceId };
     for (const [key, collection] of [
@@ -223,7 +282,19 @@ async function source(db, req) {
       db,
       'deliveries',
       { workspaceId },
-      fields('createdAt', 'integrationName', 'event', 'status', 'attempts', 'externalId', 'error'),
+      fields(
+        'createdAt',
+        'integrationName',
+        'event',
+        'status',
+        'deliveryState',
+        'attempts',
+        'totalAttempts',
+        'nextAttemptAt',
+        'lastAttemptAt',
+        'externalId',
+        'error',
+      ),
       view,
       'createdAt',
     );
@@ -374,7 +445,7 @@ async function source(db, req) {
         userId: workspaceId,
         ...(req.query.serviceId ? { serviceId: id(req.query.serviceId) } : {}),
       };
-      const definitions = fields('name', 'url', 'component', 'intervalMinutes', 'method');
+      const definitions = fields('number', 'name', 'url', 'component', 'intervalMinutes', 'method');
       Object.assign(definitions, {
         status: 'status',
         service: 'service',
@@ -603,6 +674,15 @@ export function installTableRoutes(app, db) {
         count('deliveries', { workspaceId }),
       ]);
       return res.json({ counts: { integrations, deliveries: logs } });
+    }
+    if (kind === 'projects') {
+      const { filter } = await projectScope(db, req, recordId);
+      const [tasks, milestones, activity] = await Promise.all([
+        count('tasks', { ...filter, status: { $ne: 'archived' } }),
+        count('projectMilestones', filter),
+        count('projectActivity', filter),
+      ]);
+      return res.json({ counts: { tasks, milestones, activity } });
     }
     const _id = id(recordId);
     if (kind === 'services') {

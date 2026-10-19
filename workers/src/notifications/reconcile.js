@@ -1,3 +1,4 @@
+import { reconcileEscalations } from './escalations.js';
 import { workspaceSettings } from '@servicetrident/shared/domain/workspace-settings';
 import { writeAudit } from '@servicetrident/shared/domain/audit';
 import { ObjectId } from 'mongodb';
@@ -146,6 +147,10 @@ export async function reconcileOperations(db, queue) {
                 updatedBy: 'System',
                 updatedById: null,
                 resolvedAt: now,
+                resolutionDurationMs: Math.max(
+                  0,
+                  +now - +new Date(existing.reopenedAt || existing.createdAt),
+                ),
                 resolutionNotes: 'All monitors and dependencies recovered.',
               },
               $inc: { revision: 1 },
@@ -176,6 +181,7 @@ export async function reconcileOperations(db, queue) {
             });
         }
       }
+      await reconcileEscalations(db, lock, now);
       // A crash before these flags are saved is safe: each outbox key is deterministic.
       for await (const incident of db.collection('incidents').find({
         workspaceId: catalog._id,
@@ -205,6 +211,19 @@ export async function reconcileOperations(db, queue) {
               (!i.serviceIds.length || i.serviceIds.includes(incident.serviceId)) &&
               (event === 'impacted' || i.recovery),
           )) {
+            const escalationPolicy = (lock.escalationPolicies || []).find(
+              (policy) =>
+                policy.enabled &&
+                !policy.demoBatchId &&
+                (incident.escalationPolicyId
+                  ? policy.id === incident.escalationPolicyId
+                  : !policy.serviceIds.length || policy.serviceIds.includes(incident.serviceId)),
+            );
+            if (
+              event === 'impacted' &&
+              escalationPolicy?.steps.some((step) => step.integrationIds.includes(integration.id))
+            )
+              continue;
             const cycle = incident.resolutionCycle ?? 0;
             const key = `${incident._id}-${event}-${integration.id}${cycle ? `-cycle${cycle}` : ''}`;
             await db.collection('deliveries').updateOne(
@@ -227,6 +246,7 @@ export async function reconcileOperations(db, queue) {
                       }
                     : {}),
                   status: 'pending',
+                  deliveryState: 'queued',
                   attempts: 0,
                   createdAt: now,
                   nextAttemptAt: now,
@@ -290,8 +310,40 @@ export async function reconcileOperations(db, queue) {
   for await (const row of db
     .collection('deliveries')
     .find({
+      status: 'pending',
+      attempts: { $gte: 5 },
+      demoBatchId: { $exists: false },
+      $or: [{ leaseUntil: { $exists: false } }, { leaseUntil: { $lte: now } }],
+    })
+    .limit(200)) {
+    const result = await db.collection('deliveries').updateOne(
+      { _id: row._id, status: 'pending', attempts: row.attempts },
+      {
+        $set: {
+          status: 'failed',
+          deliveryState: 'failed',
+          error: 'Delivery attempt limit reached after an interrupted attempt.',
+        },
+        $unset: { leaseUntil: '', leaseToken: '' },
+      },
+    );
+    if (result.modifiedCount)
+      await writeAudit(db, {
+        workspaceId: row.workspaceId,
+        source: 'worker',
+        action: 'delivery_exhausted',
+        recordType: 'deliveries',
+        recordId: row._id,
+        outcome: 'failed',
+        statusCode: 502,
+      });
+  }
+  for await (const row of db
+    .collection('deliveries')
+    .find({
       demoBatchId: { $exists: false },
       status: 'pending',
+      attempts: { $lt: 5 },
       nextAttemptAt: { $lte: now },
       $or: [{ leaseUntil: { $exists: false } }, { leaseUntil: { $lte: now } }],
     })

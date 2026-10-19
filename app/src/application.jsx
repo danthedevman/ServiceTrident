@@ -1,3 +1,8 @@
+import { PinnedPage } from './features/records/pinned.jsx';
+import { OperationalReporting } from './features/dashboard/operational-reporting.jsx';
+import { QuickStartPage } from './features/dashboard/quick-start.jsx';
+import { AutomationSettings, ProbeSettings } from './features/settings/operational-automation.jsx';
+import { AlertGroupingSettings } from './features/settings/alert-grouping.jsx';
 import { EventAlertDetail } from './features/monitors/alert-detail.jsx';
 import { NotificationsPage } from './shell/notifications.jsx';
 import { RcaList, RcaPage } from './features/work/rcas.jsx';
@@ -85,6 +90,7 @@ export function App() {
               <Route path="/join/:token" element={<JoinPage />} />
               <Route element={<Layout />}>
                 <Route index element={<HomePage />} />
+                <Route path="pinned" element={<PinnedPage />} />
                 <Route path="notifications" element={<NotificationsPage />} />
                 <Route path="events" element={<EventsPage />} />
                 <Route path="alerts" element={<AlertsPage />} />
@@ -92,6 +98,12 @@ export function App() {
                 <Route path="alerts/:id" element={<EventAlertDetail />} />
                 <Route path="dashboard/reports" element={<DashboardReport />} />
                 <Route path="help" element={<HelpPage />} />
+                <Route path="projects" element={<Navigate replace to="/tasks" />} />
+                <Route path="projects/overview" element={<Navigate replace to="/tasks" />} />
+                <Route path="projects/milestones" element={<Navigate replace to="/tasks" />} />
+                <Route path="projects/activity" element={<Navigate replace to="/tasks" />} />
+                <Route path="projects/:id" element={<Navigate replace to="/tasks" />} />
+                <Route path="project-milestones/:id" element={<Navigate replace to="/tasks" />} />
                 <Route path="tasks" element={<WorkPage key="tasks" />} />
                 <Route
                   path="tasks/:id/edit"
@@ -284,7 +296,56 @@ export function App() {
                 />
                 <Route path="incidents/fields" element={<IncidentBuilderPage />} />
                 <Route path="incidents/:id" element={<IncidentPage />} />
+                <Route
+                  path="quick-start"
+                  element={
+                    <AdminOnly page>
+                      <QuickStartPage />
+                    </AdminOnly>
+                  }
+                />
+                <Route path="operational-reporting" element={<OperationalReporting />} />
                 <Route path="on-call" element={<OnCallPage />} />
+                <Route
+                  path="event-rules"
+                  element={
+                    <AdminOnly page>
+                      <AutomationSettings kind="eventRules" />
+                    </AdminOnly>
+                  }
+                />
+                <Route
+                  path="escalation-policies"
+                  element={
+                    <AdminOnly page>
+                      <AutomationSettings kind="escalationPolicies" />
+                    </AdminOnly>
+                  }
+                />
+                <Route
+                  path="maintenance-windows"
+                  element={
+                    <AdminOnly page>
+                      <AutomationSettings kind="maintenanceWindows" />
+                    </AdminOnly>
+                  }
+                />
+                <Route
+                  path="probe-agents"
+                  element={
+                    <AdminOnly page>
+                      <ProbeSettings />
+                    </AdminOnly>
+                  }
+                />
+                <Route
+                  path="alert-grouping"
+                  element={
+                    <AdminOnly page>
+                      <AlertGroupingSettings />
+                    </AdminOnly>
+                  }
+                />
                 <Route path="integrations" element={<IntegrationsPage />} />
                 <Route path="integrations/ai" element={<AIProviderPage />} />
                 <Route path="workspace" element={<WorkspacePage />} />

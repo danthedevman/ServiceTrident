@@ -1,3 +1,4 @@
+import { probeConfidence } from './probe-confidence.js';
 import { invalid } from '../validation/fields.js';
 
 /** Validate optional service health controls; defaults preserve immediate outage detection. */
@@ -39,6 +40,11 @@ export function monitorHealth(monitor, policy = {}, now = Date.now()) {
     now - +new Date(check.checkedAt) > (monitor.intervalMinutes * 60 + 60) * 1000
   )
     return 'unknown';
+  if (monitor.confirmationProbeId) {
+    const confidence = probeConfidence(monitor, now);
+    if (confidence.status === 'unknown' || confidence.status === 'degraded')
+      return confidence.status;
+  }
   if (check.status === 'down')
     return (check.consecutiveFailures ?? 1) >= (policy.failuresBeforeDown ?? 1)
       ? 'down'

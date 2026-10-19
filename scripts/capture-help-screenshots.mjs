@@ -1,3 +1,5 @@
+import { DEFAULT_FORM_LAYOUT, validateFormLayout } from '../shared/forms/layout.js';
+import { helpTopics } from '../app/src/features/help/topics.js';
 import { publicAppearanceCss } from '../shared/status/appearance.js';
 import { DEMO_TYPES, DEMO_COUNT } from '../shared/domain/demo-data.js';
 import { monitorIntervalMinutes } from '../shared/validation/monitor-interval.js';
@@ -25,6 +27,12 @@ let knowledgeFailPage = 0;
 const knowledgePages = [];
 let rcaFields = RCA_FIELDS;
 let rcaRevision = 0;
+const formLayouts = {
+  incidents: DEFAULT_FORM_LAYOUT,
+  tasks: DEFAULT_FORM_LAYOUT,
+  knowledge: { ...DEFAULT_FORM_LAYOUT, columns: 1 },
+  rcas: { ...DEFAULT_FORM_LAYOUT, columns: 1 },
+};
 const base = process.env.HELP_CAPTURE_URL || 'http://127.0.0.1:5173';
 const output = resolve(process.env.HELP_CAPTURE_OUTPUT || 'app/public/help');
 await mkdir(output, { recursive: true });
@@ -98,6 +106,42 @@ const demoIdentity = {
   revision: 0,
   hasSecret: true,
 };
+let anonymous = false;
+const demoProjects = [
+  {
+    id: 'abcdefabcdefabcdefabcdef',
+    number: 'PRJ0000001',
+    name: 'Service Reliability',
+    description: 'Improve service readiness and response.',
+    ownerIds: [],
+    ownerGroupIds: [],
+    revision: 0,
+  },
+];
+const demoMilestones = [
+  {
+    id: 'abcdabcdabcdabcdabcdabcd',
+    number: 'MS0000001',
+    title: 'Launch Readiness',
+    projectId: demoProjects[0].id,
+    projectName: demoProjects[0].name,
+    targetDate: '2026-11-01',
+    status: 'blocked',
+    description: 'Complete the readiness review.',
+    taskIds: [],
+    revision: 0,
+  },
+];
+const projectFeed = [
+  {
+    id: 'fedcfedcfedcfedcfedcfedc',
+    projectId: demoProjects[0].id,
+    action: 'Project created',
+    actor: 'Alex Demo',
+    createdAt: '2026-10-16T12:00:00Z',
+  },
+];
+let pinnedRecords = { groups: [{ id: 'general', name: 'General' }], items: [], revision: 0 };
 const user = {
   id: 'demo-user',
   email: 'alex@example.test',
@@ -425,6 +469,7 @@ await context.route('**/api/**', async (route) => {
         rcas: demoRcas.length,
         attachments: 0,
         activity: 1,
+        milestones: demoMilestones.length,
         'monitor-events': 1,
         integrations: 1,
         deliveries: 2,
@@ -439,9 +484,11 @@ await context.route('**/api/**', async (route) => {
   } else if (path === '/rca-fields') {
     if (request.method() === 'PUT') {
       rcaFields = validateFields(request.postDataJSON().fields, rcaFields, RCA_FIELDS, 'rcas');
+      if (request.postDataJSON().layout)
+        formLayouts.rcas = validateFormLayout(request.postDataJSON().layout, rcaFields);
       rcaRevision++;
     }
-    data = { fields: rcaFields, revision: rcaRevision };
+    data = { fields: rcaFields, layout: formLayouts.rcas, revision: rcaRevision };
   } else if (path === '/rcas' && request.method() === 'POST') {
     const input = {
       ...validateRca(request.postDataJSON()),
@@ -498,7 +545,11 @@ await context.route('**/api/**', async (route) => {
       generatedAt: '2026-10-10T17:05:06Z',
     };
   else if (path === '/incident-fields')
-    data = { fields: [...BUILTIN_FIELDS, ...visibilityFields], revision: 0 };
+    data = {
+      fields: [...BUILTIN_FIELDS, ...visibilityFields],
+      layout: formLayouts.incidents,
+      revision: 0,
+    };
   else if (path === '/incidents') {
     incidentListSources.push(url.searchParams.get('source'));
     const rows =
@@ -778,7 +829,11 @@ await context.route('**/api/**', async (route) => {
     });
     data = { items: filtered, total: filtered.length, page: 1, pageSize: 10 };
   } else if (path === '/knowledge-fields')
-    data = { fields: [...workBuiltinFields('knowledge'), ...visibilityFields], revision: 0 };
+    data = {
+      fields: [...workBuiltinFields('knowledge'), ...visibilityFields],
+      layout: formLayouts.knowledge,
+      revision: 0,
+    };
   else if (path === '/on-call')
     data = {
       shifts: [
@@ -825,14 +880,21 @@ await context.route('**/api/**', async (route) => {
   } else if (path === '/auth/me') {
     authStarted?.();
     if (authWait) await authWait;
-    data = { user };
+    data = { user: anonymous ? null : user };
   } else if (path === '/task-fields' && request.method() === 'PUT') {
     const body = request.postDataJSON();
     builderFields = validateFields(body.fields, builderFields, workBuiltinFields('tasks'), 'tasks');
+    if (body.layout) formLayouts.tasks = validateFormLayout(body.layout, builderFields);
     builderRevision++;
     data = { ok: true };
   } else if (path === '/task-fields')
-    data = { fields: [...builderFields, ...visibilityFields], revision: builderRevision };
+    data = {
+      fields: [...builderFields, ...visibilityFields],
+      layout: formLayouts.tasks,
+      revision: builderRevision,
+    };
+  else if (path === '/services' && request.method() === 'POST')
+    data = { item: { ...services[0], name: request.postDataJSON().name } };
   else if (path === '/services') data = { services };
   else if (path === '/collections') data = { collections: [] };
   else if (path === '/members')
@@ -968,6 +1030,8 @@ await context.route('**/api/**', async (route) => {
       subscriptionButtonVisible: false,
     };
   } else if (path === '/groups') data = { groups: [] };
+  else if (path === '/monitors' && request.method() === 'POST')
+    data = { monitor: { ...monitors[0], name: request.postDataJSON().name } };
   else if (path === '/monitors') data = { monitors };
   else if (path === `/monitors/${monitors[0].id}/check` && request.method() === 'POST') {
     monitors[0].manualCheckPending = true;
@@ -985,7 +1049,7 @@ await context.route('**/api/**', async (route) => {
       Object.assign(monitors[0], body);
     }
     data = { monitor: monitors[0] };
-  } else if (path.startsWith(`/monitors/${monitors[0].id}/events/`))
+  } else if (path.startsWith(`/monitors/${monitors[0].id}/events/`) || /^\/events\/[a-f\d]{24}$/.test(path))
     data = {
       monitor: { id: monitors[0].id, name: monitors[0].name, serviceId: monitors[0].serviceId },
       event: {
@@ -1039,7 +1103,62 @@ await context.route('**/api/**', async (route) => {
       pageSize: 10,
       page: 1,
     };
-  else if (path === '/tables/audit') {
+  else if (path === '/pins') {
+    if (request.method() === 'PUT')
+      pinnedRecords = { ...request.postDataJSON(), revision: pinnedRecords.revision + 1 };
+    data = pinnedRecords;
+  } else if (path === '/project-overview') {
+    data = {
+      projects: demoProjects.map((p) => ({ ...p, total: 5, done: 2, progress: 40 })),
+      total: 5,
+      done: 2,
+      overdue: 1,
+      blocked: 1,
+      upcoming: demoMilestones,
+      overdueTasks: [{ ...tasks[0], dueDate: '2026-10-01' }],
+      workload: [{ name: 'Alex Demo', count: 3 }],
+    };
+  } else if (path === '/tables/projects')
+    data = {
+      rows: demoProjects.map((p) => ({
+        ...p,
+        total: 5,
+        done: 2,
+        progress: 40,
+        owners: 'Alex Demo',
+        groups: 'Operations',
+      })),
+      total: demoProjects.length,
+    };
+  else if (path === '/tables/project-milestones')
+    data = { rows: demoMilestones, total: demoMilestones.length };
+  else if (path === '/tables/project-activity')
+    data = { rows: projectFeed, total: projectFeed.length };
+  else if (path === '/project-milestones' && request.method() === 'POST') {
+    const item = {
+      id: 'aaaabbbbccccddddeeeeffff',
+      number: 'MS0000002',
+      ...request.postDataJSON(),
+      revision: 0,
+    };
+    demoMilestones.push(item);
+    data = { item };
+  } else if (path.startsWith('/project-milestones/')) {
+    const item = demoMilestones.find((m) => m.id === path.split('/').pop());
+    if (request.method() === 'PATCH')
+      Object.assign(item, request.postDataJSON(), { revision: item.revision + 1 });
+    data = { item, tasks: [] };
+  } else if (path.endsWith('/comments') && path.startsWith('/projects/')) {
+    projectFeed.unshift({
+      id: 'ffffeeeeaaaabbbbccccdddd',
+      projectId: demoProjects[0].id,
+      action: 'Comment',
+      actor: 'Alex Demo',
+      body: request.postDataJSON().body,
+      createdAt: new Date().toISOString(),
+    });
+    data = { ok: true };
+  } else if (path === '/tables/audit') {
     const size = Number(url.searchParams.get('pageSize') || 10),
       start = (Number(url.searchParams.get('page') || 1) - 1) * size;
     data = { rows: demoAuditRows.slice(start, start + size), total: demoAuditRows.length };
@@ -1132,10 +1251,46 @@ await context.route('**/api/**', async (route) => {
             .includes(url.searchParams.get('columnSearch').toLowerCase())),
     );
     data = { rows, total: rows.length };
-  } else if (path === '/tasks') {
+  } else if (path === '/projects' && request.method() === 'POST') {
+    const item = { id: 'fedcbafedcbafedcbafedcba', ...request.postDataJSON(), revision: 0 };
+    demoProjects.push(item);
+    data = { item };
+  } else if (path === '/operational-automation')
+    data = { revision: 0, eventRules: [], escalationPolicies: [], maintenanceWindows: [] };
+  else if (path === '/monitor-probes') data = { revision: 0, probes: [] };
+  else if (path.startsWith('/projects/') && request.method() === 'GET')
+    data = {
+      item: demoProjects.find((row) => row.id === path.split('/').pop()),
+      projectCount: demoProjects.length,
+      owners: [],
+      groups: [],
+    };
+  else if (path.startsWith('/projects/') && request.method() === 'PATCH') {
+    const item = demoProjects.find((row) => row.id === path.split('/').pop());
+    Object.assign(item, request.postDataJSON(), { revision: (item.revision || 0) + 1 });
+    data = { item };
+  } else if (path.startsWith('/projects/') && request.method() === 'DELETE') {
+    const index = demoProjects.findIndex((row) => row.id === path.split('/').pop());
+    assert.notEqual(demoProjects[index].id, request.postDataJSON().targetProjectId);
+    assert.ok(demoProjects.length > 1);
+    demoProjects.splice(index, 1);
+    data = { ok: true, targetProjectId: request.postDataJSON().targetProjectId };
+  } else if (path === '/references/projects')
+    data = {
+      options: demoProjects
+        .filter((row) => row.id !== url.searchParams.get('excludeId'))
+        .map((row) => ({ id: row.id, label: row.name })),
+      selected: demoProjects
+        .filter((row) => row.id === url.searchParams.get('selected'))
+        .map((row) => ({ id: row.id, label: row.name })),
+      hasMore: false,
+    };
+  else if (path === '/tasks') {
     const rows = tasks
       .filter(
         (task) =>
+          (!url.searchParams.get('projectId') ||
+            task.projectId === url.searchParams.get('projectId')) &&
           (!url.searchParams.get('status') || task.status === url.searchParams.get('status')) &&
           (!url.searchParams.get('statusOption') ||
             (task.statusOption ?? task.status) === url.searchParams.get('statusOption')) &&
@@ -1241,7 +1396,7 @@ async function captureRcaWorkflows() {
   await page.getByLabel('Detection gap', { exact: true }).fill('Missing timeout alert');
   // Restore the fixture so the remaining captures use the default form.
   rcaFields = RCA_FIELDS;
-  await page.goto(`${base}/settings?section=alert-grouping`);
+  await page.goto(`${base}/alert-grouping`);
   const groupingWindow = page.getByLabel('Alert grouping window (seconds)', { exact: true });
   await groupingWindow.waitFor();
   assert.equal(await groupingWindow.inputValue(), '30');
@@ -1393,6 +1548,17 @@ async function captureOverview() {
     await page.locator('[aria-label="Assignment overview"] .assignment-report').count(),
     4,
   );
+  const attention = page.locator('[aria-labelledby="overview-attention-title"]');
+  assert.equal(await attention.locator('[data-score-tone]').count(), 4);
+  assert.ok(
+    await attention.evaluate(
+      (node) =>
+        node.getBoundingClientRect().top <
+        document.querySelector('[aria-labelledby="quick-start-heading"]').getBoundingClientRect()
+          .top,
+    ),
+  );
+  await attention.getByRole('link', { name: 'View Alerts' }).waitFor();
   await page.screenshot({ path: `${output}/dashboard-overview.png` });
   await page.screenshot({ path: `${output}/readme-dashboard-dark.png` });
   await page.setViewportSize({ width: 390, height: 844 });
@@ -1403,7 +1569,12 @@ async function captureOverview() {
     bounds.x >= 0 && bounds.x + bounds.width <= 390 && bounds.y + bounds.height <= 844,
     'Assignment panels remain within the mobile viewport and scroll into view',
   );
+  const bottom = page.getByRole('link', { name: 'Service Status', exact: true }).last();
+  await bottom.scrollIntoViewIfNeeded();
+  assert.ok(await bottom.isVisible(), 'Bottom shortcuts are reachable on mobile');
   await page.setViewportSize({ width: 1440, height: 960 });
+  await bottom.scrollIntoViewIfNeeded();
+  assert.ok(await bottom.isVisible(), 'Bottom shortcuts are reachable on desktop');
 }
 
 async function captureCollaboration() {
@@ -1760,7 +1931,25 @@ async function captureReadmeRecords() {
   if (await page.evaluate(() => document.documentElement.dataset.theme !== 'dark'))
     await page.getByRole('button', { name: 'Dark mode', exact: true }).click();
   await page.waitForFunction(() => document.documentElement.dataset.theme === 'dark');
-  await captureRecordExports();
+  user.uiPreferences = { ...user.uiPreferences, rightCollapsed: true };
+  if (!demoRcas.length)
+    demoRcas.push({
+      id: 'fafafafafafafafafafafafa',
+      number: 'RCA0000001',
+      title: 'Checkout interruption review',
+      status: 'completed',
+      revision: 0,
+      summary: 'Review the interruption, recovery and prevention work.',
+      impact: 'Checkout requests were delayed during the interruption.',
+      rootCause: 'A missing connection timeout exhausted the request pool.',
+      contributingFactors: 'Timeout alerts did not cover the dependency path.',
+      correctiveActions: 'Add bounded timeouts and recovery checks.',
+      lessonsLearned: 'Exercise dependency failures before release.',
+      incidentIds: [demoIncident.id],
+      taskIds: [tasks[0].id],
+      fields: RCA_FIELDS,
+      custom: {},
+    });
   demoIncident.title = 'Checkout availability restored';
   demoIncident.description =
     'Checkout requests failed after a dependency connection pool was exhausted. The team restored service and is tracking prevention work in the linked RCA.';
@@ -1779,7 +1968,7 @@ async function captureReadmeRecords() {
   await page.getByRole('button', { name: 'Edit Record', exact: true }).waitFor();
   await page.screenshot({ path: `${output}/readme-incident-dark.png` });
   await page.goto(`${base}/rcas/${demoRcas[0].id}`);
-  await page.locator('.knowledge-reader h1').waitFor();
+  await page.locator('.rca-reader [data-record-field=title] dd').waitFor();
   await page.getByRole('button', { name: 'Edit Record', exact: true }).waitFor();
   await page.screenshot({ path: `${output}/readme-rca-dark.png` });
   await page.getByRole('button', { name: 'Expand Navigation', exact: true }).click();
@@ -2145,7 +2334,7 @@ async function captureEventManagement() {
 async function captureSettingsAndKeywords() {
   user.role = 'admin';
   await page.setViewportSize({ width: 1440, height: 960 });
-  await page.goto(`${base}/settings?section=alert-grouping`);
+  await page.goto(`${base}/settings`);
   await page.getByRole('navigation', { name: 'Settings categories' }).waitFor();
   assert.equal(await page.getByRole('heading', { name: 'Demo Data', exact: true }).count(), 0);
   await page.screenshot({ path: `${output}/settings-navigation.png` });
@@ -2248,6 +2437,628 @@ async function verifyFormHeadingRows() {
 }
 
 try {
+  if (process.env.HELP_CAPTURE_FOCUS === 'automation-headers') {
+    user.role = 'admin';
+    for (const [path, title] of [
+      ['event-rules', 'Event Rules'],
+      ['escalation-policies', 'Escalation Policies'],
+      ['maintenance-windows', 'Maintenance Windows'],
+    ]) {
+      await page.goto(`${base}/${path}`);
+      await page
+        .locator('.record-header-actions')
+        .getByRole('button', { name: 'Create', exact: true })
+        .click();
+      assert.equal(
+        await page.getByRole('heading', { name: title, exact: true }).count(),
+        1,
+        'Breadcrumb owns the only page title',
+      );
+      await page
+        .locator('.record-header-actions')
+        .getByRole('button', { name: 'Save', exact: true })
+        .waitFor();
+      await page.getByRole('textbox', { name: 'Name', exact: true }).fill('Unsaved configuration');
+      await page
+        .locator('.record-header-actions')
+        .getByRole('button', { name: 'Cancel', exact: true })
+        .click();
+      await page
+        .getByRole('dialog', { name: 'Discard Unsaved Changes?', exact: true })
+        .getByRole('button', { name: 'Discard Changes', exact: true })
+        .click();
+      await page
+        .locator('.record-header-actions')
+        .getByRole('button', { name: 'Create', exact: true })
+        .waitFor();
+    }
+    await page.goto(`${base}/probe-agents`);
+    await page
+      .locator('.record-header-actions')
+      .getByRole('button', { name: 'Create', exact: true })
+      .waitFor();
+    await page.screenshot({ path: `${output}/probe-agents.png` });
+    assert.deepEqual(faults, []);
+    console.log('Verified one title, header-only actions, and dirty Cancel on automation forms.');
+    await browser.close();
+    process.exit(0);
+  }
+  if (process.env.HELP_CAPTURE_FOCUS === 'alert-grouping') {
+    user.role = 'admin';
+    await page.goto(`${base}/alert-grouping`);
+    const input = page.getByLabel('Alert grouping window (seconds)', { exact: true });
+    await input.waitFor();
+    await input.fill('301');
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    assert.equal(workspaceConfig.alertGroupingSeconds, 30);
+    await input.fill('0');
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await page.getByText('Alert grouping saved.', { exact: true }).waitFor();
+    assert.equal(workspaceConfig.alertGroupingSeconds, 0);
+    await page.reload();
+    assert.equal(await input.inputValue(), '0');
+    await page.screenshot({ path: `${output}/alert-grouping-settings.png` });
+    assert.deepEqual(faults, []);
+    console.log('Verified Alert Grouping renders, validates, saves, and reloads.');
+    await browser.close();
+    process.exit(0);
+  }
+  if (process.env.HELP_CAPTURE_FOCUS === 'readonly-pencils') {
+    user.role = 'admin';
+    user.uiPreferences = { ...user.uiPreferences, rightCollapsed: true };
+    await page.setViewportSize({ width: 390, height: 720 });
+    await page.goto(`${base}/tasks/${tasks[0].id}`);
+    const field = page.locator('[data-record-field="title"]').first();
+    const pencil = page.getByRole('button', { name: 'Edit Title', exact: true });
+    await pencil.scrollIntoViewIfNeeded();
+    const valueBox = await field.locator('dd').boundingBox(),
+      pencilBox = await pencil.boundingBox();
+    assert.ok(
+      pencilBox.x >= valueBox.x && pencilBox.x + pencilBox.width <= valueBox.x + valueBox.width,
+    );
+    assert.ok(
+      pencilBox.y >= valueBox.y && pencilBox.y + pencilBox.height <= valueBox.y + valueBox.height,
+    );
+    await page.screenshot({ path: `${output}/task-field-readonly.png` });
+    await pencil.press('Enter');
+    await page.getByRole('textbox', { name: /^Title/ }).waitFor();
+    await page.waitForFunction(
+      () => document.activeElement?.closest('[data-record-field]')?.dataset.recordField === 'title',
+    );
+    assert.equal(await page.locator('.record-field-pencil').count(), 0);
+    await page.getByRole('textbox', { name: /^Description/ }).waitFor();
+    await page.screenshot({ path: `${output}/task-field-editing.png` });
+    const titleInput = page.getByRole('textbox', { name: /^Title/ });
+    const savedTitle = await titleInput.inputValue();
+    await titleInput.fill('Unsaved task title');
+    await page.getByRole('button', { name: 'Cancel', exact: true }).first().click();
+    const discard = page.getByRole('dialog', { name: 'Discard Unsaved Changes?', exact: true });
+    await discard.getByRole('button', { name: 'Keep Editing', exact: true }).click();
+    assert.equal(await titleInput.inputValue(), 'Unsaved task title');
+    await page.getByRole('button', { name: 'Cancel', exact: true }).first().click();
+    await discard.getByRole('button', { name: 'Discard Changes', exact: true }).click();
+    await page.getByRole('button', { name: 'Edit Title', exact: true }).click();
+    assert.equal(await titleInput.inputValue(), savedTitle);
+
+    await page.getByRole('button', { name: 'Cancel', exact: true }).first().click();
+    await field.locator('dd').dblclick();
+    await page.getByRole('textbox', { name: /^Title/ }).waitFor();
+    await page.getByRole('button', { name: 'Cancel', exact: true }).first().click();
+    await page.setViewportSize({ width: 1440, height: 960 });
+    await page.goto(`${base}/services/${services[0].id}`);
+    await nameInput.dblclick({ force: true });
+    await page.waitForFunction(
+      () => !document.querySelector('input[name="name"]')?.matches(':disabled'),
+    );
+    assert.equal(await page.locator('.record-field-pencil').count(), 0);
+    await page.getByRole('button', { name: 'Cancel', exact: true }).first().click();
+    await page.getByRole('button', { name: 'Edit Name', exact: true }).waitFor();
+    await page.screenshot({ path: `${output}/service-field-readonly.png` });
+    user.role = 'viewer';
+    await page.goto(`${base}/tasks/${tasks[0].id}`);
+    await field.locator('dd').waitFor();
+    assert.equal(await page.locator('.record-field-pencil').count(), 0);
+    await field.locator('dd').dblclick();
+    assert.equal(await page.getByRole('button', { name: 'Save', exact: true }).count(), 0);
+    assert.deepEqual(faults, []);
+    console.log(
+      'Verified read-only pencils, mobile inset, whole-record edit/focus, keyboard/double-click, and viewer restrictions.',
+    );
+    await browser.close();
+    process.exit(0);
+  }
+  if (process.env.HELP_CAPTURE_FOCUS === 'immutable-record-fields') {
+    user.role = 'admin';
+    user.uiPreferences = { ...user.uiPreferences, rightCollapsed: true };
+    await page.goto(`${base}/alerts/${demoEventAlert.id}`);
+    const summary = page.getByRole('region', { name: 'Alert Details', exact: true });
+    await summary.waitFor();
+    for (const label of ['Title', 'Description']) await summary.locator('dt').getByText(label, { exact: true }).waitFor();
+    const source = page.getByRole('region', { name: 'Source and Status', exact: true });
+    for (const label of ['Source', 'Source Type', 'Status', 'Severity', 'Service', 'Latest Event']) await source.locator('dt').getByText(label, { exact: true }).waitFor();
+    await source.locator(`a[href="/events/${demoExternalEvent.id}"]`).waitFor();
+    assert.equal(await page.getByRole('button', { name: 'Edit Record', exact: true }).count(), 0);
+    await page.screenshot({ path: `${output}/event-alert.png` });
+    await page.goto(`${base}/events/${demoExternalEvent.id}`);
+    await page.getByRole('region', { name: 'Source and Correlation', exact: true }).waitFor();
+    await page.locator(`a[href="/alerts/${demoEventAlert.id}"]`).waitFor();
+    await page.screenshot({ path: `${output}/external-event.png` });
+    await page.setViewportSize({ width: 390, height: 720 });
+    await page.getByRole('tablist', { name: 'Related information', exact: true }).scrollIntoViewIfNeeded();
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+    await page.goto(`${base}/records/audit/${demoAuditRows[0].id}`);
+    await page.getByRole('region', { name: 'Audit Entry Details', exact: true }).waitFor();
+    assert.ok(await page.locator('dt').count() > 0);
+    assert.deepEqual(faults, []);
+    console.log('Verified labeled alert/event/log fields, linked records, immutable controls and mobile scrolling.');
+    await browser.close();
+    process.exit(0);
+  }
+  if (process.env.HELP_CAPTURE_FOCUS === 'knowledge-base-edit') {
+    demoArticles.push({ id: 'bbbbbbbbbbbbbbbbbbbbbbbc', number: 'KB0000001', title: 'Customer portal recovery', articleType: 'article', status: 'published', createdBy: 'Alex Demo', updatedAt: '2026-10-17T12:00:00Z', knowledgeBaseId: demoBases[0].id, summary: 'Verify service health and restore customer access.' });
+    user.role = 'admin';
+    user.uiPreferences = { ...user.uiPreferences, rightCollapsed: true };
+    await page.goto(`${base}/knowledge/bases/${demoBases[0].id}`);
+    const articles = page.getByRole('region', { name: 'Articles', exact: true });
+    const name = page.getByRole('textbox', { name: 'Name', exact: true });
+    await name.waitFor();
+    for (let cycle = 0; cycle < 3; cycle++) {
+      assert.equal(await articles.count(), 1, 'One article section before editing');
+      await name.dblclick({ force: true });
+      await page.getByRole('button', { name: 'Save', exact: true }).waitFor();
+      assert.equal(await articles.count(), 1, 'One article section while editing');
+      await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+      await page.getByRole('button', { name: 'Edit Record', exact: true }).waitFor();
+      assert.equal(await articles.count(), 1, 'One article section after Cancel');
+    }
+    await page.getByRole('button', { name: 'Edit Record', exact: true }).click();
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await page.getByRole('button', { name: 'Edit Record', exact: true }).waitFor();
+    assert.equal(await articles.count(), 1, 'One article section after Save');
+    await page.screenshot({ path: `${output}/knowledge-base-articles.png` });
+    await page.setViewportSize({ width: 390, height: 720 });
+    await name.dblclick({ force: true });
+    await page.getByRole('button', { name: 'Save', exact: true }).waitFor();
+    assert.equal(await articles.count(), 1);
+    await articles.scrollIntoViewIfNeeded();
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+    assert.deepEqual(faults, []);
+    console.log('Verified a single article panel across repeated double-click Edit, Cancel, Save and mobile transitions.');
+    await browser.close();
+    process.exit(0);
+  }
+  if (process.env.HELP_CAPTURE_FOCUS === 'pin-details') {
+    user.role = 'admin';
+    tasks[0].number = 'TASK0000001';
+    tasks[0].serviceName = 'Customer Portal';
+    await page.goto(`${base}/tasks/${tasks[0].id}`);
+    await page.getByRole('button', { name: 'Record actions', exact: true }).click();
+    await page.getByRole('button', { name: 'Pin Record', exact: true }).click();
+    const modal = page.getByRole('dialog', { name: 'Pin Record', exact: true });
+    await modal.getByText('Task', { exact: true }).waitFor();
+    await modal.getByRole('button', { name: 'Pin', exact: true }).click();
+    await page.goto(`${base}/pinned`);
+    await page.getByRole('heading', { name: 'Pinned', exact: true }).waitFor();
+    await page.getByRole('link', { name: tasks[0].title, exact: true }).waitFor();
+    await page.getByText('Task', { exact: true }).waitFor();
+    await page.getByText('TASK0000001', { exact: false }).waitFor();
+    await page.getByText('Service: Customer Portal', { exact: true }).waitFor();
+    await page.screenshot({ path: `${output}/pinned-records.png` });
+    await page.setViewportSize({ width: 390, height: 720 });
+    await page.getByRole('link', { name: tasks[0].title, exact: true }).scrollIntoViewIfNeeded();
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+    assert.deepEqual(faults, []);
+    console.log('Verified Pinned header and contextual record descriptions on desktop and mobile.');
+    await browser.close();
+    process.exit(0);
+  }
+  if (process.env.HELP_CAPTURE_FOCUS === 'standalone-tasks') {
+    user.role = 'admin';
+    user.uiPreferences = { ...user.uiPreferences, leftCollapsed: false };
+    await page.goto(`${base}/tasks`);
+    await page.getByRole('link', { name: 'List View', exact: true }).waitFor();
+    assert.equal(await page.getByRole('combobox', { name: 'Project', exact: true }).count(), 0);
+    const search = page.locator('.list-search-input').first();
+    await search.waitFor();
+    assert.equal(await search.locator('svg').count(), 1);
+    await page.screenshot({ path: `${output}/readme-tasks-dark.png` });
+    await page.getByRole('link', { name: 'List View', exact: true }).click();
+    await page.getByRole('searchbox', { name: 'Search list', exact: true }).waitFor();
+    const ascending = page.waitForRequest((req) => req.url().includes('/api/tasks?') && new URL(req.url()).searchParams.get('sortBy') === 'number' && new URL(req.url()).searchParams.get('order') === 'asc');
+    await page.getByRole('button', { name: 'Record Number', exact: true }).click();
+    await ascending;
+    const descending = page.waitForRequest((req) => req.url().includes('/api/tasks?') && new URL(req.url()).searchParams.get('sortBy') === 'number' && new URL(req.url()).searchParams.get('order') === 'desc');
+    await page.getByRole('button', { name: 'Record Number', exact: true }).click();
+    await descending;
+    await page.screenshot({ path: `${output}/tasks-list.png` });
+    await page.goto(`${base}/tasks?view=archived`);
+    await page.getByRole('button', { name: 'Archived Tasks actions', exact: true }).click();
+    await page.getByRole('link', { name: 'Active Tasks', exact: true }).waitFor();
+    await page.keyboard.press('Escape');
+    assert.equal(await page.getByText('Only archived tasks are shown.', { exact: false }).count(), 0);
+    await page.screenshot({ path: `${output}/task-archived.png` });
+    await page.goto(`${base}/tasks/new`);
+    await page.getByRole('textbox', { name: /^Title/ }).waitFor();
+    assert.equal(await page.getByRole('combobox', { name: 'Project', exact: true }).count(), 0);
+    await page.goto(`${base}/projects`);
+    await page.waitForURL(`${base}/tasks`);
+    await page.setViewportSize({ width: 390, height: 720 });
+    await page.goto(`${base}/tasks?view=list`);
+    await page.getByRole('searchbox', { name: 'Search list', exact: true }).waitFor();
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+    assert.deepEqual(faults, []);
+    console.log('Verified standalone Tasks, project-free forms, legacy redirect and inset search icons on desktop/mobile.');
+    await browser.close();
+    process.exit(0);
+  }
+  if (process.env.HELP_CAPTURE_FOCUS === 'record-layouts') {
+    user.role = 'admin';
+    user.uiPreferences = { ...user.uiPreferences, rightCollapsed: true };
+    await page.setViewportSize({ width: 1440, height: 960 });
+    await page.goto(`${base}/tasks/fields`);
+    await page.getByRole('button', { name: 'Edit', exact: true }).click();
+    await page.getByRole('button', { name: 'Add Section', exact: true }).click();
+    await page.getByRole('textbox', { name: 'Section 1 name', exact: true }).fill('Assignment');
+    await page.getByRole('combobox', { name: 'Columns', exact: true }).last().click();
+    await page.getByRole('option', { name: 'Single Column', exact: true }).click();
+    await page
+      .getByRole('button', { name: /^Title.*System Field/ })
+      .first()
+      .click();
+    await page.getByRole('combobox', { name: 'Section', exact: true }).click();
+    await page.getByRole('option', { name: 'Assignment', exact: true }).click();
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await page.getByText('Form saved.', { exact: true }).waitFor();
+    assert.equal(formLayouts.tasks.sections[0].label, 'Assignment');
+    assert.equal(formLayouts.tasks.sections[0].showName, true);
+    await page.getByRole('button', { name: 'Edit', exact: true }).click();
+    await page.getByRole('checkbox', { name: 'Show section name', exact: true }).uncheck();
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await page.getByText('Form saved.', { exact: true }).waitFor();
+    assert.equal(formLayouts.tasks.sections[0].showName, false);
+    await page.getByRole('button', { name: 'Close field settings', exact: true }).click();
+    await page.screenshot({ path: `${output}/form-builder-sections.png` });
+    await page.goto(`${base}/tasks/${tasks[0].id}`);
+    const field = page.locator('[data-record-field="title"]').first();
+    await field.waitFor();
+    assert.equal(await page.locator('[data-form-section] h3').count(), 0);
+    const sections = await page
+      .locator('[data-form-section]')
+      .evaluateAll((nodes) => nodes.map((node) => node.dataset.formSection));
+    await page.setViewportSize({ width: 390, height: 720 });
+    const pencil = page.getByRole('button', { name: 'Edit Title', exact: true });
+    await pencil.scrollIntoViewIfNeeded();
+    const valueBox = await field.locator('dd').boundingBox();
+    const pencilBox = await pencil.boundingBox();
+    assert.ok(
+      pencilBox.x >= valueBox.x && pencilBox.x + pencilBox.width <= valueBox.x + valueBox.width,
+      'Pencil stays inside the read-only value',
+    );
+    assert.ok(
+      pencilBox.y >= valueBox.y && pencilBox.y + pencilBox.height <= valueBox.y + valueBox.height,
+      'Pencil is vertically within the field',
+    );
+    await page.screenshot({ path: `${output}/task-field-readonly.png` });
+    await pencil.click();
+    await page.getByRole('textbox', { name: /^Title/ }).waitFor();
+    await page.waitForFunction(
+      () => document.activeElement?.closest('[data-record-field]')?.dataset.recordField === 'title',
+    );
+    assert.equal(
+      await page.locator('.record-field-pencil').count(),
+      0,
+      'Edit mode has no pencil affordances',
+    );
+    assert.deepEqual(
+      await page
+        .locator('[data-form-section]')
+        .evaluateAll((nodes) => nodes.map((node) => node.dataset.formSection)),
+      sections,
+    );
+    await page.screenshot({ path: `${output}/task-field-editing.png` });
+    await page.getByRole('button', { name: 'Cancel', exact: true }).first().click();
+    await field.locator('dd').dblclick();
+    await page.getByRole('textbox', { name: /^Title/ }).waitFor();
+    await page.getByRole('button', { name: 'Cancel', exact: true }).first().click();
+    await page.setViewportSize({ width: 1440, height: 960 });
+    await page.goto(`${base}/services/${services[0].id}`);
+    const nameInput = page.getByRole('textbox', { name: /^Name/ }).first();
+    await nameInput.waitFor();
+    assert.equal(await nameInput.isDisabled(), true);
+    await nameInput.dblclick({ force: true });
+    await page.waitForFunction(
+      () => !document.querySelector('input[name="name"]')?.matches(':disabled'),
+    );
+    assert.equal(await page.locator('.record-field-pencil').count(), 0);
+    await page.screenshot({ path: `${output}/service-field-editing.png` });
+    user.role = 'viewer';
+    await page.goto(`${base}/tasks/${tasks[0].id}`);
+    await page.locator('[data-record-field="title"] dd').dblclick();
+    assert.equal(await page.getByRole('button', { name: 'Save', exact: true }).count(), 0);
+    assert.equal(
+      await page.locator('.record-field-pencil').count(),
+      0,
+      'Viewers cannot edit fields',
+    );
+    assert.deepEqual(faults, []);
+    console.log(
+      'Verified section configuration, matching layouts, double-click editing, permission checks and mobile pencil spacing.',
+    );
+    await browser.close();
+    process.exit(0);
+  }
+  if (process.env.HELP_CAPTURE_FOCUS === 'event-navigation') {
+    user.role = 'admin';
+    await page.goto(`${base}/events`);
+    const link = page.getByRole('link', { name: /^EVT0000001$/, exact: true });
+    await link.click();
+    const nav = page.locator('.desktop-sidebar nav');
+    assert.equal(
+      await nav.getByRole('link', { name: 'Events', exact: true }).getAttribute('aria-current'),
+      'page',
+    );
+    assert.equal(
+      await nav.getByRole('link', { name: 'Monitors', exact: true }).getAttribute('aria-current'),
+      null,
+    );
+    const crumbs = page.getByRole('navigation', { name: 'Breadcrumb', exact: true });
+    await crumbs.getByRole('link', { name: /^Monitor:/ }).waitFor();
+    assert.equal(await crumbs.getByRole('link', { name: 'Events', exact: true }).getAttribute('href'), '/events');
+    await page.reload();
+    await crumbs.getByRole('link', { name: /^Monitor:/ }).waitFor();
+    await nav.getByRole('link', { name: 'Events', exact: true }).waitFor();
+    assert.equal(
+      await nav.getByRole('link', { name: 'Events', exact: true }).getAttribute('aria-current'),
+      'page',
+    );
+    const eventId = new URL(page.url()).pathname.split('/').at(-1);
+    await page.goto(`${base}/events/${eventId}`);
+    await crumbs.getByRole('link', { name: /^Monitor:/ }).waitFor();
+    assert.equal(await crumbs.getByRole('link', { name: 'Events', exact: true }).getAttribute('href'), '/events');
+    await page.screenshot({ path: `${output}/monitor-event-breadcrumbs.png` });
+    await page.goto(`${base}/events/${demoExternalEvent.id}`);
+    await page.getByRole('region', { name: 'Source and Correlation', exact: true }).waitFor();
+    assert.equal(await crumbs.getByRole('link', { name: /^Monitor:/ }).count(), 0);
+    assert.deepEqual(faults, []);
+    console.log(
+      'Verified monitor breadcrumbs on both event routes and Events navigation on record open and reload.',
+    );
+    await browser.close();
+    process.exit(0);
+  }
+  if (process.env.HELP_CAPTURE_FOCUS === 'navigation-groups') {
+    user.role = 'admin';
+    user.uiPreferences = { ...user.uiPreferences, leftCollapsed: false };
+    await page.setViewportSize({ width: 1440, height: 960 });
+    await page.goto(`${base}/help?topic=getting-started`);
+    const nav = page.locator('.desktop-sidebar nav[aria-label="Main navigation"]');
+    await nav.getByRole('button', { name: 'Automation & Connections', exact: true }).waitFor();
+    const expected = [
+      'Dashboard',
+      'Incidents',
+      'Services',
+      'Tasks',
+      'Pinned',
+      'Alerts',
+      'Events',
+      'Monitors',
+      'On Call',
+      'Knowledge',
+      'RCAs',
+      'Operational Reporting',
+      'Status Page',
+      'Event Rules',
+      'Escalation Policies',
+      'Maintenance Windows',
+      'Alert Grouping',
+      'Integrations',
+      'Probe Agents',
+    ];
+    assert.deepEqual(await nav.getByRole('link').allTextContents(), expected);
+    for (const heading of await nav.locator('.sidenav-group-heading').all()) {
+      assert.equal(
+        await heading.locator('span').evaluate((node) => getComputedStyle(node).whiteSpace),
+        'nowrap',
+      );
+    }
+    const monitor = nav.getByRole('button', { name: 'Monitor & Respond', exact: true });
+    await monitor.focus();
+    await page.keyboard.press('Enter');
+    assert.equal(await monitor.getAttribute('aria-expanded'), 'false');
+    assert.equal(await nav.getByRole('link', { name: 'Monitors', exact: true }).count(), 0);
+    await page.reload();
+    await monitor.waitFor();
+    assert.equal(await monitor.getAttribute('aria-expanded'), 'false');
+    await page.goto(`${base}/monitors`);
+    await page.waitForFunction(
+      () =>
+        document
+          .querySelector('[aria-controls="sidenav-monitor"]')
+          ?.getAttribute('aria-expanded') === 'true',
+    );
+    const last = nav.getByRole('link', { name: 'Probe Agents', exact: true });
+    await last.scrollIntoViewIfNeeded();
+    assert.ok((await last.boundingBox()).y < 960, 'Last sidebar link reachable');
+    await nav.evaluate((el) => (el.scrollTop = 0));
+    await page.screenshot({ path: `${output}/navigation-groups.png` });
+    await page.getByRole('button', { name: 'Collapse navigation', exact: true }).click();
+    const main = expected.slice(0, 5);
+    assert.deepEqual(await nav.getByRole('link').allTextContents(), main);
+    await nav.getByRole('button', { name: 'More', exact: true }).click();
+    const menu = page.locator('.action-menu:popover-open');
+    assert.deepEqual(await menu.getByRole('link').allTextContents(), expected.slice(5));
+    await page.keyboard.press('Escape');
+    await page.setViewportSize({ width: 390, height: 720 });
+    await page.getByRole('button', { name: 'Open navigation', exact: true }).click();
+    const mobile = page.getByRole('dialog', { name: 'Navigation', exact: true });
+    assert.deepEqual(
+      await mobile.getByRole('navigation').getByRole('link').allTextContents(),
+      main,
+    );
+    await mobile.getByRole('button', { name: 'More', exact: true }).click();
+    assert.deepEqual(
+      await page.locator('.action-menu:popover-open').getByRole('link').allTextContents(),
+      expected.slice(5),
+    );
+    await page.screenshot({ path: `${output}/navigation-groups-mobile.png` });
+    await page
+      .locator('.action-menu:popover-open')
+      .getByRole('link', { name: 'Integrations', exact: true })
+      .click();
+    await page.waitForURL(`${base}/integrations`);
+    assert.equal(await mobile.isVisible(), false);
+    await page.setViewportSize({ width: 1440, height: 720 });
+    user.uiPreferences = { ...user.uiPreferences, leftCollapsed: false, colorScheme: 'white' };
+    for (const role of ['responder', 'viewer', 'user', 'admin']) {
+      user.role = role;
+      await page.goto(`${base}/help`);
+      const expand = page.getByRole('button', { name: 'Expand Navigation', exact: true });
+      await nav.getByRole('link', { name: role === 'user' ? 'My incidents' : 'Dashboard', exact: true }).waitFor();
+      if (await expand.count()) await expand.click({ timeout: 1500 }).catch(() => {});
+      await nav
+        .getByRole('link', { name: role === 'user' ? 'My incidents' : 'Dashboard', exact: true })
+        .waitFor();
+      assert.equal(
+        await nav.getByRole('button', { name: 'Automation & Connections', exact: true }).count(),
+        role === 'admin' ? 1 : 0,
+      );
+      if (role === 'user')
+        assert.deepEqual(await nav.getByRole('link').allTextContents(), ['My incidents', 'Pinned']);
+    }
+    await nav
+      .getByRole('button', { name: 'Automation & Connections', exact: true })
+      .scrollIntoViewIfNeeded();
+    await page.screenshot({ path: `${output}/navigation-groups-light.png` });
+    assert.deepEqual(faults, []);
+    console.log(
+      'Verified group toggles, persistence, active expansion, single-line headers, shared order and mobile More.',
+    );
+    await browser.close();
+    process.exit(0);
+  }
+  if (process.env.HELP_CAPTURE_FOCUS === 'help-topics') {
+    await page.setViewportSize({ width: 1440, height: 960 });
+    await page.goto(`${base}/help?topic=getting-started`);
+    await page.getByRole('heading', { name: 'Getting Started', exact: true }).waitFor();
+    for (const topic of helpTopics) {
+      await page
+        .getByRole('navigation', { name: 'Help topics' })
+        .locator(`a[href="/help?topic=${topic.id}"]`)
+        .click();
+      await page
+        .getByRole('article')
+        .getByRole('heading', { name: topic.title, exact: true })
+        .waitFor();
+      const adjacent = page.getByRole('navigation', { name: 'Adjacent guides' });
+      assert.equal(await adjacent.getByRole('link').count(), 2);
+    }
+    await page.goto(`${base}/help`);
+    await page.getByRole('heading', { name: 'Browse Documentation', exact: true }).waitFor();
+    await page.getByRole('searchbox', { name: 'Search documentation' }).fill('escalation');
+    await page.getByRole('heading', { name: 'Search Results', exact: true }).waitFor();
+    await page.goto(`${base}/help?topic=configuration`);
+    await page
+      .getByRole('article')
+      .getByRole('heading', {
+        name: helpTopics.find((topic) => topic.id === 'configuration').title,
+        exact: true,
+      })
+      .waitFor();
+    await page.screenshot({ path: `${output}/help-navigation.png` });
+    await page.setViewportSize({ width: 390, height: 720 });
+    await page.goto(`${base}/help?topic=getting-started`);
+    await page.getByRole('heading', { name: 'Getting Started', exact: true }).waitFor();
+    const scroll = page.locator('.page-scroll-area');
+    await scroll.evaluate((el) => (el.scrollTop = el.scrollHeight));
+    assert.ok(
+      await scroll.evaluate((el) => el.scrollTop + el.clientHeight >= el.scrollHeight - 2),
+      'Help bottom remains reachable',
+    );
+    assert.deepEqual(faults, []);
+    console.log(
+      'Verified every Help topic, adjacent links, overview, search and mobile scrolling.',
+    );
+    await browser.close();
+    process.exit(0);
+  }
+  if (process.env.HELP_CAPTURE_FOCUS === 'quick-setup') {
+    user.role = 'admin';
+    await page.setViewportSize({ width: 1440, height: 960 });
+    await page.goto(`${base}/`);
+    await page.getByRole('link', { name: 'Quick Setup', exact: true }).click();
+    await page.getByRole('textbox', { name: 'Service Name', exact: true }).fill('Customer API');
+    await page.getByRole('button', { name: 'Create Service', exact: true }).click();
+    await page
+      .getByRole('textbox', { name: 'Endpoint URL', exact: true })
+      .fill('https://example.com/health');
+    await page.getByRole('button', { name: 'Create Monitor', exact: true }).click();
+    await page.getByRole('heading', { name: 'Notifications (optional)', exact: true }).waitFor();
+    await page.screenshot({ path: `${output}/quick-setup.png` });
+    await page.getByRole('button', { name: 'Skip', exact: true }).click();
+    await page.getByRole('heading', { name: 'On Call (optional)', exact: true }).waitFor();
+    await page.getByRole('button', { name: 'Skip', exact: true }).click();
+    await page.getByText('Your service and monitor are saved.', { exact: true }).waitFor();
+    await page.getByRole('button', { name: 'Create', exact: true }).click();
+    await page
+      .getByRole('dialog', { name: 'Create', exact: true })
+      .getByRole('link', { name: /Quick Setup/ })
+      .click();
+    await page.getByRole('textbox', { name: 'Service Name', exact: true }).waitFor();
+    await page.setViewportSize({ width: 390, height: 720 });
+    await page
+      .getByRole('button', { name: 'Create Service', exact: true })
+      .scrollIntoViewIfNeeded();
+    assert.deepEqual(faults, []);
+    console.log('Verified Quick Setup dashboard/global entry points and optional steps.');
+    await browser.close();
+    process.exit(0);
+  }
+  if (process.env.HELP_CAPTURE_FOCUS === 'sidebar-drawer') {
+    user.role = 'admin';
+    await page.setViewportSize({ width: 1440, height: 960 });
+    await page.goto(`${base}/settings`);
+    const expand = page.getByRole('button', { name: 'Expand Navigation', exact: true });
+    if (await expand.count()) await expand.click();
+    const nav = page.locator('.desktop-sidebar nav');
+    await nav.getByRole('link', { name: 'Alert Grouping', exact: true }).click();
+    await page.getByLabel('Alert grouping window (seconds)', { exact: true }).waitFor();
+    await page.screenshot({ path: `${output}/alert-grouping-settings.png` });
+    await nav.getByRole('link', { name: 'Integrations', exact: true }).click();
+    await page.waitForURL(`${base}/integrations`);
+    await page.getByRole('button', { name: 'Collapse navigation', exact: true }).click();
+    await page
+      .locator('.desktop-sidebar')
+      .getByRole('button', { name: 'More', exact: true })
+      .click();
+    await page
+      .locator('.desktop-sidebar')
+      .getByRole('link', { name: 'Alert Grouping', exact: true })
+      .click();
+    await page.waitForURL(`${base}/alert-grouping`);
+    await page.goto(`${base}/settings`);
+    const settings = page.getByRole('navigation', { name: 'Settings categories' });
+    assert.equal(
+      await settings.getByRole('button', { name: 'Integrations', exact: true }).count(),
+      0,
+    );
+    assert.equal(
+      await settings.getByRole('button', { name: 'Alert Grouping', exact: true }).count(),
+      0,
+    );
+    await page.screenshot({ path: `${output}/settings-navigation.png` });
+    await page.setViewportSize({ width: 390, height: 720 });
+    await page.getByRole('button', { name: 'Open navigation', exact: true }).click();
+    const mobile = page.getByRole('dialog', { name: 'Navigation', exact: true });
+    await mobile.getByRole('link', { name: 'Integrations', exact: true }).scrollIntoViewIfNeeded();
+    await mobile.getByRole('link', { name: 'Integrations', exact: true }).click();
+    await page.waitForURL(`${base}/integrations`);
+    assert.deepEqual(faults, []);
+    console.log(
+      'Verified drawer toggle and main navigation destinations across desktop, collapsed and mobile views.',
+    );
+    await browser.close();
+    process.exit(0);
+  }
   if (process.env.HELP_CAPTURE_FOCUS === 'event-related-bottom') {
     for (const width of [1440, 390]) {
       await page.setViewportSize({ width, height: 844 });
@@ -2413,6 +3224,45 @@ try {
   }
   if (process.env.HELP_CAPTURE_FOCUS === 'readme') {
     await captureReadmeRecords();
+    await captureOverview();
+    await page.goto(`${base}/tasks`);
+    await page.getByRole('link', { name: 'List View', exact: true }).waitFor();
+    await page.screenshot({ path: `${output}/readme-tasks-dark.png` });
+    if (!demoArticles.length)
+      demoArticles.push({
+        id: 'eeeeeeeeeeeeeeeeeeeeeeee',
+        number: 'KB0000001',
+        title: 'Checkout recovery guide',
+        summary: 'Restore availability and verify recovery.',
+        articleType: 'runbook',
+        status: 'published',
+        revision: 0,
+        createdBy: 'Alex Demo',
+        updatedAt: '2026-10-10T17:05:06Z',
+        content: 'Review dependency health and document recovery.',
+        steps: [
+          {
+            title: 'Check dependency health',
+            instructions: 'Review service status and recent monitor results.',
+          },
+          {
+            title: 'Restore service',
+            instructions: 'Apply the documented recovery steps and verify availability.',
+          },
+          {
+            title: 'Record the outcome',
+            instructions: 'Document recovery checks and follow-up work.',
+          },
+        ],
+        fields: workBuiltinFields('knowledge'),
+        custom: {},
+      });
+    await page.goto(`${base}/knowledge/${demoArticles[0].id}`);
+    await page.getByRole('heading', { name: 'Step-by-Step Process', exact: true }).waitFor();
+    await page.screenshot({ path: `${output}/readme-runbook-dark.png` });
+    await page.goto(`${base}/status`);
+    await page.getByRole('heading', { name: 'Service Status', exact: true }).waitFor();
+    await page.screenshot({ path: `${output}/readme-status-dark.png` });
     assert.deepEqual(faults, []);
     console.log('Captured record previews with expanded and collapsed navigation.');
     await browser.close();

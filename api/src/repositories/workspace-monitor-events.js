@@ -48,6 +48,7 @@ export function workspaceMonitorEvents(db, workspaceId, monitors, query = {}) {
   }
   const columns = [
     'number',
+    'region',
     'checkedAt',
     'occurredAt',
     'receivedAt',

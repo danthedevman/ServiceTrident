@@ -43,6 +43,7 @@ export const workFields = {
   ],
   knowledge: [
     ['articleType', 'Type', true],
+    ['knowledgeBaseId', 'Knowledge Base', false],
     ['title', 'Title', true],
     ['status', 'Status', true],
     ['serviceId', 'Service', false],

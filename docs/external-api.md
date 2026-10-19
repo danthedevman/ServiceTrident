@@ -90,3 +90,7 @@ MongoDB and PostgreSQL share the same authorization and persistence behavior. Po
 ### Diagnostic event payload
 
 Events may include an optional `payload` JSON object (maximum 32 KiB, six nested levels, 100 fields/items per object/array, 1,000 total values, and 8,192 characters per string). Unsupported or oversized data is rejected. Common credential-bearing fields, bearer tokens, and URL credentials are redacted before persistence. Never send secrets or private personal data; automated redaction is not a substitute for sender-side minimization. The authorized event record displays this object as escaped text; lists and audit history exclude it. Duplicate detection compares the sanitized accepted input. External ID, Correlation Key, Occurred At, and Received At are available for sorting and column filtering.
+
+Task creation accepts an optional `projectId` referencing an existing project in the same workspace. Send one identifier, not an array. Machine credentials cannot create projects.
+
+Task navigation uses the main Tasks link above Pinned. Task forms do not require or expose Project. Legacy project associations remain stored; project workspace routes redirect to Tasks. Form layout sections default to showing their name; `showName: false` hides only the heading.

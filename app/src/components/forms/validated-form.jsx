@@ -1,3 +1,5 @@
+import { UnsavedChanges } from './unsaved-changes.jsx';
+import { decorateRecordFields, useRecordFieldEditing } from './record-field-layout.jsx';
 import { monitorIntervalMinutes } from '../../../../shared/validation/monitor-interval.js';
 import { notify } from '../../data/toast.js';
 import React, { useEffect, useId, useRef, useState } from 'react';
@@ -15,7 +17,15 @@ function findControl(form, name) {
 /** Accessible custom validation: a linked error summary and field-specific ARIA messages.
  * @param {{kind: string, onSubmit: Function, children: React.ReactNode}} props
  */
-export function ValidatedForm({ kind, onSubmit, children, ...props }) {
+export function ValidatedForm({
+  kind,
+  onSubmit,
+  children,
+  confirmDiscard = true,
+  dirty,
+  ...props
+}) {
+  const fieldEditing = useRecordFieldEditing();
   const ref = useRef(null);
   const prefix = useId();
   const [errors, setErrors] = useState({});
@@ -106,6 +116,7 @@ export function ValidatedForm({ kind, onSubmit, children, ...props }) {
   }
   return (
     <form {...props} ref={ref} noValidate onSubmit={submit}>
+      <UnsavedChanges formRef={ref} enabled={confirmDiscard} dirty={dirty} />
       {Object.keys(errors).length > 0 && (
         <div
           role="alert"
@@ -131,7 +142,7 @@ export function ValidatedForm({ kind, onSubmit, children, ...props }) {
           </ul>
         </div>
       )}
-      {children}
+      {fieldEditing?.editing ? decorateRecordFields(children) : children}
     </form>
   );
 }

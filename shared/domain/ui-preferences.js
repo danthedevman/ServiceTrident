@@ -4,6 +4,10 @@ import { InputError } from '../validation/input-error.js';
 
 export const DEFAULT_UI_PREFERENCES = Object.freeze({
   leftCollapsed: false,
+  navMonitorOpen: true,
+  navProjectsOpen: true,
+  navKnowledgeOpen: true,
+  navAutomationOpen: true,
   rightCollapsed: false,
   rightPanelWidth: 320,
   filtersOpen: false,
@@ -71,7 +75,7 @@ function validPreference(key, value) {
   if (key === 'listFilters') return validListFilters(value);
   if (key === 'tableLayouts') return validTableLayouts(value);
   if (key === 'dashboardTab')
-    return ['overview', 'incidents', 'tasks', 'services', 'events'].includes(value);
+    return ['overview', 'incidents', 'tasks', 'services', 'events', 'operational'].includes(value);
   return typeof value === 'boolean';
 }
 

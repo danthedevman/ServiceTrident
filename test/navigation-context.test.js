@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  eventBreadcrumbs,
   historyParent,
   historyBreadcrumbs,
   recordAncestors,
@@ -54,4 +55,17 @@ test('untrusted history scope cannot invent a navigation destination or expose I
   });
   assert.equal(crumbs[2].label, 'Event EVT0000001');
   assert.ok(crumbs.every((crumb) => !crumb.label.includes(id) && !crumb.label.includes(baseId)));
+});
+
+test('monitor event breadcrumbs retain the Events list and originating monitor', () => {
+  assert.deepEqual(eventBreadcrumbs({ number: 'EVT0000001' }, { id, name: 'Checkout' }), [
+    { label: 'Events', to: '/events' },
+    { label: 'Monitor: Checkout', to: `/monitors/${id}` },
+    { label: 'Event EVT0000001' },
+  ]);
+  assert.deepEqual(eventBreadcrumbs({ title: 'Deployment failed' }, null), [
+    { label: 'Events', to: '/events' },
+    { label: 'Deployment failed' },
+  ]);
+  assert.equal(eventBreadcrumbs({}, { id: 'invalid', name: 'Unavailable' }).length, 2);
 });
