@@ -1,3 +1,4 @@
+import { statusTimeZone, statusMidnight } from '../../../shared/domain/status-time-zone.js';
 import { serviceHealth, rollupHealth } from '@servicetrident/shared/domain/service-health';
 import { subscriptionInfo } from '@servicetrident/shared/status/subscriptions';
 import { statusRange } from '@servicetrident/shared/domain/status-range';
@@ -10,9 +11,24 @@ export const rollup = rollupHealth;
  * @param {import('mongodb').Db} db @param {import('mongodb').ObjectId} userId
  * @param {Function} serializeMonitor @param {boolean} [publicView] @returns {Promise<object>}
  */
-export async function statusData(db, userId, serializeMonitor, publicView = false, range = '30') {
-  const { start: since, end } = statusRange(range);
-  const until = new Date(end.getTime() + 86400000);
+export async function statusData(
+  db,
+  userId,
+  serializeMonitor,
+  publicView = false,
+  range = '30',
+  requestedTimeZone = 'UTC',
+) {
+  const timeZone = statusTimeZone(requestedTimeZone);
+  const generatedAt = new Date();
+  const { start, end } = statusRange(range, generatedAt, timeZone);
+  const since = statusMidnight(start.toISOString().slice(0, 10), timeZone);
+  const until = new Date(
+    Math.min(
+      +generatedAt,
+      +statusMidnight(new Date(+end + 86400000).toISOString().slice(0, 10), timeZone),
+    ),
+  );
   const [raw, data, recentDays, archivedDays] = await Promise.all([
     db.collection('monitors').find({ userId }).sort({ name: 1 }).toArray(),
     catalog(db, userId),
@@ -32,7 +48,9 @@ export async function statusData(db, userId, serializeMonitor, publicView = fals
           $group: {
             _id: {
               monitorId: '$monitorId',
-              day: { $dateToString: { format: '%Y-%m-%d', date: '$checkedAt', timezone: 'UTC' } },
+              day: {
+                $dateToString: { format: '%Y-%m-%d', date: '$checkedAt', timezone: timeZone },
+              },
             },
             total: { $sum: 1 },
             up: { $sum: { $cond: [{ $eq: ['$status', 'up'] }, 1, 0] } },
@@ -41,13 +59,19 @@ export async function statusData(db, userId, serializeMonitor, publicView = fals
         { $sort: { '_id.day': 1 } },
       ])
       .toArray(),
-    db
-      .collection('statusDaily')
-      .find({
-        '_id.userId': userId,
-        '_id.day': { $gte: since.toISOString().slice(0, 10), $lte: end.toISOString().slice(0, 10) },
-      })
-      .toArray(),
+    // Daily archives cannot be split accurately into another timezone after raw checks expire.
+    timeZone !== 'UTC'
+      ? Promise.resolve([])
+      : db
+          .collection('statusDaily')
+          .find({
+            '_id.userId': userId,
+            '_id.day': {
+              $gte: since.toISOString().slice(0, 10),
+              $lte: end.toISOString().slice(0, 10),
+            },
+          })
+          .toArray(),
   ]);
   const daily = new Map(archivedDays.map((day) => [`${day._id.monitorId}-${day._id.day}`, day]));
   for (const day of recentDays) {
@@ -118,6 +142,7 @@ export async function statusData(db, userId, serializeMonitor, publicView = fals
     collections,
     statusTheme: data.statusTheme || 'light',
     banner: data.banner?.enabled ? data.banner : null,
-    generatedAt: new Date(),
+    generatedAt,
+    timeZone,
   };
 }

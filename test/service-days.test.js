@@ -28,3 +28,20 @@ test('today reflects degraded/down health without rewriting previous history or 
   service.status = 'degraded';
   assert.equal(serviceDays(service, [service], monitors, '2026-10-07', 1, now)[0].status, 'up');
 });
+
+test('viewer day stays October 18 in New York after UTC midnight and is partial', () => {
+  const service = { id: 'a', status: 'up' };
+  const monitors = [{ serviceId: 'a', history: [{ day: '2026-10-18', total: 2, up: 2 }] }];
+  const days = serviceDays(
+    service,
+    [service],
+    monitors,
+    '2026-10-18T00:00:00Z',
+    1,
+    '2026-10-19T02:00:00Z',
+    'America/New_York',
+  );
+  assert.equal(days[0].day, '2026-10-18');
+  assert.equal(days[0].isToday, true);
+  assert.match(days[0].label, /100.0% of checks successful so far/);
+});

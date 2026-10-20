@@ -149,7 +149,9 @@ export function createApp(db, { aiFetch, oidcFetch, integrationRequest } = {}) {
       .findOne({ publicToken: req.params.token, visibility: 'public' });
     if (!page) throw new InputError('Status page not found.', 404);
     req.workspaceId = page._id;
-    res.json(await statusData(db, page._id, serializeMonitor, true, req.query.range));
+    res.json(
+      await statusData(db, page._id, serializeMonitor, true, req.query.range, req.query.timeZone),
+    );
   });
   installInviteRoute(app, db, authLimit);
   app.use('/api', requireUser(db));
@@ -209,7 +211,16 @@ export function createApp(db, { aiFetch, oidcFetch, integrationRequest } = {}) {
   installMonitorRoutes(app, db);
 
   app.get('/api/status', async (req, res) =>
-    res.json(await statusData(db, req.workspaceId, serializeMonitor, false, req.query.range)),
+    res.json(
+      await statusData(
+        db,
+        req.workspaceId,
+        serializeMonitor,
+        false,
+        req.query.range,
+        req.query.timeZone,
+      ),
+    ),
   );
 
   installEventRoutes(app, db);

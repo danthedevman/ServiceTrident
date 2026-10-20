@@ -12,3 +12,8 @@ test('status quarters use UTC calendar boundaries, including year rollover and l
   assert.equal(statusRange('7').days, 7);
   assert.equal(statusRange('invalid').days, 30);
 });
+
+test('history range uses viewer date across UTC midnight', () => {
+  const range = statusRange('7', new Date('2026-10-19T02:00:00Z'), 'America/New_York');
+  assert.equal(range.end.toISOString(), '2026-10-18T00:00:00.000Z');
+});

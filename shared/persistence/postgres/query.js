@@ -52,7 +52,7 @@ export class Query {
     if (op === '$regexMatch')
       return `to_jsonb(COALESCE(${this.text(ex(arg.input))}, '') ${arg.options === 'i' ? '~*' : '~'} ${this.param(arg.regex, 'text')})`;
     if (op === '$dateToString')
-      return `to_jsonb(substring(${this.text(`sk_scalar(${ex(arg.date)})`)} from 1 for 10))`;
+      return `to_jsonb(to_char(${this.text(`sk_scalar(${ex(arg.date)})`)}::timestamptz AT TIME ZONE ${this.param(arg.timezone || 'UTC', 'text')}, 'YYYY-MM-DD'))`;
     if (op === '$dateFromString')
       return `jsonb_build_object('$date', ${this.text(ex(arg.dateString))} || 'T00:00:00.000Z')`;
     if (op === '$dateAdd') {

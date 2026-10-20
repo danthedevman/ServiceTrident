@@ -1,3 +1,4 @@
+import { statusDay } from '../../../../shared/domain/status-time-zone.js';
 /** Summarize a service and its dependencies once per day, without duplicating shared dependencies. */
 export function serviceDays(
   service,
@@ -6,6 +7,7 @@ export function serviceDays(
   generatedAt,
   days,
   observedAt = generatedAt,
+  timeZone = 'UTC',
 ) {
   const ids = new Set();
   const visit = (id) => {
@@ -29,11 +31,10 @@ export function serviceDays(
         : checks.length && checks.every((entry) => entry?.total)
           ? 'up'
           : 'unknown';
-    const current =
-      day === new Date(observedAt).toISOString().slice(0, 10) &&
-      ['degraded', 'down'].includes(service.status);
+    const isToday = day === statusDay(observedAt, timeZone);
+    const current = isToday && ['degraded', 'down'].includes(service.status);
     const status = current ? service.status : observedStatus;
-    const label = `${date.toLocaleDateString(undefined, { dateStyle: 'medium', timeZone: 'UTC' })} (UTC): ${current ? (status === 'degraded' ? 'Currently degraded' : 'Currently down') : status === 'down' ? 'Disruption detected' : status === 'up' ? 'Operational' : 'Incomplete or no data'}${total ? ` · ${((up / total) * 100).toFixed(1)}% of checks successful` : ''}`;
-    return { day, status, label };
+    const label = `${date.toLocaleDateString(undefined, { dateStyle: 'medium', timeZone: 'UTC' })}: ${current ? (status === 'degraded' ? 'Currently degraded' : 'Currently down') : status === 'down' ? 'Disruption detected' : status === 'up' ? 'Operational' : 'Incomplete or no data'}${total ? ` · ${((up / total) * 100).toFixed(1)}% of checks successful${isToday ? ' so far' : ''}` : ''}`;
+    return { day, status, label, isToday };
   });
 }

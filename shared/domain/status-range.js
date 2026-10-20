@@ -1,6 +1,7 @@
-/** Resolve bounded UTC history ranges consistently in the API and browser. */
-export function statusRange(value = '30', now = new Date()) {
-  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+import { statusDay } from './status-time-zone.js';
+/** Resolve calendar ranges in the viewer zone; UTC-midnight values represent date labels. */
+export function statusRange(value = '30', now = new Date(), timeZone = 'UTC') {
+  const today = new Date(`${statusDay(now, timeZone)}T00:00:00Z`);
   let start = new Date(today),
     end = new Date(today);
   if (value === 'quarter' || value === 'previous-quarter') {

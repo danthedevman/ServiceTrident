@@ -129,7 +129,7 @@ export const helpTopics = [
       {
         src: '/help/pinned-records.png',
         alt: 'Pinned records grouped by name with record type, number and service context',
-        caption: 'Open saved records, reorder links within a group, or confirm Unpin to remove a shortcut.',
+        caption: 'Use Edit Group Name beside a heading to rename it; reorder links or confirm Unpin to remove a shortcut.',
       },
       {
         src: '/help/knowledge-base-articles.png',
@@ -141,7 +141,7 @@ export const helpTopics = [
     paragraphs: [
       'Create an incident with its affected service, severity, description, and responder. Source identifies whether it came from a person, monitor, integration, automation, or AI. Automatic incidents link to their retained triggering checks under Monitor Events.',
       'On records you can edit, select a field’s pencil or double-click its value to edit the whole record. The selected field receives focus. Save applies the form’s changes; Cancel asks for confirmation when the form has unsaved changes. Choose Keep Editing to return to the draft or Discard Changes to cancel.',
-      'Choose Pin Record from a record’s actions, then choose or create a group. Pinned below Tasks contains your personal record links, with record type, saved record number and service or parent context where available. These descriptions are snapshots from when you pinned the record. Move items up or down within a group; Unpin asks for confirmation and does not delete the record. Pins do not grant record access.',
+      'Choose Pin Record from a record’s actions, then choose or create a group. Pinned below Tasks contains your personal record links, with record type, saved record number and service or parent context where available. These descriptions are snapshots from when you pinned the record. Select Edit Group Name beside a group heading, enter a Group Name (up to 80 characters), then Save; Cancel discards the name draft. Renaming preserves its records and order. Move items up or down within a group; Unpin asks for confirmation and does not delete the record. Pins do not grant record access.',
       'Use Assign to Me in an incident or task form, then Save. If an assignment group is selected, you must belong to it. Tasks track investigation and follow-up work.',
       'In Conversation, use comments for information everyone with incident access may read. Work notes are restricted to responders and admins. Type @ and select a person to mention them. Edit watchers adds users or groups to notifications without granting record access. Public-comment emails require SMTP; work notes do not send email.',
       'Select Resolve to open its confirmation dialog directly. Resolution notes are optional by default; admins may make them required in Form Builder. Confirm Resolve Incident to apply the change. Reopening also requires confirmation. For monitor-created incidents, review the automatic-lifecycle notice before resolving an ongoing outage manually.',
@@ -279,6 +279,7 @@ export const helpTopics = [
     ],
     paragraphs: [
       'Admins open Service Status → Settings to choose Private workspace access or Public visibility and share the public link. Public pages omit internal monitor targets and responses.',
+      'History uses your profile timezone in the app and your browser timezone on public pages. The current day’s percentage covers checks collected so far. Local-day history uses retained checks (up to 30 days); older UTC summaries remain available only in UTC.',
       'Add a banner or service message to explain impact; messages do not override measured health. New service messages have Display message enabled, so enter their text before Save or disable display to keep them hidden.',
       'The in-app page follows your profile appearance. Public pages start with the Light or Dark Appearance saved in Status Page Settings. Visitors can toggle it for the current visit; reload restores the saved appearance without changing profile preferences.',
       'To offer email subscriptions, enable subscriptions, choose an enabled SMTP integration, and configure the public HTTPS origin. Visitors choose Subscribe to updates and confirm email within 24 hours. RSS can be enabled independently. Hiding subscriptions stops new signups, email updates, and RSS access; unsubscribe links still work.',

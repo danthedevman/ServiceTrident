@@ -2437,6 +2437,19 @@ async function verifyFormHeadingRows() {
 }
 
 try {
+  if (process.env.HELP_CAPTURE_FOCUS === 'status-timezone') {
+    await page.goto(`${base}/status`);
+    await page.getByRole('heading', { name: 'Service Status', exact: true }).waitFor();
+    assert.equal(await page.getByText(/Partial day|History timezone:/).count(), 0);
+    assert.equal(await page.getByText(/\(America\/New_York\)/).count(), 0);
+    await page.screenshot({ path: `${output}/readme-status-dark.png` });
+    await page.setViewportSize({ width: 390, height: 640 });
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    await page.getByText(/Updated /).scrollIntoViewIfNeeded();
+    assert.deepEqual(faults, []);
+    await browser.close();
+    process.exit(0);
+  }
   if (process.env.HELP_CAPTURE_FOCUS === 'automation-headers') {
     user.role = 'admin';
     for (const [path, title] of [
@@ -2643,12 +2656,41 @@ try {
     await page.getByText('Task', { exact: true }).waitFor();
     await page.getByText('TASK0000001', { exact: false }).waitFor();
     await page.getByText('Service: Customer Portal', { exact: true }).waitFor();
+    const beforeRename = structuredClone(pinnedRecords.items);
+    await page.getByRole('button', { name: 'Edit Group Name: General', exact: true }).click();
+    await page.getByRole('textbox', { name: 'Group Name', exact: true }).fill('   ');
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    assert.equal(await page.getByRole('textbox', { name: 'Group Name', exact: true }).getAttribute('aria-invalid'), 'true');
+    await page.getByRole('textbox', { name: 'Group Name', exact: true }).fill('Operations');
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await page.getByRole('heading', { name: 'Operations', exact: true }).waitFor();
+    assert.deepEqual(pinnedRecords.items, beforeRename);
+    await page.reload();
+    await page.getByRole('button', { name: 'Edit Group Name: Operations', exact: true }).click();
+    await page.getByRole('textbox', { name: 'Group Name', exact: true }).fill('Discarded name');
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await page.getByRole('heading', { name: 'Operations', exact: true }).waitFor();
+    assert.equal(pinnedRecords.groups[0].name, 'Operations');
     await page.screenshot({ path: `${output}/pinned-records.png` });
     await page.setViewportSize({ width: 390, height: 720 });
     await page.getByRole('link', { name: tasks[0].title, exact: true }).scrollIntoViewIfNeeded();
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
     assert.deepEqual(faults, []);
-    console.log('Verified Pinned header and contextual record descriptions on desktop and mobile.');
+    pinnedRecords.groups.push(...Array.from({ length: 12 }, (_, index) => ({
+      id: `extra-${index}`, name: `Additional group ${index + 1}`,
+    })));
+    for (const viewport of [{ width: 1440, height: 700 }, { width: 390, height: 640 }]) {
+      await page.setViewportSize(viewport);
+      await page.reload();
+      const bottom = page.getByRole('button', { name: 'Edit Group Name: Additional group 12', exact: true });
+      await bottom.scrollIntoViewIfNeeded();
+      await bottom.click();
+      await page.getByRole('textbox', { name: 'Group Name', exact: true }).fill('Unsaved');
+      await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+      assert.equal(await bottom.isVisible(), true);
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+    }
+    console.log('Verified pin group rename, validation, persistence, Cancel, and desktop/mobile scrolling.');
     await browser.close();
     process.exit(0);
   }

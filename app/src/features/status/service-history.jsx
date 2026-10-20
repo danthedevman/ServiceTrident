@@ -10,6 +10,7 @@ export function ServiceHistory({
   generatedAt,
   days: range = 30,
   endDate,
+  timeZone = 'UTC',
 }) {
   const [tooltip, setTooltip] = useState(null);
   useEffect(() => {
@@ -21,7 +22,15 @@ export function ServiceHistory({
       window.removeEventListener('resize', dismiss);
     };
   }, []);
-  const days = serviceDays(service, services, monitors, endDate || generatedAt, range, generatedAt);
+  const days = serviceDays(
+    service,
+    services,
+    monitors,
+    endDate || generatedAt,
+    range,
+    generatedAt,
+    timeZone,
+  );
   const show = (event, label) => {
     const rect = event.currentTarget.getBoundingClientRect();
     const width = Math.min(280, window.innerWidth - 16);

@@ -16,7 +16,7 @@ Note: ServiceTrident's code were generated and refined with AI assistance, inclu
 
 - Monitor HTTP/HTTPS services and keyword conditions, receive external events, triage correlated alerts, and investigate linked incidents through related lists.
 - Coordinate incident response with assignments, comments, work notes, mentions, watchers, and notifications.
-- Organize tasks with board and list views. Pin frequently used records in personal groups with record type and service context.
+- Organize tasks with board and list views. Pin frequently used records in personal groups with record type and service context; rename groups on Pinned.
 - Schedule on-call coverage and track root cause analyses.
 - Maintain knowledge articles and runbooks, and share service health through a public status page.
 - Connect communication and ticketing tools, configure identity providers, and give external systems scoped record-creation access.
@@ -47,6 +47,8 @@ Workspaces include role-based access, configurable forms, audit history, dashboa
 ![Task board with custom status lanes and shared ordering controls](app/public/help/readme-tasks-dark.png)
 
 ### Status page
+
+History uses your profile timezone in the app and your browser timezone on public pages. The current day’s percentage covers checks collected so far. Local-day history uses retained checks (up to 30 days); older UTC summaries remain available only in UTC.
 
 ![Service status page with service health history and header management controls](app/public/help/readme-status-dark.png)
 

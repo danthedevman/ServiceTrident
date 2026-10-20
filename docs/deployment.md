@@ -102,7 +102,7 @@ The in-app page displays **Service Status** and follows your profile appearance 
 
 ### Public visibility and appearance
 
-Open **Service status → Manage status page**, choose **Public**, and save. The public link uses `/status/public/<token>` and displays service health without the application sidebar. Switching back to Private revokes anonymous access. The page refreshes every 30 seconds.
+Open **Service status → Manage status page**, choose **Public**, and save. The public link uses `/status/public/<token>` and displays service health without the application sidebar. Switching back to Private revokes anonymous access. The page refreshes every 30 seconds. History uses your profile timezone in the app and your browser timezone on public pages. The current day’s percentage covers checks collected so far. Local-day history uses retained checks (up to 30 days); older UTC summaries remain available only in UTC.
 
 Public status pages use the saved Light or Dark Appearance and configured icon/messages, independently of account, browser, or device themes. Existing custom background colors are ignored. Public visitors can switch Light/Dark with the sun/moon icon at the right edge of the header for the current visit; this never changes profile preferences and resets on reload. The compact logo header keeps a smaller gap above Service Status.
 

@@ -1,5 +1,10 @@
 import React, { useState } from 'react';
-import { MapPinIcon, ArrowUpIcon, ArrowDownIcon } from '@heroicons/react/24/outline';
+import {
+  MapPinIcon,
+  ArrowUpIcon,
+  ArrowDownIcon,
+  PencilSquareIcon,
+} from '@heroicons/react/24/outline';
 import { useLocation } from 'react-router-dom';
 import { pinPath, PIN_SCOPE_KEYS } from '../../../../shared/domain/pins.js';
 import { useResource } from '../../data/use-resource.js';
@@ -195,6 +200,8 @@ export function PinRecordAction({ item, kind, to }) {
   );
 }
 export function PinnedPage() {
+  const [editingGroup, setEditingGroup] = useState(null);
+  const [groupName, setGroupName] = useState('');
   const state = useResource('/pins', 30000),
     save = useSave();
   const update = (items) =>
@@ -223,7 +230,73 @@ export function PinnedPage() {
             const items = state.data.items.filter((r) => r.groupId === group.id);
             return (
               <section className="panel space-y-3 p-5" key={group.id} aria-label={group.name}>
-                <h2 className="font-semibold">{group.name}</h2>
+                {editingGroup === group.id ? (
+                  <ValidatedForm
+                    className="flex flex-wrap items-end gap-3"
+                    confirmDiscard={false}
+                    onSubmit={(event, report) => {
+                      event.preventDefault();
+                      if (!groupName.trim()) {
+                        report({ groupName: 'Enter a group name.' });
+                        return;
+                      }
+                      save.run(
+                        '/pins',
+                        'PUT',
+                        {
+                          ...state.data,
+                          groups: state.data.groups.map((item) =>
+                            item.id === group.id ? { ...item, name: groupName.trim() } : item,
+                          ),
+                        },
+                        () => {
+                          setEditingGroup(null);
+                          void state.refresh();
+                        },
+                      );
+                    }}
+                  >
+                    <Field name="groupName" label="Group Name">
+                      <input
+                        autoFocus
+                        name="groupName"
+                        required
+                        maxLength={80}
+                        value={groupName}
+                        disabled={save.busy}
+                        onChange={(event) => setGroupName(event.target.value)}
+                      />
+                    </Field>
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      disabled={save.busy}
+                      onClick={() => setEditingGroup(null)}
+                    >
+                      Cancel
+                    </button>
+                    <button type="submit" className="btn-primary" disabled={save.busy}>
+                      Save
+                    </button>
+                  </ValidatedForm>
+                ) : (
+                  <div className="flex min-w-0 items-center gap-2">
+                    <h2 className="min-w-0 break-words font-semibold">{group.name}</h2>
+                    <button
+                      type="button"
+                      className="btn-secondary h-8 w-8 shrink-0 !p-0"
+                      disabled={save.busy || editingGroup !== null}
+                      aria-label={`Edit Group Name: ${group.name}`}
+                      title="Edit Group Name"
+                      onClick={() => {
+                        setEditingGroup(group.id);
+                        setGroupName(group.name);
+                      }}
+                    >
+                      <PencilSquareIcon className="h-4 w-4" aria-hidden="true" />
+                    </button>
+                  </div>
+                )}
                 {!items.length ? (
                   <p className="text-sm text-slate-500">No pinned records in this group.</p>
                 ) : (

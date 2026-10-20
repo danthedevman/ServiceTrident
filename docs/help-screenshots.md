@@ -115,7 +115,7 @@ Use `HELP_CAPTURE_FOCUS=sidebar-drawer` to check authorized navigation destinati
 
 Record field pencils appear inside read-only values for authorized editors. `HELP_CAPTURE_FOCUS=record-layouts` checks mobile placement, whole-form editing and focus, no pencils in Edit, double-click editing, and viewer restrictions.
 
-Use `HELP_CAPTURE_FOCUS=pin-details` for personal pin descriptions and the Pinned header. `HELP_CAPTURE_FOCUS=alert-grouping` verifies bounded grouping-window validation. `HELP_CAPTURE_FOCUS=readonly-pencils` checks field affordances without changing Form Builder configuration.
+Use `HELP_CAPTURE_FOCUS=pin-details` for personal pin descriptions, group-name editing (validation, Save, Cancel and persistence), and desktop/mobile scrolling. `HELP_CAPTURE_FOCUS=alert-grouping` verifies bounded grouping-window validation. `HELP_CAPTURE_FOCUS=readonly-pencils` checks field affordances without changing Form Builder configuration.
 
 Use `HELP_CAPTURE_FOCUS=standalone-tasks` to verify main Tasks board/list navigation, project-free forms and list search icons. `record-layouts` verifies Show section name defaults on, can be disabled, and preserves the same fields in read/edit mode. `navigation-groups` verifies Tasks immediately above Pinned across desktop, compact and mobile navigation.
 
@@ -124,3 +124,5 @@ Use `HELP_CAPTURE_FOCUS=knowledge-base-edit` to verify one Articles section acro
 Use `HELP_CAPTURE_FOCUS=immutable-record-fields` for labeled alert/event/log sections, record references and desktop/mobile scrolling. Refresh event-alert.png and external-event.png after changing these views; keep record Details closed in published captures.
 
 The `event-navigation` check covers nested monitor-check URLs and direct Events record URLs, monitor-name breadcrumbs, external-source breadcrumbs, and Events active navigation.
+
+Use `HELP_CAPTURE_FOCUS=status-timezone` to refresh `readme-status-dark.png` and verify date-only history labels and mobile access to the bottom of the status page with isolated synthetic responses.

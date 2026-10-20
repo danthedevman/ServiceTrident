@@ -1,3 +1,5 @@
+import { useContext } from 'react';
+import { AuthContext } from '../../auth/auth-context.js';
 import { useTheme } from '../../preferences/theme.jsx';
 import { RecordHeader } from '../../components/record-actions.jsx';
 import { DateTime } from '../../preferences/date-time.jsx';
@@ -21,6 +23,9 @@ import { Badge, ErrorNotice } from '../../components/feedback.jsx';
 
 /** A service-only status list shared by authenticated and explicitly public views. */
 export function StatusPage({ publicView = false, appearanceOverride }) {
+  const { user } = useContext(AuthContext);
+  const timeZone =
+    (!publicView && user?.timeZone) || Intl.DateTimeFormat().resolvedOptions().timeZone;
   const { token } = useParams();
   const [params, setParams] = useSearchParams();
   const requestedRange = params.get('range') || params.get('days') || '30';
@@ -28,7 +33,7 @@ export function StatusPage({ publicView = false, appearanceOverride }) {
     ? requestedRange
     : '30';
   const { data, error } = useResource(
-    `${publicView ? `/public/status/${token}` : '/status'}?range=${range}`,
+    `${publicView ? `/public/status/${token}` : '/status'}?range=${range}&timeZone=${encodeURIComponent(timeZone)}`,
     30000,
   );
   const appearance =
@@ -108,9 +113,7 @@ export function StatusPage({ publicView = false, appearanceOverride }) {
       </header>
       <ErrorNotice>{error}</ErrorNotice>
       {!data ? (
-        <p role="status" className={error ? undefined : 'sr-only'}>
-          {error ? 'Service status is unavailable.' : 'Loading service status…'}
-        </p>
+        <div aria-busy={!error}>{error ? 'Service status is unavailable.' : null}</div>
       ) : (
         <>
           <StatusMessage message={data.banner} />
@@ -124,8 +127,15 @@ export function StatusPage({ publicView = false, appearanceOverride }) {
                 <Badge status={service.status} />
                 <StatusMessage message={service.message} compact />
                 <ServiceHistory
-                  days={statusRange(range, new Date(data.generatedAt)).days}
-                  endDate={statusRange(range, new Date(data.generatedAt)).end.toISOString()}
+                  timeZone={data.timeZone || timeZone}
+                  days={
+                    statusRange(range, new Date(data.generatedAt), data.timeZone || timeZone).days
+                  }
+                  endDate={statusRange(
+                    range,
+                    new Date(data.generatedAt),
+                    data.timeZone || timeZone,
+                  ).end.toISOString()}
                   service={service}
                   services={data.services}
                   monitors={data.monitors}
