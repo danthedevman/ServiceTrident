@@ -10,7 +10,7 @@ After years of working with enterprise platforms, I wanted to take the parts tha
 
 I built ServiceTrident to bring that experience together in something useful that I could share for free. My goal is to give developers and small teams a place to manage their services and respond to problems without requiring a dedicated platform team just to get started. You can host it yourself, inspect the code, and adapt it to the way you work.
 
-Note: ServiceTrident's code were generated and refined with AI assistance, including ChatGPT and Codex.
+Note: ServiceTrident's code was generated and refined with AI assistance, including ChatGPT and Codex.
 
 ## What you can do
 
