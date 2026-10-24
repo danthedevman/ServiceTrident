@@ -1361,7 +1361,7 @@ async function captureRcaWorkflows() {
   await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await page.waitForURL('**/rcas/fafafafafafafafafafafafa');
-  await page.locator('.rca-reader h1').waitFor();
+  await page.locator('.rca-reader [data-record-field=title]').waitFor();
   await page.screenshot({ path: `${output}/rca-record.png` });
   await page
     .getByRole('link', {
@@ -3278,6 +3278,7 @@ try {
       await panel.getByRole('button', { name: 'Done', exact: true }).waitFor();
       await panel.evaluate((el) => (el.scrollTop = 0));
       await page.screenshot({ path: `${output}/events-filter-${width}.png` });
+      if (width === 1440) await page.screenshot({ path: `${output}/events-filters.png` });
       await panel.getByRole('button', { name: 'Done', exact: true }).click();
       await page.reload();
       await page.getByRole('button', { name: 'Filters', exact: true }).click();
@@ -4737,7 +4738,8 @@ try {
     dateTime(demoDeliveryRows[0].createdAt, user.timeZone, user.uiPreferences),
   );
   await page.goto(`${base}/integrations/${demoServiceNow.id}`);
-  await page.getByText(demoServiceNow.instanceUrl, { exact: true }).waitFor();
+  await page.getByLabel('Instance Root URL', { exact: true }).waitFor();
+  assert.equal(await page.getByLabel('Instance Root URL', { exact: true }).inputValue(), demoServiceNow.instanceUrl);
   await page.getByRole('button', { name: 'Edit Record', exact: true }).click();
   assert.equal(
     await page.getByLabel('Instance Root URL', { exact: true }).inputValue(),
@@ -4778,6 +4780,7 @@ try {
   );
   await page.screenshot({ path: `${output}/service-account-settings.png` });
   await accountForm.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await page.getByRole('dialog', { name: 'Discard Unsaved Changes?', exact: true }).getByRole('button', { name: 'Discard Changes', exact: true }).click();
   await page.getByRole('link', { name: /^Demo External Automation/ }).click();
   await page.getByRole('heading', { name: 'Demo External Automation', exact: true }).waitFor();
   await page.getByRole('heading', { name: 'OAuth Client Credentials', exact: true }).waitFor();
@@ -5059,19 +5062,8 @@ try {
       exact: true,
     })
     .waitFor();
-  await page
-    .getByRole('term')
-    .filter({ hasText: /^Start$/ })
-    .waitFor();
-  assert.equal(
-    await page
-      .getByRole('tabpanel')
-      .filter({ has: page.getByRole('term').filter({ hasText: /^Start$/ }) })
-      .locator('time')
-      .first()
-      .textContent(),
-    dateTime('2026-10-11T08:00:56.789Z', user.timeZone, user.uiPreferences),
-  );
+  await page.getByLabel('Start', { exact: true }).waitFor();
+  assert.equal(await page.getByLabel('Start', { exact: true }).inputValue(), '2026-10-11T08:00:56.789');
   await page.goto(`${base}/on-call`);
   const headerReference = page
     .locator('[data-on-call-calendar]')
@@ -5088,10 +5080,7 @@ try {
   const coverageModal = page.getByRole('dialog', { name: 'Coverage', exact: true });
   await coverageModal.waitFor();
   assert.ok(page.url().endsWith('/on-call'), 'Viewing coverage stays on the calendar');
-  await coverageModal
-    .getByRole('term')
-    .filter({ hasText: /^Start$/ })
-    .waitFor();
+  await coverageModal.getByLabel('Start', { exact: true }).waitFor();
   await page.screenshot({ path: `${output}/on-call-coverage-modal.png` });
   await coverageModal.getByRole('button', { name: 'Edit Coverage', exact: true }).click();
   const coverageEditor = page.getByRole('dialog', { name: /^Edit coverage/ });
@@ -5158,8 +5147,7 @@ try {
   assert.equal(
     await page
       .getByRole('link', { name: 'View data: Critical / High Incidents', exact: true })
-      .locator('..')
-      .getAttribute('data-score-tone'),
+      .evaluate((link) => link.closest('[data-score-tone]')?.dataset.scoreTone),
     'rose',
   );
   assert.ok((await page.locator('[data-score-tone="amber"]').count()) >= 2);
@@ -5507,6 +5495,7 @@ try {
   });
   assert.ok(inlineNumber, 'Record number and reference icon stay on the same line');
   await eventNumber.click();
+  await page.getByRole('tab', { name: /^Incidents/ }).click();
   await page
     .getByRole('tabpanel', { name: /^Incidents/ })
     .getByRole('link')
@@ -5533,6 +5522,7 @@ try {
       .getAttribute('href'),
     `/incidents/${demoIncident.id}`,
   );
+  await page.getByRole('tab', { name: 'Details', exact: true }).click();
   for (const viewport of [
     { width: 1440, height: 960 },
     { width: 390, height: 844 },
@@ -5544,7 +5534,13 @@ try {
     await bottom.evaluate((element) =>
       element.scrollIntoView({ block: 'end', behavior: 'instant' }),
     );
-    const bounds = await bottom.boundingBox();
+    // Check the final text, rather than decorative panel padding at the viewport edge.
+    const bounds = await bottom.evaluate((element) => {
+      const range = document.createRange();
+      range.selectNodeContents(element);
+      const rect = range.getBoundingClientRect();
+      return { y: rect.y, height: rect.height };
+    });
     assert.ok(
       bounds.y >= 0 && bounds.y + bounds.height <= viewport.height,
       'Event detail remains vertically scrollable',
