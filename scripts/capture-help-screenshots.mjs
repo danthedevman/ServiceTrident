@@ -1363,17 +1363,9 @@ async function captureRcaWorkflows() {
   await page.waitForURL('**/rcas/fafafafafafafafafafafafa');
   await page.locator('.rca-reader [data-record-field=title]').waitFor();
   await page.screenshot({ path: `${output}/rca-record.png` });
-  await page
-    .getByRole('link', {
-      name: `${tasks[0].number ? `${tasks[0].number} · ` : ''}${tasks[0].title}`,
-      exact: true,
-    })
-    .waitFor();
+  const lastRcaLink = page.locator(`.rca-reader a[href="/tasks/${tasks[0].id}"]`);
+  await lastRcaLink.waitFor();
   await page.setViewportSize({ width: 390, height: 844 });
-  const lastRcaLink = page.getByRole('link', {
-    name: `${tasks[0].number ? `${tasks[0].number} · ` : ''}${tasks[0].title}`,
-    exact: true,
-  });
   await lastRcaLink.scrollIntoViewIfNeeded();
   const rcaBottom = await lastRcaLink.boundingBox();
   assert.ok(

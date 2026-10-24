@@ -128,7 +128,7 @@ Immutable alert, event and log views use RecordDetailSection with explicit label
 
 ## Static marketing landing page
 
-`index.html` is the standalone GitHub Pages landing page and is also served at `/` by the marketing server. It uses embedded CSS and no scripts, API calls, remote fonts, or runtime configuration. Its repository links are fixed for the public project. Existing server-rendered guides/contact routes are separate from this static delivery. The application Help workflows are unchanged.
+`index.html` is the standalone GitHub Pages landing page and is also served at `/` by the marketing server. It uses embedded CSS and no scripts, API calls, remote fonts, or runtime configuration. Its repository links are fixed for the public project. The matching mint trident logo and SVG/ICO favicons live beside the HTML and use relative paths for GitHub Pages project and custom-domain hosting. Existing server-rendered guides/contact routes are separate from this static delivery. The application Help workflows are unchanged.
 
 ## Record sections
 

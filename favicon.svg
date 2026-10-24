@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-labelledby="title">
+  <title id="title">ServiceTrident</title>
+  <rect width="32" height="32" rx="8" fill="#6de4c4" />
+  <path d="M16 5 12.5 9H14.8V18.6L9.2 15.4V11H11.5L8 7 4.5 11H6.8V16.8L14.8 21.4V27H17.2V21.4L25.2 16.8V11H27.5L24 7 20.5 11H22.8V15.4L17.2 18.6V9H19.5Z" fill="#0b1016" stroke="#0b1016" stroke-width="0.25" stroke-linejoin="round" />
+</svg>
