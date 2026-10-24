@@ -287,6 +287,123 @@ export function MonitorDetail() {
                   <MonitorOrganization monitor={monitor} />
                 </>
               }
+              relatedTabs={
+                <RecordTabs
+                  related
+                  tabs={[
+                    {
+                      id: 'events',
+                      label: 'Check History',
+                      content: (
+                        <DataTable
+                          title="Check History"
+                          rowHref={(event) => `/monitors/${id}/events/${event.id}`}
+                          description="Last 30 days · Times shown in your profile time zone"
+                          rows={eventState.data?.events ?? []}
+                          columns={eventColumns}
+                          rowKey={(event) => event.id}
+                          tableClassName={layouts.historyTable}
+                          remote={{
+                            filtersActive: Boolean(filters.status || filters.from || filters.to),
+                            page,
+                            pageSize,
+                            total: eventState.data?.total ?? 0,
+                            sort: filters.sort,
+                            onPage: setPage,
+                            onPageSize: (value) => {
+                              setPageSize(value);
+                              setPage(1);
+                            },
+                            onSort: (value) => changeFilter('sort', value),
+                            pending: eventState.pending,
+                            loading: eventState.loading,
+                            invalid: invalidDates,
+                            onRefresh: eventState.refresh,
+                            onExport: (signal) =>
+                              downloadCsv(
+                                `/monitors/${id}/events/export?${query}`,
+                                `monitor-${id}-events.csv`,
+                                signal,
+                              ),
+                          }}
+                          filters={
+                            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                              <label className="field-label">
+                                Status
+                                <Select
+                                  className="history-select"
+                                  value={filters.status}
+                                  onChange={(event) => changeFilter('status', event.target.value)}
+                                >
+                                  <option value="">All results</option>
+                                  <option value="up">Operational</option>
+                                  <option value="down">Down</option>
+                                </Select>
+                              </label>
+
+                              <label className="field-label">
+                                From date
+                                <input
+                                  type="date"
+                                  aria-invalid={!!dateErrors.from}
+                                  aria-describedby={dateErrors.from ? 'from-date-error' : undefined}
+                                  value={filters.from}
+                                  onChange={(event) => changeFilter('from', event.target.value)}
+                                />
+                                {dateErrors.from && (
+                                  <span
+                                    id="from-date-error"
+                                    className="mt-2 block text-xs text-rose-700 dark:text-rose-400"
+                                  >
+                                    {dateErrors.from}
+                                  </span>
+                                )}
+                              </label>
+                              <label className="field-label">
+                                Through date
+                                <input
+                                  type="date"
+                                  aria-invalid={!!dateErrors.to}
+                                  aria-describedby={dateErrors.to ? 'to-date-error' : undefined}
+                                  value={filters.to}
+                                  onChange={(event) => changeFilter('to', event.target.value)}
+                                />
+                                {dateErrors.to && (
+                                  <span
+                                    id="to-date-error"
+                                    className="mt-2 block text-xs text-rose-700 dark:text-rose-400"
+                                  >
+                                    {dateErrors.to}
+                                  </span>
+                                )}
+                              </label>
+                              {(filters.status ||
+                                filters.from ||
+                                filters.to ||
+                                filters.sort !== 'checkedAt:desc') && (
+                                <button
+                                  className="justify-self-start text-xs font-medium text-blue-700 dark:text-blue-400"
+                                  onClick={() => {
+                                    setFilters({
+                                      status: '',
+                                      from: '',
+                                      to: '',
+                                      sort: 'checkedAt:desc',
+                                    });
+                                    setPage(1);
+                                  }}
+                                >
+                                  Reset filters and sorting
+                                </button>
+                              )}
+                            </div>
+                          }
+                        />
+                      ),
+                    },
+                  ]}
+                />
+              }
             >
               <MonitorForm
                 key={`${id}-${formVersion}-${editing ? 'edit' : monitor.revision}`}
@@ -343,121 +460,6 @@ export function MonitorDetail() {
                   is unknown.
                 </div>
               )}
-              <RecordTabs
-                related
-                tabs={[
-                  {
-                    id: 'events',
-                    label: 'Check History',
-                    content: (
-                      <DataTable
-                        title="Check History"
-                        rowHref={(event) => `/monitors/${id}/events/${event.id}`}
-                        description="Last 30 days · Times shown in your profile time zone"
-                        rows={eventState.data?.events ?? []}
-                        columns={eventColumns}
-                        rowKey={(event) => event.id}
-                        tableClassName={layouts.historyTable}
-                        remote={{
-                          filtersActive: Boolean(filters.status || filters.from || filters.to),
-                          page,
-                          pageSize,
-                          total: eventState.data?.total ?? 0,
-                          sort: filters.sort,
-                          onPage: setPage,
-                          onPageSize: (value) => {
-                            setPageSize(value);
-                            setPage(1);
-                          },
-                          onSort: (value) => changeFilter('sort', value),
-                          pending: eventState.pending,
-                          loading: eventState.loading,
-                          invalid: invalidDates,
-                          onRefresh: eventState.refresh,
-                          onExport: (signal) =>
-                            downloadCsv(
-                              `/monitors/${id}/events/export?${query}`,
-                              `monitor-${id}-events.csv`,
-                              signal,
-                            ),
-                        }}
-                        filters={
-                          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                            <label className="field-label">
-                              Status
-                              <Select
-                                className="history-select"
-                                value={filters.status}
-                                onChange={(event) => changeFilter('status', event.target.value)}
-                              >
-                                <option value="">All results</option>
-                                <option value="up">Operational</option>
-                                <option value="down">Down</option>
-                              </Select>
-                            </label>
-
-                            <label className="field-label">
-                              From date
-                              <input
-                                type="date"
-                                aria-invalid={!!dateErrors.from}
-                                aria-describedby={dateErrors.from ? 'from-date-error' : undefined}
-                                value={filters.from}
-                                onChange={(event) => changeFilter('from', event.target.value)}
-                              />
-                              {dateErrors.from && (
-                                <span
-                                  id="from-date-error"
-                                  className="mt-2 block text-xs text-rose-700 dark:text-rose-400"
-                                >
-                                  {dateErrors.from}
-                                </span>
-                              )}
-                            </label>
-                            <label className="field-label">
-                              Through date
-                              <input
-                                type="date"
-                                aria-invalid={!!dateErrors.to}
-                                aria-describedby={dateErrors.to ? 'to-date-error' : undefined}
-                                value={filters.to}
-                                onChange={(event) => changeFilter('to', event.target.value)}
-                              />
-                              {dateErrors.to && (
-                                <span
-                                  id="to-date-error"
-                                  className="mt-2 block text-xs text-rose-700 dark:text-rose-400"
-                                >
-                                  {dateErrors.to}
-                                </span>
-                              )}
-                            </label>
-                            {(filters.status ||
-                              filters.from ||
-                              filters.to ||
-                              filters.sort !== 'checkedAt:desc') && (
-                              <button
-                                className="justify-self-start text-xs font-medium text-blue-700 dark:text-blue-400"
-                                onClick={() => {
-                                  setFilters({
-                                    status: '',
-                                    from: '',
-                                    to: '',
-                                    sort: 'checkedAt:desc',
-                                  });
-                                  setPage(1);
-                                }}
-                              >
-                                Reset filters and sorting
-                              </button>
-                            )}
-                          </div>
-                        }
-                      />
-                    ),
-                  },
-                ]}
-              />
             </RecordWorkspace>
             <div className="flex flex-wrap items-center justify-between gap-3 pt-4">
               <p className="text-xs text-slate-400">Created {dateTime(monitor.createdAt)}</p>

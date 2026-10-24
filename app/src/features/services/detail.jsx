@@ -114,23 +114,8 @@ export function CatalogDetailPage({ kind = 'services' }) {
               />
             </>
           }
-        >
-          {
-            <CatalogForm
-              key={`${id}-${formVersion}-${editing ? 'edit' : data.revision}`}
-              readOnly={!editing || user?.role !== 'admin'}
-              kind={kind}
-              item={selected}
-              services={data.services}
-              collections={data.collections}
-              members={data.members}
-              groups={data.groups}
-              onSaved={resetForm}
-              onCancel={resetForm}
-            />
-          }
-          {isService && (
-            <section className="record-details space-y-6">
+          relatedTabs={
+            isService && (
               <RecordTabs
                 related
                 key={selected.id}
@@ -159,8 +144,23 @@ export function CatalogDetailPage({ kind = 'services' }) {
                   },
                 ]}
               />
-            </section>
-          )}
+            )
+          }
+        >
+          {
+            <CatalogForm
+              key={`${id}-${formVersion}-${editing ? 'edit' : data.revision}`}
+              readOnly={!editing || user?.role !== 'admin'}
+              kind={kind}
+              item={selected}
+              services={data.services}
+              collections={data.collections}
+              members={data.members}
+              groups={data.groups}
+              onSaved={resetForm}
+              onCancel={resetForm}
+            />
+          }
         </RecordWorkspace>
       )}
       {confirmDelete && (

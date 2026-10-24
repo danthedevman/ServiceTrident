@@ -569,6 +569,21 @@ export function WorkDetail({ kind = 'tasks' }) {
                 )}
               </>
             }
+            relatedTabs={
+              task && (
+                <RecordTabs
+                  related
+                  tabs={[
+                    {
+                      id: 'attachments',
+                      label: 'Attachments',
+                      content: <AttachmentPanel kind="tasks" recordId={item.id} />,
+                    },
+                    { id: 'rcas', label: 'RCAs', content: <RcaList related taskId={item.id} /> },
+                  ]}
+                />
+              )
+            }
           >
             {task && item.status === 'archived' && (
               <div className="panel flex items-start gap-3 p-4" role="status">
@@ -610,19 +625,6 @@ export function WorkDetail({ kind = 'tasks' }) {
                 visibleFields={visibleFields}
                 schema={articleSchema.data?.fields}
                 layout={articleSchema.data?.layout}
-              />
-            )}
-            {task && (
-              <RecordTabs
-                related
-                tabs={[
-                  {
-                    id: 'attachments',
-                    label: 'Attachments',
-                    content: <AttachmentPanel kind="tasks" recordId={item.id} />,
-                  },
-                  { id: 'rcas', label: 'RCAs', content: <RcaList related taskId={item.id} /> },
-                ]}
               />
             )}
           </RecordWorkspace>

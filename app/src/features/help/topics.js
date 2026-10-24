@@ -17,8 +17,8 @@ export const helpTopics = [
       },
       {
         src: '/help/record-tabs.png',
-        alt: 'record tabs retaining an unsaved task form while a related service is open',
-        caption: 'Open related records in tabs and return to the current draft.',
+        alt: 'Task record with Details selected and Attachments and RCAs available above the record',
+        caption: 'Use Details for the record, or select a related section above it.',
       },
     ],
     paragraphs: [
@@ -26,6 +26,7 @@ export const helpTopics = [
       'Dashboard, Incidents, Tasks and Services stay at the top of navigation. Expand Monitor & Respond, Knowledge & Reports or Automation & Connections to find other pages. Section choices are saved to your profile, and entering a page opens its section. On mobile and the compact rail, grouped links are in More. Use Search Workspace to find records and Create to add them. The profile menu contains Profile, Settings, and Help, subject to your role. Dashboard View switches between operational reports; select a score or chart to investigate the underlying records.',
       'Open Notifications for Unread and Read alerts, or View All Notifications for older alerts. Mark all as read clears alerts through the latest check time. An alert never grants access to its record; internal work-note alerts are restricted to staff.',
       'Reference links open related records in app tabs. Up to 20 tabs stay open; opening another replaces the oldest, with confirmation if it has unsaved changes. Close All Tabs keeps the current record. Tabs survive refresh within your signed-in browser session, but unsaved drafts do not. Signing out clears tabs.',
+      'Records open on Details. Use the section tabs near the top for related records such as Comments, Check History, Incidents, or Attachments. Returning to Details preserves unfinished edits while the record stays open; reloading loses unsaved input. Edit returns to Details. A direct relationship link can open its section instead.',
       'Use Record actions → Export CSV or Export PDF to download saved record data. Save edits first. Downloads exclude attachments, comments, work notes, and related-list datasets. Table CSV exports use the current list filters.',
     ],
   },
@@ -92,7 +93,7 @@ export const helpTopics = [
       'Open an alert to review Alert Details and Source and Status, follow Latest Event to its evidence, or inspect the related incidents. Responders and admins can Acknowledge, Resolve, or Reopen after confirmation. These actions change alert triage only; they do not change measured service health or resolve incidents. A newer recovery signal resolves its matching alert; a newer failure can reopen it.',
       'Monitor failures still create incidents using the existing service-health thresholds and alert-grouping rules. External events can create incidents through an enabled Event Rule. Otherwise use Create Incident on an alert, review the prefilled form, and save to link the incident. Configured required fields still apply.',
       'Admins create a service account with Receive events and permitted services, then configure the sender to POST normalized events to /api/external/v1/events using its API key or OAuth token. Each event needs a unique External ID; alert signals also need a stable Correlation Key. See docs/external-api.md in the repository for payload examples.',
-      'Open the related lists at the bottom of an event, alert, or incident to see its linked records. Counts load separately and rows load when a panel is opened. Only exact triggering checks and explicit alert links are included; shared service membership alone is not a relationship.',
+      'Use the section tabs near the top of an event, alert, or incident to see its linked records. Details shows the record itself. Counts load separately and rows load when a panel is opened. Only exact triggering checks and explicit alert links are included; shared service membership alone is not a relationship.',
       'External events may include a diagnostic payload object up to 32 KiB. Common credential fields are redacted before storage; do not send secrets or personal data. Open the event to inspect the retained payload. External ID, Correlation Key, and occurrence and receipt times are searchable table columns.',
       'Use the same Correlation Key for a failure and its recovery. Keys are isolated by workspace, service account, and service. Retrying the same External ID and payload returns the existing event; reusing it for different content is rejected. Older signals cannot replace newer alert state. Change and information events remain history without opening alerts.',
       'Raw events are retained for 30 days. Alert summaries and incident links remain after their raw evidence expires; deleting a monitor removes its events and monitor alerts. Existing history stays readable, and monitor alerts begin with new checks after upgrade. New demo batches include both monitor and external examples.',
@@ -129,7 +130,8 @@ export const helpTopics = [
       {
         src: '/help/pinned-records.png',
         alt: 'Pinned records grouped by name with record type, number and service context',
-        caption: 'Use Edit Group Name beside a heading to rename it; reorder links or confirm Unpin to remove a shortcut.',
+        caption:
+          'Use Edit Group Name beside a heading to rename it; reorder links or confirm Unpin to remove a shortcut.',
       },
       {
         src: '/help/knowledge-base-articles.png',

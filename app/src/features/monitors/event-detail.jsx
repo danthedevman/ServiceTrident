@@ -73,6 +73,7 @@ export function EventDetail() {
       showToolbar={false}
       kind="events"
       item={event}
+      relatedTabs={event ? <EventRelatedLists eventId={event.id} /> : undefined}
       status={event?.sourceType === 'external' ? event.signal : undefined}
       label="Details"
       sidebar={
@@ -185,7 +186,6 @@ function EventContent({ data, loading, error }) {
             </pre>
           </section>
         )}
-        <EventRelatedLists eventId={event.id} />
       </>
     );
 
@@ -207,7 +207,6 @@ function EventContent({ data, loading, error }) {
             ],
           ]}
         />
-        <EventRelatedLists eventId={event.id} />
       </section>
     );
   return (
@@ -430,7 +429,6 @@ function EventContent({ data, loading, error }) {
                 </p>
               </>
             )}
-            <EventRelatedLists eventId={event.id} />
           </>
         )
       )}

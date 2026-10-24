@@ -3,7 +3,7 @@ import { RecordFieldEditing } from './forms/record-field-layout.jsx';
 import { Modal } from './modal.jsx';
 import { RecordExportActions } from './record-export-actions.jsx';
 import { DateTime } from '../preferences/date-time.jsx';
-import { ActivePanelContext, RelatedCountsContext } from './record-tabs.jsx';
+import { ActivePanelContext, RelatedCountsContext, RecordTabs } from './record-tabs.jsx';
 import { useRecordTabLabel } from './record-navigation.jsx';
 import { useRecordSidebarResize } from './record-sidebar-resize.jsx';
 import { Link } from 'react-router-dom';
@@ -42,6 +42,7 @@ const subscribeInfoViewport = (listener) => {
 /** Keep the form mounted while collapsing independently scrolling record information. */
 export function RecordWorkspace({
   children,
+  relatedTabs,
   sidebar,
   label = 'Details',
   onEdit,
@@ -82,6 +83,27 @@ export function RecordWorkspace({
     return () => registerRail(id, false);
   }, [active, registerRail, id]);
   const [toolbar, setToolbar] = useState(null);
+  const [selectedTab, setSelectedTab] = useState(null);
+  const editRecord = onEdit
+    ? () => {
+        setSelectedTab('details');
+        onEdit();
+      }
+    : undefined;
+  const details = <RecordFieldEditing onEdit={editRecord}>{children}</RecordFieldEditing>;
+  const content = item?.id ? (
+    relatedTabs ? (
+      React.cloneElement(relatedTabs, {
+        details,
+        selectedId: selectedTab ?? undefined,
+        onSelect: setSelectedTab,
+      })
+    ) : (
+      <RecordTabs details={details} tabs={[]} />
+    )
+  ) : (
+    details
+  );
   const state =
     status ??
     item?.status ??
@@ -116,7 +138,7 @@ export function RecordWorkspace({
                     </ActionMenu>
                   )}
                   <div ref={setToolbar} className="flex flex-wrap items-center gap-2">
-                    {onEdit && <EditRecordButton onClick={onEdit} />}
+                    {onEdit && <EditRecordButton onClick={editRecord} />}
                     {actions}
                   </div>
                   <button
@@ -157,7 +179,7 @@ export function RecordWorkspace({
               </div>
             )}
             <RelatedCountsContext.Provider value={item?.id ? { kind, id: item.id } : null}>
-              <RecordFieldEditing onEdit={onEdit}>{children}</RecordFieldEditing>
+              {content}
             </RelatedCountsContext.Provider>
           </RecordActionContext.Provider>
         </div>

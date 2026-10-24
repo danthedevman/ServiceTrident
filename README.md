@@ -22,6 +22,8 @@ Note: ServiceTrident's code was generated and refined with AI assistance, includ
 - Connect communication and ticketing tools, configure identity providers, and give external systems scoped record-creation access.
 - Use optional AI assistance with your own provider account for authorized search, drafts, and confirmed record actions.
 
+Records open on **Details**, with related-record tabs near the top. Switching sections preserves unfinished edits while the record remains open; reloading loses unsaved input.
+
 Workspaces include role-based access, configurable forms, audit history, dashboards, and record exports. Open **Help** from the profile menu for essential workflows and configuration guidance.
 
 ## App preview
@@ -182,3 +184,9 @@ Never share credentials or private workspace data. Use GitHub private vulnerabil
 ## License
 
 Available under the [MIT License](LICENSE). Hosting and third-party services remain your responsibility.
+
+## Marketing site
+
+The marketing landing page is a standalone [index.html](index.html) with embedded styles, no build step, and no backend dependency. It covers website/API monitoring, normalized event aggregation, incident response, supported integrations, and Docker setup. The GitHub corner links to this repository.
+
+To publish it on GitHub Pages, copy the root `index.html` into your configured Pages source or deploy it as a Pages artifact. GitHub Pages hosts only the marketing page; the application still needs its Docker services. The local marketing server serves the same file at `/`; existing documentation and contact routes remain available only on that server.

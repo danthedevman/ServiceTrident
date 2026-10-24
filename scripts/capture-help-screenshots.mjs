@@ -1049,7 +1049,10 @@ await context.route('**/api/**', async (route) => {
       Object.assign(monitors[0], body);
     }
     data = { monitor: monitors[0] };
-  } else if (path.startsWith(`/monitors/${monitors[0].id}/events/`) || /^\/events\/[a-f\d]{24}$/.test(path))
+  } else if (
+    path.startsWith(`/monitors/${monitors[0].id}/events/`) ||
+    /^\/events\/[a-f\d]{24}$/.test(path)
+  )
     data = {
       monitor: { id: monitors[0].id, name: monitors[0].name, serviceId: monitors[0].serviceId },
       event: {
@@ -2586,9 +2589,11 @@ try {
     await page.goto(`${base}/alerts/${demoEventAlert.id}`);
     const summary = page.getByRole('region', { name: 'Alert Details', exact: true });
     await summary.waitFor();
-    for (const label of ['Title', 'Description']) await summary.locator('dt').getByText(label, { exact: true }).waitFor();
+    for (const label of ['Title', 'Description'])
+      await summary.locator('dt').getByText(label, { exact: true }).waitFor();
     const source = page.getByRole('region', { name: 'Source and Status', exact: true });
-    for (const label of ['Source', 'Source Type', 'Status', 'Severity', 'Service', 'Latest Event']) await source.locator('dt').getByText(label, { exact: true }).waitFor();
+    for (const label of ['Source', 'Source Type', 'Status', 'Severity', 'Service', 'Latest Event'])
+      await source.locator('dt').getByText(label, { exact: true }).waitFor();
     await source.locator(`a[href="/events/${demoExternalEvent.id}"]`).waitFor();
     assert.equal(await page.getByRole('button', { name: 'Edit Record', exact: true }).count(), 0);
     await page.screenshot({ path: `${output}/event-alert.png` });
@@ -2597,18 +2602,35 @@ try {
     await page.locator(`a[href="/alerts/${demoEventAlert.id}"]`).waitFor();
     await page.screenshot({ path: `${output}/external-event.png` });
     await page.setViewportSize({ width: 390, height: 720 });
-    await page.getByRole('tablist', { name: 'Related information', exact: true }).scrollIntoViewIfNeeded();
-    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+    await page
+      .getByRole('tablist', { name: 'Record sections', exact: true })
+      .scrollIntoViewIfNeeded();
+    assert.equal(
+      await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
+      false,
+    );
     await page.goto(`${base}/records/audit/${demoAuditRows[0].id}`);
     await page.getByRole('region', { name: 'Audit Entry Details', exact: true }).waitFor();
-    assert.ok(await page.locator('dt').count() > 0);
+    assert.ok((await page.locator('dt').count()) > 0);
     assert.deepEqual(faults, []);
-    console.log('Verified labeled alert/event/log fields, linked records, immutable controls and mobile scrolling.');
+    console.log(
+      'Verified labeled alert/event/log fields, linked records, immutable controls and mobile scrolling.',
+    );
     await browser.close();
     process.exit(0);
   }
   if (process.env.HELP_CAPTURE_FOCUS === 'knowledge-base-edit') {
-    demoArticles.push({ id: 'bbbbbbbbbbbbbbbbbbbbbbbc', number: 'KB0000001', title: 'Customer portal recovery', articleType: 'article', status: 'published', createdBy: 'Alex Demo', updatedAt: '2026-10-17T12:00:00Z', knowledgeBaseId: demoBases[0].id, summary: 'Verify service health and restore customer access.' });
+    demoArticles.push({
+      id: 'bbbbbbbbbbbbbbbbbbbbbbbc',
+      number: 'KB0000001',
+      title: 'Customer portal recovery',
+      articleType: 'article',
+      status: 'published',
+      createdBy: 'Alex Demo',
+      updatedAt: '2026-10-17T12:00:00Z',
+      knowledgeBaseId: demoBases[0].id,
+      summary: 'Verify service health and restore customer access.',
+    });
     user.role = 'admin';
     user.uiPreferences = { ...user.uiPreferences, rightCollapsed: true };
     await page.goto(`${base}/knowledge/bases/${demoBases[0].id}`);
@@ -2634,9 +2656,14 @@ try {
     await page.getByRole('button', { name: 'Save', exact: true }).waitFor();
     assert.equal(await articles.count(), 1);
     await articles.scrollIntoViewIfNeeded();
-    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+    assert.equal(
+      await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
+      false,
+    );
     assert.deepEqual(faults, []);
-    console.log('Verified a single article panel across repeated double-click Edit, Cancel, Save and mobile transitions.');
+    console.log(
+      'Verified a single article panel across repeated double-click Edit, Cancel, Save and mobile transitions.',
+    );
     await browser.close();
     process.exit(0);
   }
@@ -2660,7 +2687,12 @@ try {
     await page.getByRole('button', { name: 'Edit Group Name: General', exact: true }).click();
     await page.getByRole('textbox', { name: 'Group Name', exact: true }).fill('   ');
     await page.getByRole('button', { name: 'Save', exact: true }).click();
-    assert.equal(await page.getByRole('textbox', { name: 'Group Name', exact: true }).getAttribute('aria-invalid'), 'true');
+    assert.equal(
+      await page
+        .getByRole('textbox', { name: 'Group Name', exact: true })
+        .getAttribute('aria-invalid'),
+      'true',
+    );
     await page.getByRole('textbox', { name: 'Group Name', exact: true }).fill('Operations');
     await page.getByRole('button', { name: 'Save', exact: true }).click();
     await page.getByRole('heading', { name: 'Operations', exact: true }).waitFor();
@@ -2674,23 +2706,40 @@ try {
     await page.screenshot({ path: `${output}/pinned-records.png` });
     await page.setViewportSize({ width: 390, height: 720 });
     await page.getByRole('link', { name: tasks[0].title, exact: true }).scrollIntoViewIfNeeded();
-    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+    assert.equal(
+      await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
+      false,
+    );
     assert.deepEqual(faults, []);
-    pinnedRecords.groups.push(...Array.from({ length: 12 }, (_, index) => ({
-      id: `extra-${index}`, name: `Additional group ${index + 1}`,
-    })));
-    for (const viewport of [{ width: 1440, height: 700 }, { width: 390, height: 640 }]) {
+    pinnedRecords.groups.push(
+      ...Array.from({ length: 12 }, (_, index) => ({
+        id: `extra-${index}`,
+        name: `Additional group ${index + 1}`,
+      })),
+    );
+    for (const viewport of [
+      { width: 1440, height: 700 },
+      { width: 390, height: 640 },
+    ]) {
       await page.setViewportSize(viewport);
       await page.reload();
-      const bottom = page.getByRole('button', { name: 'Edit Group Name: Additional group 12', exact: true });
+      const bottom = page.getByRole('button', {
+        name: 'Edit Group Name: Additional group 12',
+        exact: true,
+      });
       await bottom.scrollIntoViewIfNeeded();
       await bottom.click();
       await page.getByRole('textbox', { name: 'Group Name', exact: true }).fill('Unsaved');
       await page.getByRole('button', { name: 'Cancel', exact: true }).click();
       assert.equal(await bottom.isVisible(), true);
-      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+      assert.equal(
+        await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
+        false,
+      );
     }
-    console.log('Verified pin group rename, validation, persistence, Cancel, and desktop/mobile scrolling.');
+    console.log(
+      'Verified pin group rename, validation, persistence, Cancel, and desktop/mobile scrolling.',
+    );
     await browser.close();
     process.exit(0);
   }
@@ -2706,10 +2755,20 @@ try {
     await page.screenshot({ path: `${output}/readme-tasks-dark.png` });
     await page.getByRole('link', { name: 'List View', exact: true }).click();
     await page.getByRole('searchbox', { name: 'Search list', exact: true }).waitFor();
-    const ascending = page.waitForRequest((req) => req.url().includes('/api/tasks?') && new URL(req.url()).searchParams.get('sortBy') === 'number' && new URL(req.url()).searchParams.get('order') === 'asc');
+    const ascending = page.waitForRequest(
+      (req) =>
+        req.url().includes('/api/tasks?') &&
+        new URL(req.url()).searchParams.get('sortBy') === 'number' &&
+        new URL(req.url()).searchParams.get('order') === 'asc',
+    );
     await page.getByRole('button', { name: 'Record Number', exact: true }).click();
     await ascending;
-    const descending = page.waitForRequest((req) => req.url().includes('/api/tasks?') && new URL(req.url()).searchParams.get('sortBy') === 'number' && new URL(req.url()).searchParams.get('order') === 'desc');
+    const descending = page.waitForRequest(
+      (req) =>
+        req.url().includes('/api/tasks?') &&
+        new URL(req.url()).searchParams.get('sortBy') === 'number' &&
+        new URL(req.url()).searchParams.get('order') === 'desc',
+    );
     await page.getByRole('button', { name: 'Record Number', exact: true }).click();
     await descending;
     await page.screenshot({ path: `${output}/tasks-list.png` });
@@ -2717,7 +2776,10 @@ try {
     await page.getByRole('button', { name: 'Archived Tasks actions', exact: true }).click();
     await page.getByRole('link', { name: 'Active Tasks', exact: true }).waitFor();
     await page.keyboard.press('Escape');
-    assert.equal(await page.getByText('Only archived tasks are shown.', { exact: false }).count(), 0);
+    assert.equal(
+      await page.getByText('Only archived tasks are shown.', { exact: false }).count(),
+      0,
+    );
     await page.screenshot({ path: `${output}/task-archived.png` });
     await page.goto(`${base}/tasks/new`);
     await page.getByRole('textbox', { name: /^Title/ }).waitFor();
@@ -2727,9 +2789,14 @@ try {
     await page.setViewportSize({ width: 390, height: 720 });
     await page.goto(`${base}/tasks?view=list`);
     await page.getByRole('searchbox', { name: 'Search list', exact: true }).waitFor();
-    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+    assert.equal(
+      await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
+      false,
+    );
     assert.deepEqual(faults, []);
-    console.log('Verified standalone Tasks, project-free forms, legacy redirect and inset search icons on desktop/mobile.');
+    console.log(
+      'Verified standalone Tasks, project-free forms, legacy redirect and inset search icons on desktop/mobile.',
+    );
     await browser.close();
     process.exit(0);
   }
@@ -2845,7 +2912,10 @@ try {
     );
     const crumbs = page.getByRole('navigation', { name: 'Breadcrumb', exact: true });
     await crumbs.getByRole('link', { name: /^Monitor:/ }).waitFor();
-    assert.equal(await crumbs.getByRole('link', { name: 'Events', exact: true }).getAttribute('href'), '/events');
+    assert.equal(
+      await crumbs.getByRole('link', { name: 'Events', exact: true }).getAttribute('href'),
+      '/events',
+    );
     await page.reload();
     await crumbs.getByRole('link', { name: /^Monitor:/ }).waitFor();
     await nav.getByRole('link', { name: 'Events', exact: true }).waitFor();
@@ -2856,7 +2926,10 @@ try {
     const eventId = new URL(page.url()).pathname.split('/').at(-1);
     await page.goto(`${base}/events/${eventId}`);
     await crumbs.getByRole('link', { name: /^Monitor:/ }).waitFor();
-    assert.equal(await crumbs.getByRole('link', { name: 'Events', exact: true }).getAttribute('href'), '/events');
+    assert.equal(
+      await crumbs.getByRole('link', { name: 'Events', exact: true }).getAttribute('href'),
+      '/events',
+    );
     await page.screenshot({ path: `${output}/monitor-event-breadcrumbs.png` });
     await page.goto(`${base}/events/${demoExternalEvent.id}`);
     await page.getByRole('region', { name: 'Source and Correlation', exact: true }).waitFor();
@@ -2955,7 +3028,9 @@ try {
       user.role = role;
       await page.goto(`${base}/help`);
       const expand = page.getByRole('button', { name: 'Expand Navigation', exact: true });
-      await nav.getByRole('link', { name: role === 'user' ? 'My incidents' : 'Dashboard', exact: true }).waitFor();
+      await nav
+        .getByRole('link', { name: role === 'user' ? 'My incidents' : 'Dashboard', exact: true })
+        .waitFor();
       if (await expand.count()) await expand.click({ timeout: 1500 }).catch(() => {});
       await nav
         .getByRole('link', { name: role === 'user' ? 'My incidents' : 'Dashboard', exact: true })
@@ -3101,34 +3176,86 @@ try {
     await browser.close();
     process.exit(0);
   }
-  if (process.env.HELP_CAPTURE_FOCUS === 'event-related-bottom') {
+  if (['record-sections', 'event-related-bottom'].includes(process.env.HELP_CAPTURE_FOCUS)) {
+    user.uiPreferences = { ...user.uiPreferences, rightCollapsed: true };
+    const cases = [
+      [`/tasks/${tasks[0].id}`, 'Attachments'],
+      [`/incidents/${demoIncident.id}`, 'Comments and work notes'],
+      [`/services/${services[0].id}`, 'Incidents'],
+      [`/monitors/${monitors[0].id}`, 'Check History'],
+      [`/events/${demoExternalEvent.id}`, 'Incidents'],
+      [`/alerts/${demoEventAlert.id}`, 'Incidents'],
+    ];
     for (const width of [1440, 390]) {
       await page.setViewportSize({ width, height: 844 });
-      await page.goto(`${base}/events`);
-      await page.getByRole('link', { name: 'EVT0000001', exact: true }).click();
-      await page.getByRole('tab', { name: /^Incidents/ }).waitFor();
-      const related = page.locator('.record-scroll-area .related-lists');
+      for (const [path, relationship] of cases) {
+        await page.goto(`${base}${path}`);
+        const sections = page.getByRole('tablist', { name: 'Record sections', exact: true });
+        const details = sections.getByRole('tab', { name: 'Details', exact: true });
+        await details.waitFor();
+        assert.equal(await details.getAttribute('aria-selected'), 'true', path);
+        assert.equal(await sections.evaluate((el) => getComputedStyle(el).backgroundColor), 'rgba(0, 0, 0, 0)');
+        assert.equal(await details.evaluate((el) => getComputedStyle(el).backgroundColor), 'rgba(0, 0, 0, 0)');
+
+        const strip = await sections.boundingBox();
+        const record = await page
+          .getByRole('tabpanel', { name: 'Details', exact: true })
+          .boundingBox();
+        assert.ok(strip.y < record.y, 'Sections precede record fields');
+        const related = sections.getByRole('tab', { name: relationship, exact: true });
+        await related.click();
+        assert.equal(await page.getByRole('tabpanel', { name: 'Details', exact: true }).count(), 0);
+        await page.getByRole('tabpanel', { name: relationship, exact: true }).waitFor();
+        await details.click();
+        await details.focus();
+        await page.keyboard.press('ArrowRight');
+        assert.equal(await related.getAttribute('aria-selected'), 'true');
+        await page.keyboard.press('Home');
+        assert.equal(await details.getAttribute('aria-selected'), 'true');
+        const last = page
+          .getByRole('tabpanel', { name: 'Details', exact: true })
+          .locator('div')
+          .last();
+        await last.scrollIntoViewIfNeeded();
+        await details.scrollIntoViewIfNeeded();
+      }
+      await page.goto(`${base}/services/${services[0].id}`);
+      await page.getByRole('button', { name: 'Edit Record', exact: true }).click();
+      const title = page.getByRole('textbox', { name: /^Name/ });
+      await title.fill('Preserved section draft');
+      await page.getByRole('tab', { name: 'Incidents', exact: true }).click();
+      await page.getByRole('tab', { name: 'Details', exact: true }).click();
+      assert.equal(await title.inputValue(), 'Preserved section draft');
+      await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+      await page
+        .getByRole('dialog', { name: 'Discard Unsaved Changes?', exact: true })
+        .getByRole('button', { name: 'Discard Changes', exact: true })
+        .click();
+      await page.getByRole('tab', { name: 'Incidents', exact: true }).click();
+      await page.getByRole('button', { name: 'Edit Record', exact: true }).click();
       assert.equal(
-        await related.evaluate((el) => el.nextElementSibling),
-        null,
-        'Monitor relationships follow all diagnostics',
+        await page.getByRole('tab', { name: 'Details', exact: true }).getAttribute('aria-selected'),
+        'true',
       );
-      await related.scrollIntoViewIfNeeded();
-      await page.getByRole('tab', { name: /^Alerts/ }).click();
-      await page.getByRole('tabpanel', { name: /^Alerts/ }).waitFor();
-      await page.getByRole('tab', { name: /^Incidents/ }).click();
-      await page.screenshot({ path: `${output}/monitor-event-related-${width}.png` });
+      await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+      await page.goto(`${base}/services/${services[0].id}?related=monitors`);
+      await page.getByRole('tabpanel', { name: /^Monitors/ }).waitFor();
+      await page.getByRole('tab', { name: 'Details', exact: true }).click();
+      assert.equal(new URL(page.url()).searchParams.has('related'), false);
       await page.goto(`${base}/events/${demoExternalEvent.id}`);
-      await page.getByRole('tab', { name: /^Incidents/ }).waitFor();
-      assert.equal(
-        await related.evaluate((el) => el.nextElementSibling),
-        null,
-        'External relationships remain below the payload',
-      );
+      await page.getByRole('tab', { name: 'Details', exact: true }).waitFor();
+      if (width === 1440) await page.screenshot({ path: `${output}/external-event.png` });
     }
+    await page.setViewportSize({ width: 1440, height: 960 });
+    await page.goto(`${base}/tasks/${tasks[0].id}`);
+    await page.getByRole('tab', { name: 'Details', exact: true }).waitFor();
+    await page.screenshot({ path: `${output}/record-tabs.png` });
     assert.deepEqual(faults, []);
+    console.log(
+      'Verified top record sections, Details defaults, lazy relationships, keyboard navigation, preserved drafts and Edit selection on desktop/mobile.',
+    );
     await browser.close();
-    process.exit();
+    process.exit(0);
   }
   if (process.env.HELP_CAPTURE_FOCUS === 'event-filters') {
     for (const width of [1440, 390]) {
@@ -3198,6 +3325,21 @@ try {
           const tab = await page
             .locator('.record-navigation-tab[data-active="true"]')
             .boundingBox();
+          const activeStyle = await page
+            .locator('.record-navigation-tab[data-active="true"]')
+            .evaluate((el) => ({
+              shadow: getComputedStyle(el).boxShadow,
+              top: getComputedStyle(el).borderTopColor,
+              icon: getComputedStyle(el.querySelector('[role="tab"] > svg')).color,
+              corners: [
+                getComputedStyle(el).borderTopLeftRadius,
+                getComputedStyle(el).borderTopRightRadius,
+              ],
+            }));
+          assert.deepEqual(activeStyle.corners, ['8px', '8px']);
+          assert.equal(activeStyle.shadow, 'none');
+          assert.equal(activeStyle.top, 'rgba(0, 0, 0, 0)');
+          assert.ok(activeStyle.icon !== 'rgba(0, 0, 0, 0)');
           const main = await page.locator('#main').boundingBox();
           assert.ok(
             Math.abs(tab.y + tab.height - main.y) <= 1,

@@ -6,11 +6,14 @@ import { EventsTable } from './events.jsx';
 import { DateTime } from '../../preferences/date-time.jsx';
 
 /** Fetch only the active relationship panel; the server owns paging and counts. */
-export function EventRelatedLists({ eventId, alertId }) {
+export function EventRelatedLists({ eventId, alertId, details, selectedId, onSelect }) {
   const query = new URLSearchParams(eventId ? { eventId } : { alertId });
   return (
     <RecordTabs
       related
+      details={details}
+      selectedId={selectedId}
+      onSelect={onSelect}
       lazy
       tabs={[
         {

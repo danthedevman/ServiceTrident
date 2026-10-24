@@ -494,6 +494,239 @@ export function IncidentPage({ edit = false }) {
                     />
                   </>
                 }
+                relatedTabs={
+                  <RecordTabs
+                    related
+                    lazy
+                    tabs={[
+                      {
+                        id: 'discussion',
+                        label: canEdit ? 'Comments and work notes' : 'Comments',
+                        content: (
+                          <IncidentDiscussion
+                            key={item.id}
+                            incidentId={item.id}
+                            comments={incident.data.comments ?? []}
+                            role={user?.role}
+                          />
+                        ),
+                      },
+                      ...(user?.role !== 'user'
+                        ? [
+                            {
+                              id: 'events',
+                              label: 'Events',
+                              content: <EventsTable related relatedIncidentId={item.id} />,
+                            },
+                            {
+                              id: 'alerts',
+                              label: 'Alerts',
+                              content: (
+                                <EventsTable related alertsView relatedIncidentId={item.id} />
+                              ),
+                            },
+                          ]
+                        : []),
+                      ...(user?.role !== 'user'
+                        ? [
+                            {
+                              id: 'rcas',
+                              label: 'RCAs',
+                              content: <RcaList related incidentId={item.id} />,
+                            },
+                          ]
+                        : []),
+                      {
+                        id: 'attachments',
+                        label: 'Attachments',
+                        content: <AttachmentPanel kind="incidents" recordId={item.id} />,
+                      },
+                      {
+                        id: 'activity',
+                        label: 'Activity',
+                        content: (
+                          <DataTable
+                            source={`activity?recordId=${item.id}`}
+                            title="Incident Activity"
+                            rows={[...item.timeline].reverse()}
+                            columns={[
+                              { key: 'at', label: 'Time', value: (row) => row.at },
+                              { key: 'by', label: 'Updated by', value: (row) => row.by },
+                              {
+                                key: 'status',
+                                label: 'Status',
+                                value: (row) => displayValue(row.status),
+                                render: (row) => (
+                                  <StateBadge status={row.status} label={row.statusLabel} />
+                                ),
+                              },
+                              {
+                                key: 'note',
+                                label: 'Note',
+                                value: (row) =>
+                                  row.previousResolutionNotes
+                                    ? `${row.note} — Previous resolution: ${row.previousResolutionNotes}`
+                                    : row.note,
+                              },
+                            ]}
+                            filename="incident-activity.csv"
+                            defaultSort="at:desc"
+                            dateColumn="at"
+                          />
+                        ),
+                      },
+                      ...(user?.role !== 'user'
+                        ? [
+                            ...(['monitor', 'automation'].includes(item.source) &&
+                            (!item.monitorTriggersRecorded || item.hasMonitorEvents)
+                              ? [
+                                  {
+                                    id: 'monitor-events',
+                                    label: 'Monitor Events',
+                                    content: (
+                                      <>
+                                        <p className="px-4 py-3 text-sm text-slate-500 dark:text-slate-400">
+                                          {item.monitorTriggersRecorded
+                                            ? 'Checks recorded when this incident opened · Last 30 days · Includes dependency monitors'
+                                            : 'Triggering checks were not recorded for this older incident.'}
+                                        </p>
+                                        <DataTable
+                                          source={`incident-monitor-events?recordId=${item.id}`}
+                                          title="Monitor Events"
+                                          rowHref={(row) =>
+                                            `/monitors/${row.monitorId}/events/${row.id}`
+                                          }
+                                          rowKey={(row) => row.id}
+                                          filename="incident-monitor-events.csv"
+                                          defaultSort="checkedAt:desc"
+                                          dateColumn="checkedAt"
+                                          columns={[
+                                            {
+                                              key: 'checkedAt',
+                                              label: 'Checked At',
+                                              value: (row) => row.checkedAt,
+                                              render: (row) => (
+                                                <Link
+                                                  className="text-blue-700 hover:underline dark:text-blue-300"
+                                                  to={`/monitors/${row.monitorId}/events/${row.id}`}
+                                                >
+                                                  <DateTime value={row.checkedAt} />
+                                                </Link>
+                                              ),
+                                            },
+                                            {
+                                              key: 'monitorName',
+                                              label: 'Monitor',
+                                              value: (row) => row.monitorName,
+                                            },
+                                            {
+                                              key: 'serviceName',
+                                              label: 'Service',
+                                              value: (row) => row.serviceName,
+                                            },
+                                            {
+                                              key: 'status',
+                                              label: 'Status',
+                                              value: (row) => row.status,
+                                              render: (row) => <StateBadge status={row.status} />,
+                                            },
+                                            {
+                                              key: 'statusCode',
+                                              label: 'HTTP Status',
+                                              value: (row) => row.statusCode ?? 'No response',
+                                            },
+                                            {
+                                              key: 'durationMs',
+                                              label: 'Duration',
+                                              value: (row) => row.durationMs,
+                                              render: (row) =>
+                                                Number.isFinite(row.durationMs)
+                                                  ? `${row.durationMs} ms`
+                                                  : '—',
+                                            },
+                                            {
+                                              key: 'error',
+                                              label: 'Error',
+                                              value: (row) => row.error || '—',
+                                            },
+                                          ]}
+                                        />
+                                      </>
+                                    ),
+                                  },
+                                ]
+                              : []),
+                            {
+                              id: 'tasks',
+                              label: 'Tasks',
+                              content: (
+                                <WorkTable
+                                  related
+                                  initialIncidentId={item.id}
+                                  initialServiceId={item.serviceId}
+                                />
+                              ),
+                            },
+                            {
+                              id: 'knowledge',
+                              label: 'Knowledge',
+                              content: (
+                                <DataTable
+                                  source={`incident-knowledge?recordId=${item.id}`}
+                                  title="Knowledge"
+                                  rows={incident.data.knowledge ?? []}
+                                  rowKey={(row) => row.id}
+                                  filename="incident-knowledge.csv"
+                                  columns={[
+                                    {
+                                      key: 'title',
+                                      label: 'Title',
+                                      value: (row) => row.title,
+                                      render: (row) => (
+                                        <Link
+                                          className="text-blue-700 dark:text-blue-300"
+                                          to={`/knowledge/${row.id}`}
+                                        >
+                                          {row.title || 'Untitled article'}
+                                        </Link>
+                                      ),
+                                    },
+                                    {
+                                      key: 'summary',
+                                      label: 'Summary',
+                                      value: (row) => row.summary || '',
+                                    },
+                                    {
+                                      key: 'status',
+                                      label: 'Status',
+                                      value: (row) => displayValue(row.status),
+                                      render: (row) => (
+                                        <StateBadge status={row.status} label={row.statusLabel} />
+                                      ),
+                                    },
+                                  ]}
+                                  actions={
+                                    canEdit && !editing ? (
+                                      <button
+                                        type="button"
+                                        className="btn-secondary"
+                                        onClick={() => {
+                                          setResolving(false);
+                                          setEditingId(id);
+                                        }}
+                                      >
+                                        Link articles
+                                      </button>
+                                    ) : undefined
+                                  }
+                                />
+                              ),
+                            },
+                          ]
+                        : []),
+                    ]}
+                  />
+                }
               >
                 <AttachmentLinks kind="incidents" recordId={item.id} />
                 <AIAssistant key={item.id} action="summary" kind="incidents" id={item.id} />
@@ -544,235 +777,6 @@ export function IncidentPage({ edit = false }) {
                     />
                   </section>
                 )}
-                <RecordTabs
-                  related
-                  lazy
-                  tabs={[
-                    {
-                      id: 'discussion',
-                      label: canEdit ? 'Comments and work notes' : 'Comments',
-                      content: (
-                        <IncidentDiscussion
-                          key={item.id}
-                          incidentId={item.id}
-                          comments={incident.data.comments ?? []}
-                          role={user?.role}
-                        />
-                      ),
-                    },
-                    ...(user?.role !== 'user'
-                      ? [
-                          {
-                            id: 'events',
-                            label: 'Events',
-                            content: <EventsTable related relatedIncidentId={item.id} />,
-                          },
-                          {
-                            id: 'alerts',
-                            label: 'Alerts',
-                            content: <EventsTable related alertsView relatedIncidentId={item.id} />,
-                          },
-                        ]
-                      : []),
-                    ...(user?.role !== 'user'
-                      ? [
-                          {
-                            id: 'rcas',
-                            label: 'RCAs',
-                            content: <RcaList related incidentId={item.id} />,
-                          },
-                        ]
-                      : []),
-                    {
-                      id: 'attachments',
-                      label: 'Attachments',
-                      content: <AttachmentPanel kind="incidents" recordId={item.id} />,
-                    },
-                    {
-                      id: 'activity',
-                      label: 'Activity',
-                      content: (
-                        <DataTable
-                          source={`activity?recordId=${item.id}`}
-                          title="Incident Activity"
-                          rows={[...item.timeline].reverse()}
-                          columns={[
-                            { key: 'at', label: 'Time', value: (row) => row.at },
-                            { key: 'by', label: 'Updated by', value: (row) => row.by },
-                            {
-                              key: 'status',
-                              label: 'Status',
-                              value: (row) => displayValue(row.status),
-                              render: (row) => (
-                                <StateBadge status={row.status} label={row.statusLabel} />
-                              ),
-                            },
-                            {
-                              key: 'note',
-                              label: 'Note',
-                              value: (row) =>
-                                row.previousResolutionNotes
-                                  ? `${row.note} — Previous resolution: ${row.previousResolutionNotes}`
-                                  : row.note,
-                            },
-                          ]}
-                          filename="incident-activity.csv"
-                          defaultSort="at:desc"
-                          dateColumn="at"
-                        />
-                      ),
-                    },
-                    ...(user?.role !== 'user'
-                      ? [
-                          ...(['monitor', 'automation'].includes(item.source) &&
-                          (!item.monitorTriggersRecorded || item.hasMonitorEvents)
-                            ? [
-                                {
-                                  id: 'monitor-events',
-                                  label: 'Monitor Events',
-                                  content: (
-                                    <>
-                                      <p className="px-4 py-3 text-sm text-slate-500 dark:text-slate-400">
-                                        {item.monitorTriggersRecorded
-                                          ? 'Checks recorded when this incident opened · Last 30 days · Includes dependency monitors'
-                                          : 'Triggering checks were not recorded for this older incident.'}
-                                      </p>
-                                      <DataTable
-                                        source={`incident-monitor-events?recordId=${item.id}`}
-                                        title="Monitor Events"
-                                        rowHref={(row) =>
-                                          `/monitors/${row.monitorId}/events/${row.id}`
-                                        }
-                                        rowKey={(row) => row.id}
-                                        filename="incident-monitor-events.csv"
-                                        defaultSort="checkedAt:desc"
-                                        dateColumn="checkedAt"
-                                        columns={[
-                                          {
-                                            key: 'checkedAt',
-                                            label: 'Checked At',
-                                            value: (row) => row.checkedAt,
-                                            render: (row) => (
-                                              <Link
-                                                className="text-blue-700 hover:underline dark:text-blue-300"
-                                                to={`/monitors/${row.monitorId}/events/${row.id}`}
-                                              >
-                                                <DateTime value={row.checkedAt} />
-                                              </Link>
-                                            ),
-                                          },
-                                          {
-                                            key: 'monitorName',
-                                            label: 'Monitor',
-                                            value: (row) => row.monitorName,
-                                          },
-                                          {
-                                            key: 'serviceName',
-                                            label: 'Service',
-                                            value: (row) => row.serviceName,
-                                          },
-                                          {
-                                            key: 'status',
-                                            label: 'Status',
-                                            value: (row) => row.status,
-                                            render: (row) => <StateBadge status={row.status} />,
-                                          },
-                                          {
-                                            key: 'statusCode',
-                                            label: 'HTTP Status',
-                                            value: (row) => row.statusCode ?? 'No response',
-                                          },
-                                          {
-                                            key: 'durationMs',
-                                            label: 'Duration',
-                                            value: (row) => row.durationMs,
-                                            render: (row) =>
-                                              Number.isFinite(row.durationMs)
-                                                ? `${row.durationMs} ms`
-                                                : '—',
-                                          },
-                                          {
-                                            key: 'error',
-                                            label: 'Error',
-                                            value: (row) => row.error || '—',
-                                          },
-                                        ]}
-                                      />
-                                    </>
-                                  ),
-                                },
-                              ]
-                            : []),
-                          {
-                            id: 'tasks',
-                            label: 'Tasks',
-                            content: (
-                              <WorkTable
-                                related
-                                initialIncidentId={item.id}
-                                initialServiceId={item.serviceId}
-                              />
-                            ),
-                          },
-                          {
-                            id: 'knowledge',
-                            label: 'Knowledge',
-                            content: (
-                              <DataTable
-                                source={`incident-knowledge?recordId=${item.id}`}
-                                title="Knowledge"
-                                rows={incident.data.knowledge ?? []}
-                                rowKey={(row) => row.id}
-                                filename="incident-knowledge.csv"
-                                columns={[
-                                  {
-                                    key: 'title',
-                                    label: 'Title',
-                                    value: (row) => row.title,
-                                    render: (row) => (
-                                      <Link
-                                        className="text-blue-700 dark:text-blue-300"
-                                        to={`/knowledge/${row.id}`}
-                                      >
-                                        {row.title || 'Untitled article'}
-                                      </Link>
-                                    ),
-                                  },
-                                  {
-                                    key: 'summary',
-                                    label: 'Summary',
-                                    value: (row) => row.summary || '',
-                                  },
-                                  {
-                                    key: 'status',
-                                    label: 'Status',
-                                    value: (row) => displayValue(row.status),
-                                    render: (row) => (
-                                      <StateBadge status={row.status} label={row.statusLabel} />
-                                    ),
-                                  },
-                                ]}
-                                actions={
-                                  canEdit && !editing ? (
-                                    <button
-                                      type="button"
-                                      className="btn-secondary"
-                                      onClick={() => {
-                                        setResolving(false);
-                                        setEditingId(id);
-                                      }}
-                                    >
-                                      Link articles
-                                    </button>
-                                  ) : undefined
-                                }
-                              />
-                            ),
-                          },
-                        ]
-                      : []),
-                  ]}
-                />
               </RecordWorkspace>
             </>
           )

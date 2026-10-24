@@ -2020,7 +2020,7 @@ body {
   align-items: center;
   gap: 0.125rem;
   border: 1px solid transparent;
-  border-radius: 0.75rem 0.75rem 0 0;
+  border-radius: 8px 8px 0 0;
   background: light-dark(var(--color-slate-200), var(--color-slate-800));
   color: light-dark(var(--color-slate-600), var(--color-slate-200));
   transition: none;
@@ -2031,7 +2031,7 @@ body {
 .record-navigation-tab[data-active='true'] {
   background: var(--app-background);
   color: light-dark(var(--color-blue-700), var(--color-blue-200));
-  box-shadow: inset 0 2px 0 var(--color-blue-500);
+  box-shadow: none;
 }
 .record-navigation-tab > [role='tab'] {
   padding: 0.5rem 0.625rem;
@@ -2785,12 +2785,17 @@ body:has([data-app-shell]) {
   align-items: flex-end;
 }
 [data-record-tabs-visible='true'] .record-navigation-tab {
-  border-radius: 12px 12px 0 0;
+  border-radius: 8px 8px 0 0;
   border-bottom: 0;
+  overflow: hidden;
 }
 [data-record-tabs-visible='true'] .record-navigation-tab[data-active='true'] {
   border-color: light-dark(var(--color-slate-200), var(--color-slate-800));
+  border-top-color: transparent;
   background: var(--app-background);
+}
+.record-navigation-tab[data-active='true'] > [role='tab'] > svg {
+  color: light-dark(var(--color-blue-700), var(--color-blue-300));
 }
 [data-record-tabs-visible='true'] > #main {
   border-top: 0;
@@ -2894,4 +2899,48 @@ body:has([data-app-shell]) {
 .static-record-fields[data-readonly='true'] select,
 .static-record-fields[data-readonly='true'] .select-trigger {
   pointer-events: none;
+}
+
+/* Record sections occupy only the active panel's height, so short lists never inherit a long form. */
+.record-content-tabs,
+[data-theme='dark'] .record-content-tabs {
+  background: transparent;
+}
+.record-content-panel {
+  min-width: 0;
+  padding-top: 1rem;
+}
+.record-content-panel[hidden] {
+  display: none;
+}
+
+/* Section navigation stays distinct from the record's field surfaces. */
+.record-content-tabs > [role='tablist'],
+[data-theme='dark'] .record-content-tabs > [role='tablist'] {
+  gap: 1.5rem;
+  background: transparent;
+  border-bottom: 1px solid light-dark(var(--color-slate-200), var(--color-slate-700));
+  scrollbar-width: none;
+}
+.record-content-tabs > [role='tablist']::-webkit-scrollbar {
+  display: none;
+}
+.record-content-tabs .related-list-tab {
+  max-width: min(20rem, 75vw);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0.75rem 0;
+  border-radius: 0;
+  border-bottom-width: 2px;
+  background: transparent;
+  color: light-dark(var(--color-slate-500), var(--color-slate-400));
+}
+.record-content-tabs .related-list-tab:hover {
+  background: transparent;
+  color: light-dark(var(--color-slate-900), var(--color-slate-100));
+}
+.record-content-tabs .related-list-tab[aria-selected='true'] {
+  background: transparent;
+  color: light-dark(var(--color-blue-700), var(--color-blue-300));
+  border-bottom-color: light-dark(var(--color-blue-600), var(--color-blue-400));
 }

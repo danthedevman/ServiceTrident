@@ -23,6 +23,7 @@ export function EventAlertDetail() {
     <RecordWorkspace
       kind="eventAlerts"
       item={item}
+      relatedTabs={item ? <EventRelatedLists alertId={item.id} /> : undefined}
       identityExtra={item ? <Badge status={item.severity} /> : null}
       sidebar={
         item ? (
@@ -143,7 +144,6 @@ export function EventAlertDetail() {
                   : []),
               ]}
             />
-            <EventRelatedLists alertId={id} />
           </>
         )
       )}

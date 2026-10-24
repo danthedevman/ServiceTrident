@@ -8,23 +8,30 @@ export const RelatedCountsContext = createContext(null);
 
 export const RelatedListContext = createContext(false);
 
-/** Related panels share a grid footprint to avoid scroll jumps while retaining visited data.
- * Accessible related-record tabs keep one section visible without duplicating page-length content. Optional lazy mounting retains visited panels and their state. */
+/** Record sections default to Details and preserve mounted drafts while hiding inactive panels.
+ * Standalone related lists retain their shared grid footprint; URL relationship links remain addressable. */
 export function RecordTabs({
-  tabs,
+  tabs: relatedTabs,
+  details,
   label = 'Related information',
   lazy = false,
   related = false,
   selectedId,
   onSelect,
 }) {
+  const record = details !== undefined;
+  const tabs = record
+    ? [{ id: 'details', label: 'Details', content: details }, ...relatedTabs]
+    : relatedTabs;
   const location = useLocation(),
     navigate = useNavigate();
   const params = new URLSearchParams(location.search);
-  const relatedFromUrl = related ? params.get('related') : null;
+  const relatedFromUrl = related || record ? params.get('related') : null;
   const scope = useContext(RelatedCountsContext);
   const counts = useResource(
-    related && scope ? `/related-counts/${scope.kind}/${scope.id}` : null,
+    (related || record) && relatedTabs.length > 0 && scope
+      ? `/related-counts/${scope.kind}/${scope.id}`
+      : null,
     60000,
   );
   const parentActive = useContext(ActivePanelContext);
@@ -61,11 +68,17 @@ export function RecordTabs({
   return (
     <section
       ref={relatedSection}
-      className={related ? 'record-tabs related-lists' : 'record-tabs space-y-5'}
+      className={
+        record
+          ? 'record-tabs related-lists record-content-tabs'
+          : related
+            ? 'record-tabs related-lists'
+            : 'record-tabs space-y-5'
+      }
     >
       <div
         role="tablist"
-        aria-label={label}
+        aria-label={record ? 'Record sections' : label}
         className="flex gap-2 overflow-x-auto border-b border-slate-200 pb-2 dark:border-slate-700"
       >
         {tabs.map((tab, index) => (
@@ -74,11 +87,12 @@ export function RecordTabs({
             key={tab.id}
             id={`${prefix}-${tab.id}`}
             role="tab"
+            title={typeof tab.label === 'string' ? tab.label : undefined}
             aria-selected={tab.id === active}
             aria-controls={`${prefix}-${tab.id}-panel`}
             tabIndex={tab.id === active ? 0 : -1}
             className={
-              related
+              related || record
                 ? 'related-list-tab'
                 : `nav-link shrink-0 ${tab.id === active ? 'active' : ''}`
             }
@@ -96,7 +110,8 @@ export function RecordTabs({
             }}
           >
             {tab.label}
-            {related &&
+            {(related || record) &&
+              tab.id !== 'details' &&
               Number.isSafeInteger(tab.count ?? counts.data?.counts?.[tab.id]) &&
               (tab.count ?? counts.data?.counts?.[tab.id]) > 0 && (
                 <span
@@ -109,23 +124,27 @@ export function RecordTabs({
           </button>
         ))}
       </div>
-      <div className={related ? 'related-list-panels' : undefined}>
+      <div className={related && !record ? 'related-list-panels' : undefined}>
         {tabs.map((tab) => (
           <div
             key={tab.id}
             role="tabpanel"
             id={`${prefix}-${tab.id}-panel`}
             aria-labelledby={`${prefix}-${tab.id}`}
-            hidden={!related && tab.id !== active}
-            className={related ? 'related-list-panel' : undefined}
+            hidden={(record || !related) && tab.id !== active}
+            className={record ? 'record-content-panel' : related ? 'related-list-panel' : undefined}
             data-active={tab.id === active}
             inert={tab.id !== active}
             aria-hidden={tab.id !== active}
             tabIndex={0}
           >
             <ActivePanelContext.Provider value={parentActive && tab.id === active}>
-              <RelatedListContext.Provider value={related}>
-                {(!lazy || tab.id === active || visited.has(tab.id)) && tab.content}
+              <RelatedListContext.Provider value={(related || record) && tab.id !== 'details'}>
+                {((!lazy && !record) ||
+                  tab.id === 'details' ||
+                  tab.id === active ||
+                  visited.has(tab.id)) &&
+                  tab.content}
               </RelatedListContext.Provider>
             </ActivePanelContext.Provider>
           </div>

@@ -116,9 +116,7 @@ The sidebar uses one authorized hierarchy for desktop, compact and mobile naviga
 
 ## Personal pins and record editing
 
-
 Personal pins are bounded to 200 internal record URLs in 1–20 named groups on the authenticated user document. The server accepts only known internal record-route shapes, rejects external URLs and allows only bounded parent-record scope on history URLs and uses independent revision checks. Pins contain bounded labels, internal links, optional canonical record numbers and a short service/parent label, rather than record payloads, and confer no permissions; the target record API rechecks current access. Group names can be edited inline on Pinned (1–80 characters); renames use the same user-scoped, revision-checked write and preserve stable group IDs, record links and ordering. Name drafts survive refresh and Cancel discards them. User list/detail projections exclude the pin collection. In-memory form snapshots guard Cancel without persisting draft values; Keep Editing preserves the form and Discard Changes invokes its ordinary cancel handler.
-
 
 Task navigation uses the main Tasks link above Pinned. Task forms do not require or expose Project. Legacy project associations remain stored; project workspace routes redirect to Tasks. Form layout sections default to showing their name; `showName: false` hides only the heading.
 
@@ -127,3 +125,11 @@ Record Number columns use the shared remote sort controls; native incident, task
 Knowledge base form remounts during read/edit transitions use sibling keys distinct from the Articles and AI sections. Keep related-panel keys unique and stable across editing so React retains one panel per section.
 
 Immutable alert, event and log views use RecordDetailSection with explicit labeled entries and the shared read-only field layout. Data selection stays allowlisted; diagnostic payloads remain escaped text. References retain authorized record routes and dates retain profile formatting.
+
+## Static marketing landing page
+
+`index.html` is the standalone GitHub Pages landing page and is also served at `/` by the marketing server. It uses embedded CSS and no scripts, API calls, remote fonts, or runtime configuration. Its repository links are fixed for the public project. Existing server-rendered guides/contact routes are separate from this static delivery. The application Help workflows are unchanged.
+
+## Record sections
+
+RecordWorkspace renders record fields in the default Details section and accepts an explicit relatedTabs element. RecordTabs prepends Details, honors validated `?related=` links, and mounts related panels on first visit. Visited panels and form drafts remain mounted, but inactive record sections use hidden/inert and do not contribute page height. Edit selects Details before opening the editor. ActivePanelContext still gates work in inactive panels, RelatedListContext applies only to relationship content, and relationship counts remain separate authorized API reads. Create forms do not receive record tabs.

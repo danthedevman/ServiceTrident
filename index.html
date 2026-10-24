@@ -1,0 +1,460 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta
+      name="description"
+      content="Monitor websites and web APIs, aggregate events, and manage incidents with ServiceTrident. Free, open source, and self-hosted with Docker."
+    />
+    <title>ServiceTrident — Monitor. Connect. Resolve.</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0b1016;
+        --panel: #121c27;
+        --text: #eef4fa;
+        --muted: #a7b8c9;
+        --line: #263544;
+        --accent: #6de4c4;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        scroll-behavior: smooth;
+        scroll-padding-top: 24px;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font:
+          17px/1.65 system-ui,
+          sans-serif;
+      }
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+      a:hover {
+        color: var(--accent);
+      }
+      a:focus-visible {
+        outline: 3px solid var(--accent);
+        outline-offset: 5px;
+      }
+      .wrap {
+        width: min(1100px, calc(100% - 48px));
+        margin: auto;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 24px;
+        padding: 30px 80px 30px 0;
+      }
+      .brand {
+        font-size: 21px;
+        font-weight: 750;
+        letter-spacing: -0.6px;
+      }
+      .brand span {
+        color: var(--accent);
+      }
+      nav {
+        display: flex;
+        gap: 24px;
+        font-size: 14px;
+      }
+      .github-corner {
+        position: absolute;
+        right: 0;
+        top: 0;
+        width: 76px;
+        height: 76px;
+        background: var(--accent);
+        color: var(--bg);
+        clip-path: polygon(0 0, 100% 0, 100% 100%);
+      }
+      .github-corner svg {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        width: 28px;
+        height: 28px;
+      }
+      .github-corner:hover {
+        color: #263544;
+      }
+      .skip {
+        position: absolute;
+        top: -100px;
+      }
+      .skip:focus {
+        top: 8px;
+        left: 8px;
+        background: var(--panel);
+        padding: 12px;
+        z-index: 2;
+      }
+      .hero {
+        padding: 85px 0 76px;
+        max-width: 900px;
+      }
+      .eyebrow {
+        color: var(--accent);
+        font-size: 12px;
+        font-weight: 750;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+      }
+      h1 {
+        font-size: clamp(44px, 7.5vw, 86px);
+        line-height: 1.05;
+        letter-spacing: -3px;
+        margin: 22px 0 26px;
+      }
+      h1 span {
+        color: var(--accent);
+      }
+      .lede {
+        font-size: 21px;
+        max-width: 740px;
+        color: var(--muted);
+      }
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin: 30px 0 18px;
+      }
+      .button {
+        display: inline-block;
+        padding: 12px 22px;
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        font-weight: 650;
+        font-size: 15px;
+      }
+      .primary {
+        background: var(--accent);
+        color: var(--bg);
+        border-color: var(--accent);
+      }
+      .primary:hover {
+        background: #a5f3df;
+        color: var(--bg);
+      }
+      .small {
+        font-size: 13px;
+        color: var(--muted);
+      }
+      section {
+        padding: 64px 0;
+        border-top: 1px solid var(--line);
+      }
+      h2 {
+        font-size: clamp(28px, 4vw, 40px);
+        line-height: 1.2;
+        letter-spacing: -1px;
+        margin: 12px 0 22px;
+      }
+      h3 {
+        font-size: 20px;
+        margin: 15px 0 10px;
+      }
+      p {
+        margin: 0 0 18px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 18px;
+      }
+      .card {
+        padding: 26px;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+      }
+      .card p,
+      section > p {
+        color: var(--muted);
+      }
+      .number {
+        color: var(--accent);
+        font-size: 13px;
+        font-family: monospace;
+      }
+      .flow {
+        margin-top: 24px;
+        padding: 20px;
+        border-left: 3px solid var(--accent);
+        background: var(--panel);
+      }
+      .integrations {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0 40px;
+      }
+      .integration {
+        padding: 20px 0;
+        border-bottom: 1px solid var(--line);
+      }
+      .integration strong {
+        display: block;
+      }
+      .integration p {
+        font-size: 15px;
+        color: var(--muted);
+        margin: 6px 0 0;
+      }
+      pre {
+        background: #080d12;
+        border: 1px solid var(--line);
+        padding: 24px;
+        border-radius: 8px;
+        overflow: auto;
+        font-size: 14px;
+        line-height: 1.9;
+      }
+      code {
+        font-family: ui-monospace, monospace;
+      }
+      ol {
+        padding-left: 22px;
+        color: var(--muted);
+      }
+      li {
+        padding: 6px 0;
+      }
+      li strong {
+        color: var(--text);
+      }
+      .text-link {
+        color: var(--accent);
+        text-decoration: underline;
+        text-underline-offset: 4px;
+      }
+      footer {
+        padding: 32px 0 45px;
+        border-top: 1px solid var(--line);
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        gap: 12px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      @media (max-width: 700px) {
+        .wrap {
+          width: calc(100% - 32px);
+        }
+        header {
+          padding-right: 60px;
+        }
+        nav {
+          display: none;
+        }
+        .hero {
+          padding: 54px 0;
+        }
+        .grid,
+        .integrations {
+          grid-template-columns: 1fr;
+        }
+        h1 {
+          letter-spacing: -1.8px;
+        }
+        .lede {
+          font-size: 19px;
+        }
+        section {
+          padding: 42px 0;
+        }
+        .card {
+          padding: 22px;
+        }
+        pre {
+          padding: 16px;
+          font-size: 12px;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        html {
+          scroll-behavior: auto;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+    <a
+      class="github-corner"
+      href="https://github.com/danthedevman/ServiceTrident"
+      aria-label="View ServiceTrident on GitHub"
+      title="View on GitHub"
+      ><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <path
+          d="M12 .7a11.5 11.5 0 0 0-3.6 22.4c.6.1.8-.3.8-.6v-2.2c-3.3.7-4-1.4-4-1.4-.5-1.4-1.3-1.8-1.3-1.8-1.1-.8.1-.8.1-.8 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.6-.3-5.4-1.3-5.4-5.7 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.2 1.2a11 11 0 0 1 5.8 0c2.2-1.5 3.2-1.2 3.2-1.2.6 1.6.2 2.8.1 3.1.8.8 1.2 1.8 1.2 3.1 0 4.4-2.7 5.4-5.4 5.7.4.4.8 1.1.8 2.2v3.4c0 .3.2.7.8.6A11.5 11.5 0 0 0 12 .7Z"
+        /></svg
+    ></a>
+    <div class="wrap">
+      <header>
+        <a class="brand" href="#">Service<span>Trident</span></a>
+        <nav aria-label="Main navigation">
+          <a href="#features">What it does</a><a href="#integrations">Integrations</a
+          ><a href="#setup">Setup</a>
+        </nav>
+      </header>
+      <main id="main">
+        <div class="hero">
+          <div class="eyebrow">Free · Open source · Self-hosted</div>
+          <h1>Monitor your services.<br /><span>Manage the incident.</span></h1>
+          <p class="lede">
+            ServiceTrident monitors websites and web APIs, aggregates operational events, and
+            connects failures to incident response. See what broke, who owns it, and what happens
+            next—in one workspace.
+          </p>
+          <div class="actions">
+            <a class="button primary" href="#setup">Get started with Docker →</a
+            ><a class="button" href="https://github.com/danthedevman/ServiceTrident"
+              >View on GitHub ↗</a
+            >
+          </div>
+          <p class="small">
+            Plan for minutes to get a local instance running with Docker already installed.
+            First-build time varies by machine and connection.
+          </p>
+        </div>
+        <section id="features">
+          <div class="eyebrow">From signal to resolution</div>
+          <h2>Check uptime. Collect signals. Take action.</h2>
+          <div class="grid">
+            <article class="card">
+              <span class="number">01 / MONITOR</span>
+              <h3>Websites &amp; web APIs</h3>
+              <p>
+                Run scheduled HTTP/HTTPS checks, track response time and availability, and check
+                page keywords. Monitor authenticated endpoints with Basic, Bearer, or OAuth client
+                credentials.
+              </p>
+            </article>
+            <article class="card">
+              <span class="number">02 / AGGREGATE</span>
+              <h3>Events in one place</h3>
+              <p>
+                Bring monitor checks and external events into the same workspace. Send normalized
+                signals through the scoped external API, correlate alerts, and triage by service,
+                source, and severity.
+              </p>
+            </article>
+            <article class="card">
+              <span class="number">03 / RESPOND</span>
+              <h3>Incidents with context</h3>
+              <p>
+                Connect alerts to incidents, assign responders, and coordinate on-call coverage,
+                escalation, tasks, and work notes. Capture root causes and share recovery through a
+                public status page.
+              </p>
+            </article>
+          </div>
+          <div class="flow">
+            Failed check or external signal → Correlated alert → Linked incident → Response &amp;
+            recovery
+          </div>
+        </section>
+        <section id="integrations">
+          <div class="eyebrow">Work with your existing tools</div>
+          <h2>Send the right signal to the right team.</h2>
+          <p>
+            Connect your own provider accounts in Integrations. Configure credentials, destinations,
+            and service scope, then verify delivery before relying on alerts.
+          </p>
+          <div class="integrations">
+            <div class="integration">
+              <strong>Slack &amp; Microsoft Teams</strong>
+              <p>Post incident and recovery updates to channels through webhooks.</p>
+            </div>
+            <div class="integration">
+              <strong>ServiceNow</strong>
+              <p>Create correlated incidents and append recovery work notes.</p>
+            </div>
+            <div class="integration">
+              <strong>PagerDuty</strong>
+              <p>Trigger and resolve alerts through the Events API.</p>
+            </div>
+            <div class="integration">
+              <strong>Atlassian Jira Cloud &amp; GitHub Issues</strong>
+              <p>Create issues for incidents and add recovery comments.</p>
+            </div>
+            <div class="integration">
+              <strong>Amazon SES, SendGrid &amp; SMTP</strong>
+              <p>Deliver email using your own SMTP provider and authorized sender.</p>
+            </div>
+            <div class="integration">
+              <strong>Discord &amp; generic webhooks</strong>
+              <p>Send channel updates or JSON to your own public HTTPS endpoint.</p>
+            </div>
+          </div>
+          <p class="small" style="margin-top: 24px">
+            External event aggregation uses ServiceTrident’s normalized intake API; senders must map
+            their payloads to its schema. Provider names identify supported integrations, not
+            endorsements.
+          </p>
+        </section>
+        <section id="setup">
+          <div class="eyebrow">Your infrastructure. Your data.</div>
+          <h2>A few commands. Then your first monitor.</h2>
+          <p>
+            Install Git and Docker with Compose, start Docker, and keep port 8090 available. Run
+            these commands in a macOS/Linux shell or Windows PowerShell:
+          </p>
+          <pre><code>git clone https://github.com/danthedevman/ServiceTrident.git
+cd ServiceTrident
+cp .env.example .env
+docker compose up -d --build --wait</code></pre>
+          <ol>
+            <li>
+              <strong>Open http://127.0.0.1:8090</strong> once startup completes and create an
+              account.
+            </li>
+            <li>
+              <strong>Open Quick Setup</strong> on Overview or in Create to add your first service
+              and monitor.
+            </li>
+            <li>
+              <strong>Connect notifications and on-call coverage</strong> when you are ready. These
+              steps are optional in Quick Setup.
+            </li>
+          </ol>
+          <p>
+            Docker starts the app, API, workers, scheduler, MongoDB, and Redis. No separate Node.js
+            or database installation is needed. Provider credentials and production HTTPS
+            configuration take additional time.
+          </p>
+          <a
+            class="text-link"
+            href="https://github.com/danthedevman/ServiceTrident#start-with-docker"
+            >Read the installation guide ↗</a
+          >
+          <p class="small" style="margin-top: 24px">
+            Alpha software for evaluation and small-team pilots. Back up data before upgrading; use
+            additional safeguards for critical monitoring and response.
+          </p>
+        </section>
+      </main>
+      <footer>
+        <span>ServiceTrident · Detect, Respond, Resolve.</span
+        ><span
+          ><a href="https://github.com/danthedevman/ServiceTrident/blob/main/LICENSE"
+            >MIT License</a
+          >
+          · <a href="https://github.com/danthedevman/ServiceTrident">Source code ↗</a></span
+        >
+      </footer>
+    </div>
+  </body>
+</html>

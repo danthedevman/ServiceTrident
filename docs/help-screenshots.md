@@ -97,13 +97,13 @@ The collapsed rail exposes Services directly along with Dashboard, Incidents, Ev
 
 Use `HELP_CAPTURE_FOCUS=form-heading` to verify incident, task, and article create pages omit empty heading rows when their actions move into the shell toolbar. Check admin/responder access and bottom-of-form scrolling at desktop and mobile widths.
 
-Use `HELP_CAPTURE_FOCUS=tab-frame` to verify active tabs meet the content edge without a gap, for first/later tabs in light/dark desktop/mobile views.
+Use `HELP_CAPTURE_FOCUS=tab-frame` to verify active tabs meet the content edge without a gap, have no top border or inset stripe, and retain a visible blue record icon, for first/later tabs in light/dark desktop/mobile views.
 
 Use `HELP_CAPTURE_FOCUS=event-management` for independent Alerts/Events lists, correlated alert records, explicit state confirmation, incident-form prefill, external event details, and desktop/mobile scrolling. New screenshots use synthetic source names and event identifiers; no intake call reaches a live workspace.
 
 Use `HELP_CAPTURE_FOCUS=event-filters` for Events filter grid alignment, full-width column conditions, saved filters on reload, and mobile scrolling; `HELP_CAPTURE_FOCUS=settings-keyword` covers vertical Settings, keyword controls, and saved public appearance on reload. New captures are `settings-navigation.png` and `monitor-keyword.png`.
 
-`HELP_CAPTURE_FOCUS=event-related-bottom` verifies monitor events opened from Events keep Incidents and Alerts after all diagnostics, including mobile scrolling. The public appearance check records canvas colors on animation frames, including the hidden-content bootstrap, to catch a neutral background flash.
+`HELP_CAPTURE_FOCUS=record-sections` (also available under the legacy `event-related-bottom` focus) verifies Details opens first, relationships sit above the record, direct relationship URLs, draft preservation, Edit returning to Details, keyboard section navigation, and desktop/mobile scrolling. It refreshes record-tabs.png and event detail screenshots with isolated fixtures. The public appearance check records canvas colors on animation frames, including the hidden-content bootstrap, to catch a neutral background flash.
 
 Use `HELP_CAPTURE_FOCUS=sidebar-drawer` to check authorized navigation destinations in expanded, collapsed and mobile views. Use `HELP_CAPTURE_FOCUS=standalone-tasks` for task board/list navigation and archived lists. Refresh readme-tasks-dark.png and task-archived.png after changes.
 
