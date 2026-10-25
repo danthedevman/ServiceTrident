@@ -1,3 +1,4 @@
+import { articleAccess, assertBaseAccess, knowledgeAccess } from '../domain/knowledge-access.js';
 import { projectActivity } from '../repositories/project-hub.js';
 import { withProjectMutation } from '../domain/project-lock.js';
 import { DEFAULT_FORM_LAYOUT, validateFormLayout } from '@servicetrident/shared/forms/layout';
@@ -168,6 +169,7 @@ export function installWorkRoutes(app, db, machine = null) {
     });
     app.get(`/api/${kind}`, async (req, res) => {
       const { filter, sort, page, pageSize } = workQuery(req.query, req.workspaceId, kind);
+      if (!task) filter.$and = [...(filter.$and || []), await articleAccess(db, req)];
       const [total, rows] = await Promise.all([
         collection.countDocuments(filter),
         task && sort.boardRank
@@ -194,6 +196,7 @@ export function installWorkRoutes(app, db, machine = null) {
     });
     app.get(`/api/${kind}/export`, async (req, res) => {
       const { filter, sort } = workQuery(req.query, req.workspaceId, kind);
+      if (!task) filter.$and = [...(filter.$and || []), await articleAccess(db, req)];
       const cursor =
         task && sort.boardRank
           ? collection.aggregate([{ $match: filter }, boardRankStage(), { $sort: sort }])
@@ -278,9 +281,21 @@ export function installWorkRoutes(app, db, machine = null) {
       const item = await collection.findOne({
         _id: id(req.params.id),
         workspaceId: req.workspaceId,
+        ...(!task ? await articleAccess(db, req) : {}),
       });
       if (!item) throw new InputError(task ? 'Task not found.' : 'Article not found.', 404);
-      res.json({ item: view(item) });
+      res.json({
+        item: {
+          ...view(item),
+          ...(!task
+            ? {
+                canManage:
+                  !item.knowledgeBaseId ||
+                  (await knowledgeAccess(db, req)).manageable.includes(item.knowledgeBaseId),
+              }
+            : {}),
+        },
+      });
     });
     for (const method of ['post', 'patch']) {
       const saveRecord = async (req, res) => {
@@ -291,6 +306,8 @@ export function installWorkRoutes(app, db, machine = null) {
               : null;
           if (method === 'patch' && !current)
             throw new InputError(task ? 'Task not found.' : 'Article not found.', 404);
+          if (!task && current?.knowledgeBaseId)
+            await assertBaseAccess(db, req, current.knowledgeBaseId, true);
           const body = req.body;
           const allowed = task
             ? [
@@ -377,6 +394,7 @@ export function installWorkRoutes(app, db, machine = null) {
               const base = await db
                 .collection('knowledgeBases')
                 .findOne({ _id: id(input.knowledgeBaseId), workspaceId: req.workspaceId });
+              await assertBaseAccess(db, req, input.knowledgeBaseId, true);
               if (base?.deleting)
                 throw new InputError(
                   'This knowledge base is being deleted. Choose another base.',

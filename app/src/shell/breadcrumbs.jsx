@@ -27,6 +27,7 @@ const sections = {
   rcas: 'RCAs',
   knowledge: 'Knowledge Bases',
   services: 'Services',
+  components: 'Components',
   collections: 'Collections',
   monitors: 'Monitors',
   events: 'Events',
@@ -75,6 +76,7 @@ export function Breadcrumbs({ resolveNames = true }) {
     ].includes(id)
       ? [
           'monitors',
+          'components',
           'incidents',
           'tasks',
           'rcas',
@@ -156,6 +158,7 @@ export function Breadcrumbs({ resolveNames = true }) {
     rcas: 'RCA',
     knowledge: 'article',
     services: 'service',
+    components: 'component',
     collections: 'collection',
     monitors: 'monitor',
     groups: 'group',

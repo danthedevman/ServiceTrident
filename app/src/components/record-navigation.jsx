@@ -56,6 +56,7 @@ const names = {
   rcas: 'RCA',
   knowledge: 'Knowledge',
   services: 'Service',
+  components: 'Component',
   collections: 'Collection',
   monitors: 'Monitor',
   events: 'Event',
@@ -75,7 +76,7 @@ export function recordTabKey(location) {
   if (/^\/monitors\/[a-f\d]{24}\/events\/[a-f\d]{24}\/?$/i.test(path)) return path;
   if (/^\/knowledge\/bases\/(?:[a-f\d]{24}|new)\/?$/i.test(path)) return path;
   if (
-    /^\/(incidents|tasks|rcas|knowledge|services|collections|monitors|groups|integrations|workspace|on-call|projects|project-milestones)\/(?:[a-f\d]{24}|new)(?:\/(?:edit|password))?\/?$/i.test(
+    /^\/(incidents|tasks|rcas|knowledge|services|components|collections|monitors|groups|integrations|workspace|on-call|projects|project-milestones)\/(?:[a-f\d]{24}|new)(?:\/(?:edit|password))?\/?$/i.test(
       path,
     )
   )
@@ -620,6 +621,7 @@ function TabIcon({ to }) {
     Task: ClipboardDocumentCheckIcon,
     RCA: DocumentTextIcon,
     Service: ServerStackIcon,
+    Component: PuzzlePieceIcon,
     Collection: Square3Stack3DIcon,
     Monitor: SignalIcon,
     Alert: BellAlertIcon,

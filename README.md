@@ -24,6 +24,8 @@ Note: ServiceTrident's code was generated and refined with AI assistance, includ
 
 Records open on **Details**, with related-record tabs near the top. Switching sections preserves unfinished edits while the record remains open; reloading loses unsaved input.
 
+Services represent applications such as My Webapp. Admins create separate component records (Payment API, Login API, Frontend) and select them in the service’s multiple-select **Components** field. Components can be shared by services. Open the Components related list to view their records and monitors. A workspace supports 1,000 components with unique names of 1–80 characters and up to 50 references per service. Monitor forms offer components linked to the selected service. Reassign monitors before removing a reference; remove all references before deleting a component. Component health and history appear under **Components** on app and public status pages.
+
 Workspaces include role-based access, configurable forms, audit history, dashboards, and record exports. Open **Help** from the profile menu for essential workflows and configuration guidance.
 
 ## App preview
@@ -95,7 +97,7 @@ docker compose down
 
 ### Try the app
 
-Use **Quick Setup** on Overview or in the global **Create** modal to create a service and monitor; notifications and on-call coverage are optional. Or open **Settings → Demo Data → Add Demo Data** to explore sample records and notifications. Existing demo batches must be deleted and recreated to receive newly added examples. Demo monitors are paused and sample alerts do not send external messages. Enable Demo AI separately to try simulated chat examples without a provider account.
+Use **Quick Setup** on Overview or in the global **Create** modal to create a service and monitor; notifications and on-call coverage are optional. Or open **Settings → Demo Data**, choose **Industry**, and select **Add Demo Data** to explore sample records and notifications. Choose Media, Retail, Audio Providers, Finance, Healthcare, Solo User, or SaaS App. Solo User includes 10 examples per supported type; other presets include 50, with three managed components per service and internally linked monitor assignments. Existing demo batches stay unchanged; delete and recreate a batch to change industry or receive new examples. Demo monitors are paused and sample alerts do not send external messages. Enable Demo AI separately to try simulated chat examples without a provider account.
 
 Tasks opens a workspace task board with a list view available.
 
@@ -190,3 +192,5 @@ Available under the [MIT License](LICENSE). Hosting and third-party services rem
 The marketing landing page is a standalone [index.html](index.html) with embedded styles, no build step, and no backend dependency. It covers website/API monitoring, normalized event aggregation, incident response, supported integrations, and Docker setup. The GitHub corner links to this repository.
 
 To publish it on GitHub Pages, copy the root `index.html`, `servicetrident.svg`, `favicon.svg`, and `favicon.ico` into your configured Pages source, or deploy these files as a Pages artifact. Keep them together; relative asset links work at both a repository path and a custom domain. GitHub Pages hosts only the marketing page; the application still needs its Docker services. The local marketing server serves the same file at `/`; existing documentation and contact routes remain available only on that server.
+
+Knowledge bases open on **Articles**, with a separate **Settings** tab for their name, description, and user/group access lists. Administrators retain full access. Empty manager lists allow responders to manage a base; empty viewer lists preserve workspace visibility. Selecting managers or viewers restricts that access, and managers can always read articles. End users retain incident portal access only. Article reads, searches, exports, AI retrieval and attachment access enforce the same base visibility.

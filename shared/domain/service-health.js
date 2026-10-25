@@ -80,3 +80,15 @@ export function serviceHealth(services, monitors, now = Date.now()) {
   for (const service of services) visit(service.id);
   return states;
 }
+
+/** A component uses only its assigned monitors within the selected service, excluding service dependencies and flags. */
+export function componentHealth(service, component, monitors, now = Date.now()) {
+  return rollupHealth(
+    monitors
+      .filter(
+        (monitor) =>
+          String(monitor.serviceId) === service.id && monitor.componentId === component.id,
+      )
+      .map((monitor) => monitorHealth(monitor, service.healthPolicy, now)),
+  );
+}

@@ -1,3 +1,8 @@
+import {
+  knowledgeAccess,
+  assertBaseAccess,
+  validateKnowledgePermissions,
+} from '../domain/knowledge-access.js';
 import { tableSearch } from '@servicetrident/shared/domain/table-search';
 import { ObjectId } from 'mongodb';
 import { InputError } from '@servicetrident/shared/validation/validation';
@@ -16,6 +21,7 @@ export function installKnowledgeBases(app, db) {
       req.workspaceId,
       'knowledge',
     );
+    filter._id = { $in: (await knowledgeAccess(db, req)).readable.map(id) };
     delete filter.status;
     Object.assign(filter, tableSearch(req.query, { title: '$title', description: '$description' }));
     const [total, items] = await Promise.all([
@@ -32,10 +38,12 @@ export function installKnowledgeBases(app, db) {
   app.get('/api/knowledge-bases/:id', async (req, res) => {
     const item = await collection.findOne({ _id: id(req.params.id), workspaceId: req.workspaceId });
     if (!item) throw new InputError('Knowledge base not found.', 404);
+    await assertBaseAccess(db, req, req.params.id);
+    const canManage = (await knowledgeAccess(db, req)).manageable.includes(req.params.id);
     const articleCount = await db
       .collection('articles')
       .countDocuments({ workspaceId: req.workspaceId, knowledgeBaseId: req.params.id });
-    res.json({ item: { ...view(item), articleCount } });
+    res.json({ item: { ...view(item), articleCount, canManage } });
   });
   app.delete('/api/knowledge-bases/:id', requireAdmin, async (req, res) => {
     const filter = { _id: id(req.params.id), workspaceId: req.workspaceId };
@@ -104,54 +112,64 @@ export function installKnowledgeBases(app, db) {
     res.status(204).end();
   });
   for (const method of ['post', 'patch'])
-    app[method](
-      `/api/knowledge-bases${method === 'patch' ? '/:id' : ''}`,
-      requireResponder,
-      async (req, res) => {
-        const current =
-          method === 'patch'
-            ? await collection.findOne({ _id: id(req.params.id), workspaceId: req.workspaceId })
-            : null;
-        if (method === 'patch' && !current) throw new InputError('Knowledge base not found.', 404);
-        if (current?.deleting)
-          throw new InputError(
-            'This knowledge base is being deleted. Complete its deletion first.',
-            409,
-          );
-        const body = req.body;
-        if (
-          !body ||
-          Object.keys(body).some((key) => !['title', 'description', 'revision'].includes(key))
+    app[method](`/api/knowledge-bases${method === 'patch' ? '/:id' : ''}`, async (req, res) => {
+      const current =
+        method === 'patch'
+          ? await collection.findOne({ _id: id(req.params.id), workspaceId: req.workspaceId })
+          : null;
+      if (method === 'patch' && !current) throw new InputError('Knowledge base not found.', 404);
+      if (current?.deleting)
+        throw new InputError(
+          'This knowledge base is being deleted. Complete its deletion first.',
+          409,
+        );
+      if (current) await assertBaseAccess(db, req, req.params.id, true);
+      else requireResponder(req, res, () => {});
+      const body = req.body;
+      if (
+        !body ||
+        Object.keys(body).some(
+          (key) =>
+            ![
+              'title',
+              'description',
+              'revision',
+              'managerUserIds',
+              'managerGroupIds',
+              'viewerUserIds',
+              'viewerGroupIds',
+            ].includes(key),
         )
-          throw new InputError('Send only editable fields.');
-        if (current && body.revision !== current.revision)
+      )
+        throw new InputError('Send only editable fields.');
+      if (current && body.revision !== current.revision)
+        throw new InputError('Knowledge base changed. Reload before saving.', 409);
+      const item = {
+        ...(await validateKnowledgePermissions(db, req, body, current)),
+        title: text(body.title, 'title', 160),
+        description: text(body.description ?? '', 'description', 2000, false),
+        updatedAt: new Date(),
+        updatedById: String(req.user._id),
+        revision: (current?.revision ?? 0) + 1,
+      };
+      if (current) {
+        const result = await collection.updateOne(
+          { _id: current._id, workspaceId: req.workspaceId, revision: current.revision },
+          { $set: item },
+        );
+        if (!result.matchedCount)
           throw new InputError('Knowledge base changed. Reload before saving.', 409);
-        const item = {
-          title: text(body.title, 'title', 160),
-          description: text(body.description ?? '', 'description', 2000, false),
-          updatedAt: new Date(),
-          updatedById: String(req.user._id),
-          revision: (current?.revision ?? 0) + 1,
+        res.json({ item: view({ ...current, ...item }) });
+      } else {
+        const record = {
+          ...item,
+          _id: new ObjectId(),
+          workspaceId: req.workspaceId,
+          createdAt: new Date(),
+          createdById: String(req.user._id),
         };
-        if (current) {
-          const result = await collection.updateOne(
-            { _id: current._id, workspaceId: req.workspaceId, revision: current.revision },
-            { $set: item },
-          );
-          if (!result.matchedCount)
-            throw new InputError('Knowledge base changed. Reload before saving.', 409);
-          res.json({ item: view({ ...current, ...item }) });
-        } else {
-          const record = {
-            ...item,
-            _id: new ObjectId(),
-            workspaceId: req.workspaceId,
-            createdAt: new Date(),
-            createdById: String(req.user._id),
-          };
-          await collection.insertOne(record);
-          res.status(201).json({ item: view(record) });
-        }
-      },
-    );
+        await collection.insertOne(record);
+        res.status(201).json({ item: view(record) });
+      }
+    });
 }

@@ -1,3 +1,4 @@
+import { ComponentsTable } from './components.jsx';
 import { PlusIcon } from '@heroicons/react/24/outline';
 import { RecordTabs } from '../../components/record-tabs.jsx';
 import { IncidentsPage } from '../incidents/incidents.jsx';
@@ -122,6 +123,11 @@ export function CatalogDetailPage({ kind = 'services' }) {
                 lazy
                 label="Service related records"
                 tabs={[
+                  {
+                    id: 'components',
+                    label: 'Components',
+                    content: <ComponentsTable serviceId={selected.id} />,
+                  },
                   {
                     id: 'incidents',
                     label: 'Incidents',

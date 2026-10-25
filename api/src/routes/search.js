@@ -1,3 +1,4 @@
+import { articleAccess } from '../domain/knowledge-access.js';
 import { text, choice, invalid } from '@servicetrident/shared/validation/fields';
 import { memberFilter } from '../repositories/members.js';
 
@@ -15,6 +16,7 @@ export function installSearchRoute(app, db) {
         'rcas',
         'knowledge',
         'services',
+        'components',
         'collections',
         'monitors',
         'groups',
@@ -22,6 +24,7 @@ export function installSearchRoute(app, db) {
       ],
       'type',
     );
+    const knowledgeFilter = await articleAccess(db, req);
     const regex = { $regex: query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), $options: 'i' };
     const workspaceId = req.workspaceId,
       userId = String(req.user._id),
@@ -30,6 +33,7 @@ export function installSearchRoute(app, db) {
     const jobs = [];
     /** Every database query has a tenant filter, explicit projection, result limit, and deadline. */
     function search(name, collection, filter, fields, label, url) {
+      if (collection === 'articles') filter = { $and: [filter, knowledgeFilter] };
       if (!wanted(name)) return;
       jobs.push(
         db
@@ -78,6 +82,14 @@ export function installSearchRoute(app, db) {
             : undefined,
     );
     if (!limited) {
+      search(
+        'components',
+        'components',
+        { workspaceId },
+        ['name', 'description'],
+        'Component',
+        (row) => `/components/${row._id}`,
+      );
       search(
         'rcas',
         'rcas',

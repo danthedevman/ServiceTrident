@@ -43,6 +43,8 @@ const subscribeInfoViewport = (listener) => {
 export function RecordWorkspace({
   children,
   relatedTabs,
+  detailsLabel = 'Details',
+  editTabId = 'details',
   sidebar,
   label = 'Details',
   onEdit,
@@ -86,7 +88,7 @@ export function RecordWorkspace({
   const [selectedTab, setSelectedTab] = useState(null);
   const editRecord = onEdit
     ? () => {
-        setSelectedTab('details');
+        setSelectedTab(editTabId);
         onEdit();
       }
     : undefined;
@@ -95,6 +97,7 @@ export function RecordWorkspace({
     relatedTabs ? (
       React.cloneElement(relatedTabs, {
         details,
+        detailsLabel,
         selectedId: selectedTab ?? undefined,
         onSelect: setSelectedTab,
       })

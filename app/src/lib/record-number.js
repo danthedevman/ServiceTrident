@@ -9,6 +9,7 @@ const prefixes = {
   knowledge: 'KB',
   knowledgeBases: 'KBASE',
   services: 'SVC',
+  components: 'CMP',
   collections: 'COL',
   monitors: 'MON',
   groups: 'GRP',

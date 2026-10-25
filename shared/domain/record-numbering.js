@@ -11,6 +11,7 @@ export const RECORD_PREFIXES = {
   articles: 'KB',
   knowledgeBases: 'KBASE',
   monitors: 'MON',
+  components: 'CMP',
   users: 'USR',
   services: 'SVC',
   collections: 'COL',
@@ -29,6 +30,7 @@ const direct = new Set([
   'articles',
   'knowledgeBases',
   'monitors',
+  'components',
   'users',
   'serviceAccounts',
 ]);

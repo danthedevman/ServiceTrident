@@ -6,6 +6,7 @@ const routes = {
   rcas: '/rcas',
   knowledge: '/knowledge',
   services: '/services',
+  components: '/components',
   collections: '/collections',
   monitors: '/monitors',
   members: '/workspace',

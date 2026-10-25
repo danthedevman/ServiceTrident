@@ -1,3 +1,4 @@
+import { articleAccess } from '../domain/knowledge-access.js';
 import { collaborationOptions, selectedIds, mayReadIncident } from './collaboration.js';
 import { incidentSourceLabel } from '@servicetrident/shared/domain/incident-source';
 import { incidentOrigin } from '../repositories/incident-origin.js';
@@ -209,6 +210,7 @@ export function installIncidentsRoutes(app, db, appOrigin, machine = null) {
                 {
                   workspaceId: req.workspaceId,
                   _id: { $in: (incident.knowledgeIds ?? []).map((value) => id(value)) },
+                  ...(await articleAccess(db, req)),
                 },
                 { projection: { title: 1, summary: 1, status: 1, updatedAt: 1 } },
               )
@@ -301,7 +303,11 @@ export function installIncidentsRoutes(app, db, appOrigin, machine = null) {
       const articles = await db
         .collection('articles')
         .find(
-          { workspaceId: req.workspaceId, _id: { $in: knowledgeIds.map((value) => id(value)) } },
+          {
+            workspaceId: req.workspaceId,
+            _id: { $in: knowledgeIds.map((value) => id(value)) },
+            ...(await articleAccess(db, req)),
+          },
           { projection: { _id: 1 } },
         )
         .toArray();

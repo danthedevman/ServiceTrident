@@ -1,7 +1,7 @@
 import { validateRca, RCA_FIELDS, RCA_STATUSES } from '@servicetrident/shared/domain/rca';
 import { randomBytes } from 'node:crypto';
 import { ObjectId } from 'mongodb';
-import { DEMO_COUNT } from '@servicetrident/shared/domain/demo-data';
+import { demoIndustry } from '@servicetrident/shared/domain/demo-industries';
 import { auditStamp } from '@servicetrident/shared/domain/audit';
 import { validateMonitor } from '@servicetrident/shared/validation/validation';
 import { fieldErrors } from '@servicetrident/shared/validation/form-validation';
@@ -12,25 +12,6 @@ import { fieldChoices, workBuiltinFields } from '@servicetrident/shared/forms/fo
 import { BUILTIN_FIELDS, validateValues } from '@servicetrident/shared/forms/schema';
 import { validateShifts } from '@servicetrident/shared/domain/on-call';
 
-const topics = [
-  'Checkout',
-  'Identity',
-  'Search',
-  'Billing',
-  'Inventory',
-  'Messaging',
-  'Analytics',
-  'Storage',
-  'Orders',
-  'Customer portal',
-];
-const components = [
-  'API',
-  'Web application',
-  'Background processing',
-  'Partner gateway',
-  'Reporting',
-];
 const firstNames = [
   'Maya',
   'James',
@@ -120,8 +101,20 @@ function choice(kind, fields, name, index) {
 }
 
 /** Generate an internally linked dataset. No credentials, network requests, or notifications are created. */
-export function demoFixtures(workspaceId, actor, batchId, config, passwordHash, now = new Date()) {
-  const list = () => Array.from({ length: DEMO_COUNT }, () => new ObjectId());
+export function demoFixtures(
+  workspaceId,
+  actor,
+  batchId,
+  config,
+  passwordHash,
+  now = new Date(),
+  industry = 'saas',
+) {
+  const preset = demoIndustry(industry);
+  if (!preset) throw new Error('Invalid demo industry.');
+  const count = preset.count,
+    topics = preset.services;
+  const list = () => Array.from({ length: count }, () => new ObjectId());
   const ids = Object.fromEntries(
     [
       'services',
@@ -143,6 +136,7 @@ export function demoFixtures(workspaceId, actor, batchId, config, passwordHash, 
   );
   const result = {
     services: [],
+    components: [],
     collections: [],
     groups: [],
     shifts: [],
@@ -171,13 +165,16 @@ export function demoFixtures(workspaceId, actor, batchId, config, passwordHash, 
     knowledge: config.knowledgeFields || workBuiltinFields('knowledge'),
   };
   const stamp = (i) => ({
-    ...auditStamp(null, actor, new Date(+now - (DEMO_COUNT - i) * 3600000)),
+    ...auditStamp(null, actor, new Date(+now - (count - i) * 3600000)),
     demoBatchId: batchId,
   });
-  for (let i = 0; i < DEMO_COUNT; i++) {
+  for (let i = 0; i < count; i++) {
     const n = String(i + 1).padStart(2, '0'),
       topic = topics[i % topics.length],
-      name = `${topic} ${components[Math.floor(i / 10)]}`,
+      name =
+        count === 10
+          ? topic
+          : `${topic} · ${['Production', 'Europe', 'North America', 'Partner', 'Internal'][Math.floor(i / 10)]}`,
       scenario = scenarios[i % 5],
       person = personName(i),
       serviceId = String(ids.services[i]);
@@ -216,12 +213,26 @@ export function demoFixtures(workspaceId, actor, batchId, config, passwordHash, 
       ...stamp(i),
       id: serviceId,
       name,
-      description: `Supports ${topic.toLowerCase()} workflows through the ${components[Math.floor(i / 10)].toLowerCase()}.`,
+      description: `Supports ${topic.toLowerCase()} workflows in a fictional ${preset.label.toLowerCase()} scenario.`,
+      componentIds: [],
       dependencyIds: i % 5 ? [String(ids.services[i - 1])] : [],
       ownerIds: [String(ids.users[i])],
       ownerGroupIds: [String(ids.groups[i])],
       primaryContactId: String(ids.users[i]),
     };
+    for (const componentName of preset.components) {
+      const componentId = new ObjectId(),
+        componentNameFull = `${name} · ${componentName}`.slice(0, 80);
+      service.componentIds.push(String(componentId));
+      result.components.push({
+        _id: componentId,
+        workspaceId,
+        name: componentNameFull,
+        nameKey: componentNameFull.toLowerCase(),
+        description: `${componentName} for ${name}.`,
+        ...stamp(i),
+      });
+    }
     const errors = fieldErrors('services', service);
     if (Object.keys(errors).length) throw new Error('Invalid demo service.');
     result.services.push(service);
@@ -236,7 +247,7 @@ export function demoFixtures(workspaceId, actor, batchId, config, passwordHash, 
       id: String(ids.groups[i]),
       name: `${name} support`,
       description: `Owns incident triage and operational readiness for ${name}.`,
-      memberIds: [String(ids.users[i]), String(ids.users[(i + 1) % DEMO_COUNT])],
+      memberIds: [String(ids.users[i]), String(ids.users[(i + 1) % count])],
     });
     result.users.push({
       ...stamp(i),
@@ -275,7 +286,9 @@ export function demoFixtures(workspaceId, actor, batchId, config, passwordHash, 
       userId: workspaceId,
       ...validateMonitor(input, { requireService: true }),
       serviceId: ids.services[i],
-      component: 'Health endpoint',
+      componentId: service.componentIds[i % 3],
+      component: result.components.find((row) => String(row._id) === service.componentIds[i % 3])
+        .name,
       paused: true,
       nextCheckAt: new Date(+now + 86400000),
       lastCheck: {
@@ -465,6 +478,10 @@ export function demoFixtures(workspaceId, actor, batchId, config, passwordHash, 
     result.knowledgeBases.push({
       ...stamp(i),
       _id: ids.knowledgeBases[i],
+      managerUserIds: [],
+      managerGroupIds: [],
+      viewerUserIds: [],
+      viewerGroupIds: [],
       workspaceId,
       title: `${name} Runbooks`,
       description: `Demo operating procedures for ${name}.`,

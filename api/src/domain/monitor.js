@@ -28,6 +28,7 @@ export function serializeMonitor(monitor, { includeAuthenticationConfig = false 
     lastStartedAt: monitor.lastStartedAt,
     serviceId: monitor.serviceId?.toHexString() ?? null,
     component: monitor.component ?? '',
+    componentId: monitor.componentId || null,
     id: _id.toHexString(),
     name,
     number: monitor.number,

@@ -13,6 +13,7 @@ import { AuthContext } from '../../auth/auth-context.js';
 import { referenceRoutes as recordRoutes } from '../reference-value.jsx';
 
 const destinations = {
+  components: { href: '/components/new', label: 'Create Component', roles: ['admin'] },
   knowledgeBases: {
     href: '/knowledge/bases/new',
     label: 'Create Knowledge Base',
@@ -47,6 +48,7 @@ export function ReferenceField({
   referenceType,
   groupId,
   projectId,
+  serviceId,
   excludeId,
   required = false,
   assignToMe = false,
@@ -107,12 +109,12 @@ export function ReferenceField({
   }, [search]);
   const remote = useInfiniteResource(
     referenceType && open && !disabled
-      ? `/references/${referenceType}?${new URLSearchParams({ q: query, ...(groupId ? { groupId } : {}), ...(projectId ? { projectId } : {}), ...(excludeId ? { excludeId } : {}) })}`
+      ? `/references/${referenceType}?${new URLSearchParams({ q: query, ...(groupId ? { groupId } : {}), ...(projectId ? { projectId } : {}), ...(serviceId ? { serviceId } : {}), ...(excludeId ? { excludeId } : {}) })}`
       : null,
   );
   const saved = useResource(
     referenceType && ids.length
-      ? `/references/${referenceType}?${new URLSearchParams({ selected: ids.join(','), ...(projectId ? { projectId } : {}) })}`
+      ? `/references/${referenceType}?${new URLSearchParams({ selected: ids.join(','), ...(projectId ? { projectId } : {}), ...(serviceId ? { serviceId } : {}) })}`
       : null,
   );
   // A record can move between server pages while someone edits it; show each ID once.
@@ -288,7 +290,9 @@ export function ReferenceField({
             }
             placeholder={
               readOnly
-                ? 'Unassigned'
+                ? ids.length
+                  ? undefined
+                  : 'Unassigned'
                 : (placeholder ??
                   (multiple && ids.length ? 'Search to add more…' : 'Search to select…'))
             }

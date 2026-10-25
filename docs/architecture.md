@@ -133,3 +133,21 @@ Immutable alert, event and log views use RecordDetailSection with explicit label
 ## Record sections
 
 RecordWorkspace renders record fields in the default Details section and accepts an explicit relatedTabs element. RecordTabs prepends Details, honors validated `?related=` links, and mounts related panels on first visit. Visited panels and form drafts remain mounted, but inactive record sections use hidden/inert and do not contribute page height. Edit selects Details before opening the editor. ActivePanelContext still gates work in inactive panels, RelatedListContext applies only to relationship content, and relationship counts remain separate authorized API reads. Create forms do not receive record tabs.
+
+## Managed service components and industry fixtures
+
+Component records live in the workspace-owned `components` table on MongoDB and PostgreSQL (migration 12), with CMP numbers, case-insensitive unique names, admin-only writes, revision checks and safe audit metadata. Services store up to 50 `componentIds`; API views resolve safe component summaries. Components may belong to several services. Monitor placement validates both workspace ownership and service membership. Reference searches honor service scope, including selected labels. Removal is blocked while monitors use the service/component pair; deletion is blocked while any service or monitor references the component.
+
+Startup migrates embedded components and legacy monitor labels idempotently into workspace component records, preserving monitor assignments. Migration updates use System attribution and schema-version guards. Preserve normal database backups before upgrading. Existing data volumes and encryption keys remain unchanged.
+
+Demo batches store a validated industry key and server-owned counts. Solo User generates 10 examples per supported type; other presets generate 50, plus three separate components per service. Cleanup scopes records to workspace and batch, clears surviving references to removed demo components and preserves unrelated records. Existing batches are never replaced automatically.
+
+Both status pages share the same renderer and public status requests share one cache key. History ranges are calculated once per response. Collapsed component histories are not mounted; daily summaries index monitor histories and are memoized across tooltip updates. Public component summaries expose only identifiers, names and status, using the existing status-page visibility policy.
+
+## Knowledge base access
+
+Knowledge base records store bounded workspace-owned managerUserIds, managerGroupIds, viewerUserIds and viewerGroupIds. No new table is required. Empty manager lists preserve responder management; empty viewer lists preserve workspace reading. Administrators always have access and managers also read. Group membership resolves from current workspace settings per request. End-user portal restrictions remain unchanged. Article writes still require responder/admin role in addition to base management; base Settings can be managed by an explicitly assigned workspace member. Base deletion remains admin-only and retains its explicit move/delete confirmation.
+
+The shared knowledge-access domain supplies predicates before pagination and exports. Direct reads, references, workspace search, incident links, related counts, dashboard reports, AI retrieval and attachment authorization apply those predicates. Tenant ownership is required independently. Existing and demo bases with absent lists retain their prior default access.
+
+Article and RCA reading views use RecordArticle, rendering semantic headings, metadata and prose without disabled form controls. Form Builder visibility and order still govern fields. Explicit Edit and shared permission-gated double-click editing mount the existing validated form; Cancel restores reading mode. Knowledge-base Settings uses the same RecordFieldEditing context as primary record forms.

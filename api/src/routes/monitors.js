@@ -159,6 +159,7 @@ export function installMonitorRoutes(app, db) {
       'paused',
       'serviceId',
       'component',
+      'componentId',
       'authentication',
       'keyword',
       'confirmationProbeId',

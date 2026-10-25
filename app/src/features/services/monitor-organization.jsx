@@ -65,7 +65,17 @@ export function MonitorOrganization({ monitor }) {
             </div>
             <div>
               <dt className="field-label">Component / subservice</dt>
-              <dd className="mt-2 text-sm">{service ? monitor.component || 'General' : 'None'}</dd>
+              <dd className="mt-2 text-sm">
+                {service ? (
+                  <ReferenceValue
+                    type="components"
+                    id={monitor.componentId}
+                    label={monitor.component || 'General'}
+                  />
+                ) : (
+                  'None'
+                )}
+              </dd>
             </div>
             <div>
               <dt className="field-label">Direct dependencies</dt>

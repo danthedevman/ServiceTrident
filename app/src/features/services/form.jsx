@@ -1,3 +1,4 @@
+import { useResource } from '../../data/use-resource.js';
 import { StaticRecordFields } from '../../components/forms/record-field-layout.jsx';
 import { healthPolicy } from '../../../../shared/domain/service-health.js';
 import { Toggle } from '../../components/forms/toggle.jsx';
@@ -62,6 +63,8 @@ export function CatalogForm({
   readOnly = false,
 }) {
   const isService = kind === 'services';
+  const componentRecords = useResource(isService ? '/components' : null);
+  const [componentIds, setComponentIds] = useState(item?.componentIds || []);
   const [manualDown, setManualDown] = useState(item?.healthPolicy?.manualDown ?? false);
   const [manualDegraded, setManualDegraded] = useState(item?.healthPolicy?.manualDegraded ?? false);
   const [ownerIds, setOwnerIds] = useState(item?.ownerIds ?? []);
@@ -98,6 +101,7 @@ export function CatalogForm({
                   failuresBeforeDown: Number(form.get('failuresBeforeDown')),
                 }),
                 description: form.get('description'),
+                componentIds,
                 ownerIds,
                 ownerGroupIds,
                 primaryContactId: contactId,
@@ -144,6 +148,22 @@ export function CatalogForm({
               placeholder="What this service provides"
             />
           </label>
+        )}
+        {isService && (
+          <ReferenceField
+            referenceType="components"
+            label="Components"
+            name="componentIds"
+            multiple
+            options={(componentRecords.data?.items || []).map((row) => ({
+              id: row.id,
+              label: row.name,
+            }))}
+            value={componentIds}
+            onChange={setComponentIds}
+            disabled={componentRecords.loading || !!componentRecords.error}
+            helpText="Select the components used by this service, or create a component from the picker."
+          />
         )}
         {isService && (
           <section className="space-y-5">
@@ -257,8 +277,8 @@ export function CatalogForm({
         )}
         {isService && (
           <p className="field-hint">
-            A dependency outage affects this service's current status. Cycles are not allowed. Add
-            component names such as API or Checkout when assigning monitors.
+            A dependency outage affects this service's current status. Cycles are not allowed.
+            Select component records above, then choose one when assigning monitors.
           </p>
         )}
       </StaticRecordFields>

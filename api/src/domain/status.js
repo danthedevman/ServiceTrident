@@ -1,5 +1,9 @@
 import { statusTimeZone, statusMidnight } from '../../../shared/domain/status-time-zone.js';
-import { serviceHealth, rollupHealth } from '@servicetrident/shared/domain/service-health';
+import {
+  serviceHealth,
+  rollupHealth,
+  componentHealth,
+} from '@servicetrident/shared/domain/service-health';
 import { subscriptionInfo } from '@servicetrident/shared/status/subscriptions';
 import { statusRange } from '@servicetrident/shared/domain/status-range';
 import { catalog } from '../routes/services.js';
@@ -97,6 +101,7 @@ export async function statusData(
           name: item.name,
           serviceId: item.serviceId,
           component: item.component,
+          componentId: item.componentId,
           status: item.status,
           paused: item.paused,
         }
@@ -113,6 +118,11 @@ export async function statusData(
           dependencyIds: service.dependencyIds,
         }
       : service),
+    components: (service.components || []).map((component) => ({
+      id: component.id,
+      name: component.name,
+      status: componentHealth(service, component, raw, +generatedAt),
+    })),
     status: health.get(service.id),
     message:
       data.serviceMessages?.find(

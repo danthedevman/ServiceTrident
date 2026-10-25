@@ -1,3 +1,8 @@
+import {
+  DEMO_INDUSTRIES,
+  demoIndustry,
+  demoTypeCount,
+} from '@servicetrident/shared/domain/demo-industries';
 import { ObjectId } from 'mongodb';
 import { randomBytes } from 'node:crypto';
 import {
@@ -12,6 +17,7 @@ import { settings } from '../repositories/settings.js';
 import { demoFixtures } from '../fixtures/demo-fixtures.js';
 
 const collections = [
+  'components',
   'users',
   'invitations',
   'monitors',
@@ -41,6 +47,7 @@ function view(batch) {
   return batch
     ? {
         batchId: batch.batchId,
+        industry: batch.industry || null,
         status: batch.status,
         createdAt: batch.createdAt,
         createdBy: batch.createdBy,
@@ -65,14 +72,21 @@ async function renew(db, workspaceId, token) {
 /** Install one workspace-level operation lock. Partial failures remain removable and block duplicate seeds. */
 export function installDemoRoutes(app, db) {
   app.use('/api/settings/demo-data', requireAdmin);
-  app.get('/api/settings/demo-data', async (req, res) =>
+  app.get('/api/settings/demo-data', async (req, res) => {
+    const batch = await db.collection('demoData').findOne({ _id: req.workspaceId });
     res.json({
-      batch: view(await db.collection('demoData').findOne({ _id: req.workspaceId })),
-      types: DEMO_TYPES.map(([key, label]) => ({ key, label, count: DEMO_COUNT })),
-    }),
-  );
+      batch: view(batch),
+      industries: DEMO_INDUSTRIES.map(({ id, label, count }) => ({ id, label, count })),
+      types: DEMO_TYPES.map(([key, label]) => ({
+        key,
+        label,
+        count: batch?.counts?.[key] ?? demoTypeCount(key, DEMO_COUNT),
+      })),
+    });
+  });
   app.post('/api/settings/demo-data', async (req, res) => {
     validateDemoAction('add', req.body);
+    const preset = demoIndustry(req.body.industry);
     const workspaceId = req.workspaceId,
       batchId = String(new ObjectId()),
       operation = randomBytes(16).toString('hex');
@@ -81,10 +95,13 @@ export function installDemoRoutes(app, db) {
       batchId,
       operation,
       status: 'creating',
+      industry: preset.id,
       createdAt: new Date(),
       createdBy: req.user.email,
       leaseUntil: new Date(Date.now() + leaseMs),
-      counts: Object.fromEntries(DEMO_TYPES.map(([key]) => [key, DEMO_COUNT])),
+      counts: Object.fromEntries(
+        DEMO_TYPES.map(([key]) => [key, demoTypeCount(key, preset.count)]),
+      ),
     };
     try {
       await db.collection('demoData').insertOne(batch);
@@ -105,6 +122,8 @@ export function installDemoRoutes(app, db) {
         batchId,
         config,
         await hashPassword(randomBytes(48).toString('hex')),
+        new Date(),
+        preset.id,
       );
       await renew(db, workspaceId, operation);
       await db.collection('catalogs').updateOne(
@@ -182,6 +201,12 @@ export function installDemoRoutes(app, db) {
       );
     try {
       await renew(db, workspaceId, operation);
+      const removedComponents = (
+        await db
+          .collection('components')
+          .find({ workspaceId, demoBatchId: batchId }, { projection: { _id: 1 } })
+          .toArray()
+      ).map((row) => String(row._id));
       await db.collection('catalogs').updateOne(
         { _id: workspaceId },
         {
@@ -190,6 +215,42 @@ export function installDemoRoutes(app, db) {
         },
         { maxTimeMS: 10000 },
       );
+      if (removedComponents.length) {
+        const current = await db.collection('catalogs').findOne({ _id: workspaceId });
+        const services = current.services.map((service) => ({
+          ...service,
+          componentIds: (service.componentIds || []).filter(
+            (value) => !removedComponents.includes(value),
+          ),
+        }));
+        const updated = await db
+          .collection('catalogs')
+          .updateOne(
+            { _id: workspaceId, revision: current.revision },
+            { $set: { services }, $inc: { revision: 1 } },
+          );
+        if (!updated.matchedCount)
+          throw new InputError(
+            'Service settings changed during cleanup. Retry deleting demo data.',
+            409,
+          );
+        await db.collection('monitors').updateMany(
+          {
+            userId: workspaceId,
+            demoBatchId: { $ne: batchId },
+            componentId: { $in: removedComponents },
+          },
+          {
+            $set: {
+              componentId: null,
+              component: '',
+              updatedAt: new Date(),
+              updatedBy: 'System',
+            },
+            $inc: { revision: 1 },
+          },
+        );
+      }
       await renew(db, workspaceId, operation);
       await db.collection('operations').updateOne(
         { _id: workspaceId },

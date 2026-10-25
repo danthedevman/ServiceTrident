@@ -13,6 +13,7 @@ export const RelatedListContext = createContext(false);
 export function RecordTabs({
   tabs: relatedTabs,
   details,
+  detailsLabel = 'Details',
   label = 'Related information',
   lazy = false,
   related = false,
@@ -21,7 +22,7 @@ export function RecordTabs({
 }) {
   const record = details !== undefined;
   const tabs = record
-    ? [{ id: 'details', label: 'Details', content: details }, ...relatedTabs]
+    ? [{ id: 'details', label: detailsLabel, content: details }, ...relatedTabs]
     : relatedTabs;
   const location = useLocation(),
     navigate = useNavigate();

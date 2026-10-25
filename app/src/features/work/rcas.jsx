@@ -1,7 +1,5 @@
-import {
-  RecordFieldLayout,
-  RecordFieldsReadOnly,
-} from '../../components/forms/record-field-layout.jsx';
+import { RecordArticle } from '../../components/record-article.jsx';
+import { RecordFieldLayout } from '../../components/forms/record-field-layout.jsx';
 import { useListFilter } from '../../data/use-list-filter.js';
 import { recordFields } from '../../../../shared/forms/form-options.js';
 import { PlusIcon, AdjustmentsHorizontalIcon } from '@heroicons/react/24/outline';
@@ -242,33 +240,32 @@ export function RcaPage({ create = false }) {
         />
       </ValidatedForm>
     ) : item ? (
-      <article className="record-details rca-reader">
-        <RecordFieldsReadOnly
-          fields={[
-            ...fields,
-            ...customFields.filter((field) => !fields.some((row) => row.id === field.id)),
-          ]}
-          layout={schema.data?.layout}
-          item={{ ...item, statusLabel: RCA_STATUSES[item.status] }}
-          renderValue={(field) =>
-            ['incidentIds', 'taskIds'].includes(field.id) ? (
-              <div className="space-y-2">
-                {(field.id === 'incidentIds' ? resource.data.incidents : resource.data.tasks).map(
-                  (row) => (
-                    <RecordLink
-                      key={row.id}
-                      className="block text-blue-700 hover:underline dark:text-blue-300"
-                      to={`/${field.id === 'incidentIds' ? 'incidents' : 'tasks'}/${row.id}`}
-                    >
-                      {row.title}
-                    </RecordLink>
-                  ),
-                )}
-              </div>
-            ) : undefined
-          }
-        />
-      </article>
+      <RecordArticle
+        className="rca-reader"
+        fields={[
+          ...fields,
+          ...customFields.filter((field) => !fields.some((row) => row.id === field.id)),
+        ]}
+        layout={schema.data?.layout}
+        item={{ ...item, statusLabel: RCA_STATUSES[item.status] }}
+        renderValue={(field) =>
+          ['incidentIds', 'taskIds'].includes(field.id) ? (
+            <div className="space-y-2">
+              {(field.id === 'incidentIds' ? resource.data.incidents : resource.data.tasks).map(
+                (row) => (
+                  <RecordLink
+                    key={row.id}
+                    className="block text-blue-700 hover:underline dark:text-blue-300"
+                    to={`/${field.id === 'incidentIds' ? 'incidents' : 'tasks'}/${row.id}`}
+                  >
+                    {row.title}
+                  </RecordLink>
+                ),
+              )}
+            </div>
+          ) : undefined
+        }
+      />
     ) : (
       <Skeleton className="h-64 w-full" />
     );

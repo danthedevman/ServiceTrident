@@ -1,3 +1,4 @@
+import { articleAccess } from '../domain/knowledge-access.js';
 import { ObjectId } from 'mongodb';
 import { rateLimit } from 'express-rate-limit';
 import { InputError } from '@servicetrident/shared/validation/validation';
@@ -90,7 +91,11 @@ export function installAI(app, db, fetchImpl) {
       prompt = `Draft a ${type} from the user's request. Return ONLY a JSON object with title (max 160 characters), summary (max 500), content (plain text, max 12000), steps (array; ${type === 'runbook' ? '1 to 20 objects with title (max 160) and instructions (max 2000)' : 'empty'}). Avoid invented environment-specific commands or credentials. User request:\n${instructions}`;
     } else {
       const question = text(req.body.question, 'question', 2000);
-      const filter = { workspaceId: req.workspaceId, status: 'published' };
+      const filter = {
+        workspaceId: req.workspaceId,
+        status: 'published',
+        $and: [await articleAccess(db, req)],
+      };
       if (req.body.knowledgeBaseId) {
         const base = await db
           .collection('knowledgeBases')

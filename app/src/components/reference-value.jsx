@@ -4,6 +4,7 @@ import { ArrowTopRightOnSquareIcon } from '@heroicons/react/24/outline';
 
 export const referenceRoutes = {
   services: '/services',
+  components: '/components',
   collections: '/collections',
   groups: '/groups',
   members: '/workspace',

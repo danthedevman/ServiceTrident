@@ -1,8 +1,6 @@
+import { RecordArticle } from '../../components/record-article.jsx';
 import { SearchInput } from '../../components/forms/search-input.jsx';
-import {
-  RecordFieldLayout,
-  RecordFieldsReadOnly,
-} from '../../components/forms/record-field-layout.jsx';
+import { RecordFieldLayout } from '../../components/forms/record-field-layout.jsx';
 import { TaskBoard } from './task-board.jsx';
 import { ColumnFilter } from '../../components/column-filter.jsx';
 import { useListFilter } from '../../data/use-list-filter.js';
@@ -144,8 +142,7 @@ export function WorkTable({
   embedded = false,
 }) {
   const navigate = useNavigate();
-  const { user } = useContext(AuthContext),
-    canEdit = ['admin', 'responder'].includes(user?.role);
+  const { user } = useContext(AuthContext);
   const task = kind === 'tasks';
   const [columnSearch, setColumnSearch] = useListFilter('columnSearch', '', kind);
   const [searchColumn, setSearchColumn] = useListFilter('searchColumn', '', kind);
@@ -442,12 +439,13 @@ export function WorkTable({
 
 /** Authorized readers edit records in place; read-only roles retain the safe article renderer. */
 export function WorkDetail({ kind = 'tasks' }) {
-  const { user } = useContext(AuthContext),
-    canEdit = ['admin', 'responder'].includes(user?.role);
+  const { user } = useContext(AuthContext);
   const { id } = useParams(),
     resource = useResource(`/${kind}/${id}`);
   const task = kind === 'tasks';
   const item = resource.data?.item;
+  const canEdit =
+    ['admin', 'responder'].includes(user?.role) && (task || item?.canManage !== false);
   const publish = useSave();
   const articleSchema = useResource(task ? '/task-fields' : '/knowledge-fields');
   const visibleFields =
@@ -1189,39 +1187,36 @@ function WorkForm({
 function KnowledgeReader({ item, fields, schema, layout }) {
   const runbook = item.articleType === 'runbook';
   return (
-    <article className="knowledge-reader">
-      <RecordFieldsReadOnly
-        fields={schema || fields}
-        layout={layout}
-        item={item}
-        renderValue={(field) =>
-          field.id === 'content' ? (
-            <Suspense fallback={<div className="h-20" aria-busy="true" />}>
-              <ArticleContent document={item.contentDocument} text={runbook ? '' : item.content} />
-            </Suspense>
-          ) : undefined
-        }
-      />
-      <div className="knowledge-reading-content">
-        {runbook && (
-          <section aria-label="Runbook process">
-            <h2>Step-by-Step Process</h2>
-            <ol className="runbook-process">
-              {item.steps?.map((step, index) => (
-                <li key={index}>
-                  <span className="runbook-step-number" aria-hidden="true">
-                    {index + 1}
-                  </span>
-                  <div>
-                    <h3>{step.title}</h3>
-                    <p className="whitespace-pre-wrap">{step.instructions}</p>
-                  </div>
-                </li>
-              ))}
-            </ol>
-          </section>
-        )}
-      </div>
-    </article>
+    <RecordArticle
+      fields={schema || fields}
+      layout={layout}
+      item={item}
+      renderValue={(field) =>
+        field.id === 'content' ? (
+          <Suspense fallback={<div className="h-20" aria-busy="true" />}>
+            <ArticleContent document={item.contentDocument} text={runbook ? '' : item.content} />
+          </Suspense>
+        ) : undefined
+      }
+    >
+      {runbook && (
+        <section aria-label="Runbook process">
+          <h2>Step-by-Step Process</h2>
+          <ol className="runbook-process">
+            {item.steps?.map((step, index) => (
+              <li key={index}>
+                <span className="runbook-step-number" aria-hidden="true">
+                  {index + 1}
+                </span>
+                <div>
+                  <h3>{step.title}</h3>
+                  <p className="whitespace-pre-wrap">{step.instructions}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
+    </RecordArticle>
   );
 }

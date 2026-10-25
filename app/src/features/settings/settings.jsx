@@ -1,3 +1,5 @@
+import { DEMO_INDUSTRIES, demoIndustry } from '../../../../shared/domain/demo-industries.js';
+import { Select } from '../../components/forms/select.jsx';
 import { PageTitle } from '../../components/page-title.jsx';
 import { AuthContext } from '../../auth/auth-context.js';
 import { ConfirmDeleteButton } from '../../components/confirm-delete-button.jsx';
@@ -17,6 +19,7 @@ function AdminSettings({ section }) {
     save = useSave();
   const marketing = useResource(section === 'hosting' ? '/settings/marketing' : null);
   const inbox = useResource(null);
+  const [industry, setIndustry] = useState('saas');
   const [confirm, setConfirm] = useState(false),
     [message, setMessage] = useState(''),
     [clientError, setClientError] = useState('');
@@ -33,7 +36,7 @@ function AdminSettings({ section }) {
       return;
     const body = {
       confirmation: action === 'add' ? 'ADD DEMO DATA' : 'DELETE DEMO DATA',
-      ...(action === 'delete' ? { batchId: batch.batchId } : {}),
+      ...(action === 'delete' ? { batchId: batch.batchId } : { industry }),
     };
     setClientError('');
     setMessage('');
@@ -90,9 +93,10 @@ function AdminSettings({ section }) {
         <section id="demo-data" className="panel space-y-4 p-6">
           <h2 className="text-lg font-semibold">Demo Data</h2>
           <p className="text-sm text-slate-500">
-            New batches include 50 linked RCAs alongside incidents, tasks, knowledge articles and
-            runbooks, plus six sample alerts in Notifications. Existing batches stay unchanged;
-            delete and re-add demo data to include newly supported types.
+            Choose an industry to explore linked services, components, monitors, incidents, tasks,
+            and runbooks. Solo User includes 10 examples per supported type; other presets include
+            50, with three components per service. Existing batches stay unchanged; delete and
+            re-add demo data to change industry or receive new examples.
           </p>
           <Notice error={resource.error || save.error || clientError} />
           {message && <p role="status">{message}</p>}
@@ -102,6 +106,28 @@ function AdminSettings({ section }) {
             </p>
           ) : (
             <>
+              <label className="field-label max-w-md">
+                Industry
+                <Select
+                  aria-label="Industry"
+                  value={batch ? batch.industry || '' : industry}
+                  onChange={(event) => setIndustry(event.target.value)}
+                  disabled={!!batch || save.busy || working}
+                >
+                  {batch && !batch.industry && <option value="">Existing dataset</option>}
+                  {DEMO_INDUSTRIES.map((preset) => (
+                    <option key={preset.id} value={preset.id}>
+                      {preset.label}
+                    </option>
+                  ))}
+                </Select>
+              </label>
+              {batch && (
+                <p className="text-sm text-slate-500">
+                  Industry:{' '}
+                  {batch.industry ? demoIndustry(batch.industry)?.label : 'Existing dataset'}
+                </p>
+              )}
               {!working && (
                 <p role="status">
                   {batch?.status === 'failed' || batch?.recoverable

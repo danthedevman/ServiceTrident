@@ -31,6 +31,7 @@ export function GlobalSearch({ role, onClose }) {
           ['rcas', 'RCAs'],
           ['knowledge', 'Knowledge'],
           ['services', 'Services'],
+          ['components', 'Components'],
           ['collections', 'Collections'],
           ['monitors', 'Monitors'],
           ['groups', 'Groups'],

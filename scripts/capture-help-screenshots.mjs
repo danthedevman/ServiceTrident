@@ -1,3 +1,4 @@
+import { DEMO_INDUSTRIES, demoIndustry, demoTypeCount } from '../shared/domain/demo-industries.js';
 import { DEFAULT_FORM_LAYOUT, validateFormLayout } from '../shared/forms/layout.js';
 import { helpTopics } from '../app/src/features/help/topics.js';
 import { publicAppearanceCss } from '../shared/status/appearance.js';
@@ -80,7 +81,7 @@ page.screenshot = async (options) => {
 };
 
 const faults = [];
-page.on('pageerror', (error) => faults.push(error.message));
+page.on('pageerror', (error) => faults.push(error.stack || error.message));
 const demoAuditRows = Array.from({ length: 12 }, (_, i) => ({
   id: (i + 1).toString(16).padStart(24, 'a'),
   createdAt: '2026-10-10T17:05:06Z',
@@ -239,6 +240,25 @@ let tasks = [
   updatedAt: '2026-10-09T12:00:00Z',
   dueDate: '2026-10-12',
 }));
+services.forEach((service, index) => {
+  service.components = ['Frontend', 'Payment API', 'Login API'].map((name, componentIndex) => ({
+    id: (5000 + index * 3 + componentIndex).toString(16).padStart(24, 'c'),
+    name,
+    status: componentIndex === 0 ? 'up' : componentIndex === 1 ? 'down' : 'unknown',
+    description: 'Synthetic component',
+    revision: 0,
+    number: `CMP${String(index * 3 + componentIndex + 1).padStart(7, '0')}`,
+  }));
+  service.componentIds = service.components.map((component) => component.id);
+});
+const componentRecords = services.flatMap((service) => service.components);
+monitors.forEach((monitor) => {
+  const component = services.find((service) => service.id === monitor.serviceId)?.components[0];
+  monitor.componentId = component?.id || null;
+  monitor.component = component?.name || '';
+});
+let capturedDemoIndustry = null;
+let capturedComponents = null;
 let failMove = false;
 let aiProvider = null;
 let aiRevision = 0;
@@ -856,7 +876,19 @@ await context.route('**/api/**', async (route) => {
         : [],
       hasMore: false,
     };
-  else if (path === '/references/services')
+  else if (path === '/references/components') {
+    const scoped = url.searchParams.get('serviceId')
+      ? services.find((row) => row.id === url.searchParams.get('serviceId'))?.components || []
+      : componentRecords;
+    const choices = scoped.map((row) => ({ id: row.id, label: row.name }));
+    data = {
+      options: choices,
+      selected: choices.filter((row) =>
+        (url.searchParams.get('selected') || '').split(',').includes(row.id),
+      ),
+      hasMore: false,
+    };
+  } else if (path === '/references/services')
     data = {
       options: services.map((item) => ({ id: item.id, label: item.name })),
       selected: [],
@@ -893,8 +925,19 @@ await context.route('**/api/**', async (route) => {
       layout: formLayouts.tasks,
       revision: builderRevision,
     };
-  else if (path === '/services' && request.method() === 'POST')
-    data = { item: { ...services[0], name: request.postDataJSON().name } };
+  else if (path === '/services' && request.method() === 'POST') {
+    const body = request.postDataJSON();
+    capturedComponents = body.componentIds || [];
+    data = {
+      item: {
+        ...services[0],
+        ...body,
+        components: componentRecords.filter((row) => capturedComponents.includes(row.id)),
+      },
+    };
+  } else if (path === '/components') data = { items: componentRecords };
+  else if (path.startsWith('/components/'))
+    data = { item: componentRecords.find((row) => row.id === path.split('/').pop()) };
   else if (path === '/services') data = { services };
   else if (path === '/collections') data = { collections: [] };
   else if (path === '/members')
@@ -929,12 +972,29 @@ await context.route('**/api/**', async (route) => {
       createdById: user.id,
     };
     data = path === '/settings/service-accounts' ? { items: [item] } : { item };
-  } else if (path === '/settings/demo-data')
+  } else if (path === '/settings/demo-data') {
+    if (request.method() === 'POST') capturedDemoIndustry = request.postDataJSON().industry;
+    if (request.method() === 'DELETE') capturedDemoIndustry = null;
+    const preset = demoIndustry(capturedDemoIndustry || 'saas');
     data = {
-      batch: null,
-      types: DEMO_TYPES.map(([key, label]) => ({ key, label, count: DEMO_COUNT })),
+      batch: capturedDemoIndustry
+        ? {
+            batchId: 'dededededededededededede',
+            industry: preset.id,
+            status: 'active',
+            counts: Object.fromEntries(
+              DEMO_TYPES.map(([key]) => [key, demoTypeCount(key, preset.count)]),
+            ),
+          }
+        : null,
+      industries: DEMO_INDUSTRIES.map(({ id, label, count }) => ({ id, label, count })),
+      types: DEMO_TYPES.map(([key, label]) => ({
+        key,
+        label,
+        count: demoTypeCount(key, preset.count),
+      })),
     };
-  else if (path === '/settings/marketing') data = { available: false };
+  } else if (path === '/settings/marketing') data = { available: false };
   else if (path.startsWith('/public/identity-providers/'))
     data = {
       providers: [
@@ -1242,7 +1302,19 @@ await context.route('**/api/**', async (route) => {
       });
     }
     const rows = (
-      path.endsWith('services') ? services : path.endsWith('monitors') ? monitors : []
+      path.endsWith('components')
+        ? componentRecords.filter(
+            (row) =>
+              !url.searchParams.get('serviceId') ||
+              services
+                .find((service) => service.id === url.searchParams.get('serviceId'))
+                ?.componentIds.includes(row.id),
+          )
+        : path.endsWith('services')
+          ? services
+          : path.endsWith('monitors')
+            ? monitors
+            : []
     ).filter(
       (row) =>
         JSON.stringify(row)
@@ -1396,11 +1468,7 @@ async function captureRcaWorkflows() {
   await groupingWindow.waitFor();
   assert.equal(await groupingWindow.inputValue(), '30');
   await groupingWindow.fill('0');
-  await page
-    .getByRole('heading', { name: 'Alert Grouping', exact: true })
-    .locator('..')
-    .getByRole('button', { name: 'Save', exact: true })
-    .click();
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
   await page.getByText('Alert grouping saved.', { exact: true }).waitFor();
   assert.equal(workspaceConfig.alertGroupingSeconds, 0);
   await groupingWindow.fill('30');
@@ -1780,7 +1848,7 @@ async function captureRecordExports() {
   rca.correctiveActions = 'Add bounded timeouts and recovery checks.';
   rca.lessonsLearned = 'Exercise dependency failure scenarios before release.';
   await page.goto(`${base}/rcas/${rca.id}`);
-  await page.locator('.knowledge-reader h1').waitFor();
+  await page.locator('.rca-reader [data-record-field=title]').waitFor();
   await page.screenshot({ path: `${output}/rca-record.png` });
   await page.getByRole('button', { name: 'Record actions', exact: true }).click();
   await page.getByRole('button', { name: 'Export PDF', exact: true }).waitFor();
@@ -1832,7 +1900,7 @@ async function captureRecordExports() {
       custom: {},
     });
   await page.goto(`${base}/knowledge/${demoArticles[0].id}`);
-  await page.locator('.knowledge-reader h1').waitFor();
+  await page.locator('.knowledge-reader [data-record-field=title]').waitFor();
   await download('csv', 'knowledge-export');
   await download('pdf', 'knowledge-export');
   await page.goto(`${base}/records/audit/${demoAuditRows[0].id}`);
@@ -1845,8 +1913,8 @@ async function captureRecordExports() {
   assert.ok(eventCsv.toString().includes('503'));
   await page.goto(`${base}/rcas/${rca.id}`);
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.locator('.rca-reader section').last().scrollIntoViewIfNeeded();
-  const bounds = await page.locator('.rca-reader section').last().boundingBox();
+  await page.locator('.rca-reader [data-record-field]').last().scrollIntoViewIfNeeded();
+  const bounds = await page.locator('.rca-reader [data-record-field]').last().boundingBox();
   assert.ok(bounds.y + bounds.height <= 844, 'RCA article remains scrollable on mobile');
   await page.setViewportSize({ width: 1440, height: 960 });
 }
@@ -1963,7 +2031,7 @@ async function captureReadmeRecords() {
   await page.getByRole('button', { name: 'Edit Record', exact: true }).waitFor();
   await page.screenshot({ path: `${output}/readme-incident-dark.png` });
   await page.goto(`${base}/rcas/${demoRcas[0].id}`);
-  await page.locator('.rca-reader [data-record-field=title] dd').waitFor();
+  await page.locator('.rca-reader [data-record-field=title]').waitFor();
   await page.getByRole('button', { name: 'Edit Record', exact: true }).waitFor();
   await page.screenshot({ path: `${output}/readme-rca-dark.png` });
   await page.getByRole('button', { name: 'Expand Navigation', exact: true }).click();
@@ -2181,6 +2249,7 @@ async function captureChatWorkspace() {
 async function captureMonitorHistoryColumns() {
   user.role = 'admin';
   await page.goto(`${base}/monitors/${monitors[0].id}`);
+  await page.getByRole('tab', { name: 'Check History', exact: true }).click();
   const heading = page.getByRole('columnheader', { name: 'Check Number', exact: true });
   await heading.waitFor();
   for (const viewport of [
@@ -2432,6 +2501,123 @@ async function verifyFormHeadingRows() {
 }
 
 try {
+  if (process.env.HELP_CAPTURE_FOCUS === 'components-industries') {
+    user.role = 'admin';
+    demoArticles.push({
+      id: 'eeeeeeeeeeeeeeeeeeeeeeee',
+      number: 'ART0000001',
+      revision: 0,
+      title: 'Payment recovery guide',
+      summary: 'Restore payments and verify recovery.',
+      knowledgeBaseId: demoBases[0].id,
+      knowledgeBaseTitle: demoBases[0].title,
+      articleType: 'article',
+      status: 'published',
+      content: 'Check dependency health. Confirm successful checks before closing the incident.',
+      createdBy: 'Alex Demo',
+      updatedAt: '2026-10-10T17:05:06Z',
+      fields: [],
+      custom: {},
+      steps: [],
+    });
+    demoRcas.push({
+      id: 'fafafafafafafafafafafafa',
+      number: 'RCA0000001',
+      revision: 0,
+      title: 'Payment interruption review',
+      status: 'completed',
+      summary: 'Review the interruption and corrective work.',
+      rootCause: 'An unbounded connection timeout exhausted the pool.',
+      impact: 'Payments were interrupted.',
+      timeline: 'Detection, mitigation, then recovery.',
+      correctiveActions: 'Bound connection timeouts.',
+      lessonsLearned: 'Verify recovery over several check intervals.',
+      incidentIds: [demoIncident.id],
+      taskIds: [tasks[0].id],
+      createdBy: 'Alex Demo',
+      updatedAt: '2026-10-10T17:05:06Z',
+      fields: [],
+      custom: {},
+    });
+    for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto(`${base}/services/${services[0].id}`);
+      const field = page.locator('input[data-reference-name="componentIds"]');
+      await field.waitFor();
+      assert.equal(await field.getAttribute('placeholder'), null);
+      await page.screenshot({
+        path: `${output}/service-components${width === 390 ? '-mobile' : ''}.png`,
+      });
+      await page.getByRole('tab', { name: /^Components/ }).click();
+      await page.locator(`a[href="/components/${services[0].componentIds[0]}"]`).last().click();
+      await page.waitForURL(`${base}/components/${services[0].componentIds[0]}`);
+      await page.getByRole('tab', { name: /^Monitors/ }).click();
+      await page.getByRole('link', { name: 'Create Monitor', exact: true }).waitFor();
+      await page.screenshot({
+        path: `${output}/component-monitors${width === 390 ? '-mobile' : ''}.png`,
+      });
+      for (const path of ['/status', '/public/status/demo-share']) {
+        await page.goto(`${base}${path}`);
+        const disclosure = page.locator('[data-status-components]').first();
+        await disclosure.waitFor();
+        assert.equal(await disclosure.locator('button').count(), 0);
+        await disclosure.locator('summary').click();
+        await disclosure.locator('button').first().waitFor();
+        await page.screenshot({
+          path: `${output}/${path.startsWith('/public') ? 'public-' : ''}status-components${width === 390 ? '-mobile' : ''}.png`,
+        });
+        await disclosure.locator('summary').click();
+        await page.waitForFunction(
+          () => document.querySelector('[data-status-components] button') === null,
+        );
+        await page
+          .locator('main')
+          .last()
+          .evaluate((node) => node.scrollTo(0, node.scrollHeight));
+      }
+      await page.goto(`${base}/knowledge/bases/${demoBases[0].id}`);
+      assert.equal(
+        await page
+          .getByRole('tab', { name: 'Articles', exact: true })
+          .getAttribute('aria-selected'),
+        'true',
+      );
+      await page.screenshot({
+        path: `${output}/knowledge-base-articles${width === 390 ? '-mobile' : ''}.png`,
+      });
+      await page.getByRole('tab', { name: 'Settings', exact: true }).click();
+      await page.getByRole('combobox', { name: 'Managers — Users', exact: true }).waitFor();
+      const baseName = page.getByRole('textbox', { name: 'Name', exact: true });
+      await baseName.dblclick({ force: true });
+      await page.waitForFunction(
+        () => !document.querySelector('input[name="title"]').matches(':disabled'),
+      );
+      await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+      await page.screenshot({
+        path: `${output}/knowledge-base-settings${width === 390 ? '-mobile' : ''}.png`,
+      });
+    }
+    for (const path of [`/knowledge/${demoArticles[0].id}`, `/rcas/${demoRcas[0]?.id}`]) {
+      if (path.endsWith('/undefined')) continue;
+      await page.goto(`${base}${path}`);
+      const reader = page.locator('.document-reader');
+      await reader.locator('h1').waitFor();
+      assert.equal(await reader.locator('input, textarea, select, [role="combobox"]').count(), 0);
+      await reader.locator('h1').dblclick();
+      await page.locator('form').waitFor();
+      await page.getByRole('button', { name: 'Cancel', exact: true }).last().click();
+      await reader.locator('h1').waitFor();
+      await page.screenshot({
+        path: `${output}/${path.startsWith('/rcas') ? 'rca-record' : 'knowledge-article'}.png`,
+      });
+    }
+    assert.deepEqual(faults, []);
+    console.log(
+      'Verified component references and records, lazy histories on both status pages, and Articles/Settings on desktop/mobile.',
+    );
+    await browser.close();
+    process.exit(0);
+  }
   if (process.env.HELP_CAPTURE_FOCUS === 'status-timezone') {
     await page.goto(`${base}/status`);
     await page.getByRole('heading', { name: 'Service Status', exact: true }).waitFor();
@@ -3186,8 +3372,14 @@ try {
         const details = sections.getByRole('tab', { name: 'Details', exact: true });
         await details.waitFor();
         assert.equal(await details.getAttribute('aria-selected'), 'true', path);
-        assert.equal(await sections.evaluate((el) => getComputedStyle(el).backgroundColor), 'rgba(0, 0, 0, 0)');
-        assert.equal(await details.evaluate((el) => getComputedStyle(el).backgroundColor), 'rgba(0, 0, 0, 0)');
+        assert.equal(
+          await sections.evaluate((el) => getComputedStyle(el).backgroundColor),
+          'rgba(0, 0, 0, 0)',
+        );
+        assert.equal(
+          await details.evaluate((el) => getComputedStyle(el).backgroundColor),
+          'rgba(0, 0, 0, 0)',
+        );
 
         const strip = await sections.boundingBox();
         const record = await page
@@ -4731,7 +4923,10 @@ try {
   );
   await page.goto(`${base}/integrations/${demoServiceNow.id}`);
   await page.getByLabel('Instance Root URL', { exact: true }).waitFor();
-  assert.equal(await page.getByLabel('Instance Root URL', { exact: true }).inputValue(), demoServiceNow.instanceUrl);
+  assert.equal(
+    await page.getByLabel('Instance Root URL', { exact: true }).inputValue(),
+    demoServiceNow.instanceUrl,
+  );
   await page.getByRole('button', { name: 'Edit Record', exact: true }).click();
   assert.equal(
     await page.getByLabel('Instance Root URL', { exact: true }).inputValue(),
@@ -4772,7 +4967,10 @@ try {
   );
   await page.screenshot({ path: `${output}/service-account-settings.png` });
   await accountForm.getByRole('button', { name: 'Cancel', exact: true }).click();
-  await page.getByRole('dialog', { name: 'Discard Unsaved Changes?', exact: true }).getByRole('button', { name: 'Discard Changes', exact: true }).click();
+  await page
+    .getByRole('dialog', { name: 'Discard Unsaved Changes?', exact: true })
+    .getByRole('button', { name: 'Discard Changes', exact: true })
+    .click();
   await page.getByRole('link', { name: /^Demo External Automation/ }).click();
   await page.getByRole('heading', { name: 'Demo External Automation', exact: true }).waitFor();
   await page.getByRole('heading', { name: 'OAuth Client Credentials', exact: true }).waitFor();
@@ -5055,7 +5253,10 @@ try {
     })
     .waitFor();
   await page.getByLabel('Start', { exact: true }).waitFor();
-  assert.equal(await page.getByLabel('Start', { exact: true }).inputValue(), '2026-10-11T08:00:56.789');
+  assert.equal(
+    await page.getByLabel('Start', { exact: true }).inputValue(),
+    '2026-10-11T08:00:56.789',
+  );
   await page.goto(`${base}/on-call`);
   const headerReference = page
     .locator('[data-on-call-calendar]')

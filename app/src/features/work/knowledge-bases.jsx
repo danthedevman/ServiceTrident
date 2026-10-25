@@ -1,5 +1,9 @@
+import { RecordTabs } from '../../components/record-tabs.jsx';
 import { SearchInput } from '../../components/forms/search-input.jsx';
-import { StaticRecordFields } from '../../components/forms/record-field-layout.jsx';
+import {
+  StaticRecordFields,
+  RecordFieldEditing,
+} from '../../components/forms/record-field-layout.jsx';
 import { useListFilter } from '../../data/use-list-filter.js';
 import { useInfiniteScroll } from '../../data/use-infinite-scroll.js';
 import { ValidatedForm } from '../../components/forms/validated-form.jsx';
@@ -135,14 +139,46 @@ export function KnowledgeBasePage({ create = false }) {
       {item ? (
         <RecordWorkspace
           kind="knowledgeBases"
+          detailsLabel="Articles"
+          editTabId="settings"
+          relatedTabs={
+            <RecordTabs
+              lazy
+              tabs={[
+                {
+                  id: 'settings',
+                  label: 'Settings',
+                  content: (
+                    <RecordFieldEditing
+                      onEdit={
+                        !editing && (item.canManage ?? ['admin', 'responder'].includes(user?.role))
+                          ? () => setEditing(true)
+                          : undefined
+                      }
+                    >
+                      <KnowledgeBaseForm
+                        key={`${id}-${editing ? 'edit' : item.revision}`}
+                        readOnly={
+                          !editing ||
+                          !(item.canManage ?? ['admin', 'responder'].includes(user?.role))
+                        }
+                        item={item}
+                        onClose={() => setEditing(false)}
+                      />
+                    </RecordFieldEditing>
+                  ),
+                },
+              ]}
+            />
+          }
           item={item}
           onEdit={
-            !editing && ['admin', 'responder'].includes(user?.role)
+            !editing && (item.canManage ?? ['admin', 'responder'].includes(user?.role))
               ? () => setEditing(true)
               : undefined
           }
           actions={
-            !editing && ['admin', 'responder'].includes(user?.role) ? (
+            !editing && ['admin', 'responder'].includes(user?.role) && item.canManage !== false ? (
               <Link
                 className="btn-primary"
                 to={`/knowledge/new?knowledgeBaseId=${encodeURIComponent(id)}`}
@@ -162,12 +198,6 @@ export function KnowledgeBasePage({ create = false }) {
           }
           sidebar={<RecordMetadata item={item} />}
         >
-          <KnowledgeBaseForm
-            key={`${id}-${editing ? 'edit' : item.revision}`}
-            readOnly={!editing || !['admin', 'responder'].includes(user?.role)}
-            item={item}
-            onClose={() => setEditing(false)}
-          />
           <KnowledgeBaseArticles key={`articles:${id}`} knowledgeBaseId={id} />
           <AIAssistant key={`ai:${id}`} action="answer" knowledgeBaseId={id} />
         </RecordWorkspace>
@@ -181,6 +211,14 @@ export function KnowledgeBasePage({ create = false }) {
 function KnowledgeBaseForm({ item, onClose, readOnly = false }) {
   const [title, setTitle] = useState(item?.title ?? ''),
     [description, setDescription] = useState(item?.description ?? '');
+  const [permissions, setPermissions] = useState(() =>
+    Object.fromEntries(
+      ['managerUserIds', 'managerGroupIds', 'viewerUserIds', 'viewerGroupIds'].map((key) => [
+        key,
+        item?.[key] || [],
+      ]),
+    ),
+  );
   const save = useSave(),
     navigate = useNavigate();
   return (
@@ -192,7 +230,7 @@ function KnowledgeBaseForm({ item, onClose, readOnly = false }) {
         save.run(
           item ? `/knowledge-bases/${item.id}` : '/knowledge-bases',
           item ? 'PATCH' : 'POST',
-          { title, description, ...(item ? { revision: item.revision } : {}) },
+          { title, description, ...permissions, ...(item ? { revision: item.revision } : {}) },
           (result) => {
             if (item) onClose();
             else navigate(`/knowledge/bases/${result.item.id}`, { state: { createdRecord: true } });
@@ -218,6 +256,28 @@ function KnowledgeBaseForm({ item, onClose, readOnly = false }) {
             maxLength={2000}
           />
         </Field>
+        {[
+          ['managerUserIds', 'Managers — Users', 'members'],
+          ['managerGroupIds', 'Managers — Groups', 'groups'],
+          ['viewerUserIds', 'Article Viewers — Users', 'members'],
+          ['viewerGroupIds', 'Article Viewers — Groups', 'groups'],
+        ].map(([key, label, referenceType]) => (
+          <ReferenceField
+            key={key}
+            name={key}
+            label={label}
+            referenceType={referenceType}
+            multiple
+            value={permissions[key]}
+            onChange={(value) => setPermissions((current) => ({ ...current, [key]: value }))}
+            error={save.fields?.[key]}
+          />
+        ))}
+        <p className="text-sm text-slate-500">
+          Administrators always manage and view this base. Empty manager lists allow responders to
+          manage it. Empty viewer lists allow workspace members to view its articles. Managers can
+          also view articles; end users retain incident portal access only.
+        </p>
       </StaticRecordFields>
       {!readOnly && (
         <RecordActions>

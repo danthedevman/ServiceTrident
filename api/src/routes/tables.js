@@ -1,3 +1,5 @@
+import { articleAccess } from '../domain/knowledge-access.js';
+import { demoTypeCount } from '@servicetrident/shared/domain/demo-industries';
 import { projectScope, projectStats } from '../repositories/project-hub.js';
 import {
   retainedEvents,
@@ -37,6 +39,7 @@ async function parent(db, req, kind = 'incidents') {
   const row = await db.collection(names[kind]).findOne({
     _id: id(req.query.recordId),
     ...(kind === 'incidents' ? incidentAccess(req) : { workspaceId: req.workspaceId }),
+    ...(kind === 'knowledge' ? await articleAccess(db, req) : {}),
   });
   if (!row) throw new InputError('Record not found.', 404);
   return row;
@@ -52,6 +55,24 @@ async function source(db, req) {
     req.role !== 'admin'
   )
     throw new InputError('Administrator access required.', 403);
+  if (kind === 'components') {
+    const filter = { workspaceId };
+    if (req.query.serviceId) {
+      const service = (await catalog(db, workspaceId)).services.find(
+        (row) => row.id === req.query.serviceId,
+      );
+      if (!service) throw new InputError('Service not found.', 404);
+      filter._id = { $in: (service.componentIds || []).map(id) };
+    }
+    return databaseTable(
+      db,
+      'components',
+      filter,
+      fields('number', 'name', 'description', 'createdAt'),
+      view,
+      'createdAt',
+    );
+  }
   if (kind === 'projects') {
     const data = await projectStats(db, req);
     const { config } = await projectScope(db, req);
@@ -351,7 +372,11 @@ async function source(db, req) {
     return databaseTable(
       db,
       'articles',
-      { workspaceId, _id: { $in: (incident.knowledgeIds ?? []).map(id) } },
+      {
+        workspaceId,
+        _id: { $in: (incident.knowledgeIds ?? []).map(id) },
+        ...(await articleAccess(db, req)),
+      },
       fields('title', 'summary', 'status', 'updatedAt'),
       view,
       'updatedAt',
@@ -395,11 +420,18 @@ async function source(db, req) {
       ['name', 'value'],
     );
   }
-  if (kind === 'demo')
+  if (kind === 'demo') {
+    const batch = await db.collection('demoData').findOne({ _id: workspaceId });
     return embeddedTable(
-      DEMO_TYPES.map(([key, label]) => ({ id: key, key, label, count: DEMO_COUNT })),
+      DEMO_TYPES.map(([key, label]) => ({
+        id: key,
+        key,
+        label,
+        count: batch?.counts?.[key] ?? demoTypeCount(key, DEMO_COUNT),
+      })),
       ['label', 'count'],
     );
+  }
   if (['priority-incidents', 'priority-tasks'].includes(kind)) {
     const incidents = kind === 'priority-incidents';
     return databaseTable(
@@ -440,10 +472,18 @@ async function source(db, req) {
   const data = await catalog(db, workspaceId);
   if (['services', 'collections', 'monitors'].includes(kind)) {
     if (kind === 'monitors') {
+      if (
+        req.query.componentId &&
+        !(await db
+          .collection('components')
+          .findOne({ _id: id(req.query.componentId), workspaceId }, { projection: { _id: 1 } }))
+      )
+        throw new InputError('Component not found.', 404);
       // Health is a computed SQL/Mongo expression, so sorting and search cover the full inventory.
       const filter = {
         userId: workspaceId,
         ...(req.query.serviceId ? { serviceId: id(req.query.serviceId) } : {}),
+        ...(req.query.componentId ? { componentId: String(req.query.componentId) } : {}),
       };
       const definitions = fields('number', 'name', 'url', 'component', 'intervalMinutes', 'method');
       Object.assign(definitions, {
@@ -693,10 +733,23 @@ export function installTableRoutes(app, db) {
       const [incidents, tasks, knowledge, monitors] = await Promise.all([
         count('incidents', { workspaceId, serviceId: recordId }),
         count('tasks', { workspaceId, serviceId: recordId, status: { $ne: 'archived' } }),
-        count('articles', { workspaceId, serviceId: recordId, status: { $ne: 'archived' } }),
+        count('articles', {
+          ...(await articleAccess(db, req)),
+          workspaceId,
+          serviceId: recordId,
+          status: { $ne: 'archived' },
+        }),
         count('monitors', { userId: workspaceId, serviceId: _id }),
       ]);
-      return res.json({ counts: { incidents, tasks, knowledge, monitors } });
+      return res.json({
+        counts: {
+          incidents,
+          tasks,
+          knowledge,
+          monitors,
+          components: data.services.find((row) => row.id === recordId)?.componentIds?.length || 0,
+        },
+      });
     }
     if (['events', 'eventAlerts'].includes(kind)) {
       if (req.role === 'user') throw new InputError('Your role cannot view events.', 403);
@@ -769,7 +822,11 @@ export function installTableRoutes(app, db) {
     if (req.role !== 'user') {
       const [tasks, knowledge, monitorEvents] = await Promise.all([
         count('tasks', { workspaceId, incidentId: recordId, status: { $ne: 'archived' } }),
-        count('articles', { workspaceId, _id: { $in: (record.knowledgeIds || []).map(id) } }),
+        count('articles', {
+          ...(await articleAccess(db, req)),
+          workspaceId,
+          _id: { $in: (record.knowledgeIds || []).map(id) },
+        }),
         db.collection('events').countDocuments({
           userId: workspaceId,
           checkedAt: { $gte: new Date(Date.now() - 30 * 86400000) },

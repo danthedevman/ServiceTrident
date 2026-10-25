@@ -28,12 +28,28 @@ function text(value, max, required = false) {
 /** Each workspace has one private-by-default catalog. */
 export async function catalog(db, userId) {
   const existing = await db.collection('catalogs').findOne({ _id: userId });
-  if (existing) return existing;
+  if (existing) {
+    const components = await db
+      .collection('components')
+      .find({ workspaceId: userId }, { projection: { name: 1 } })
+      .toArray();
+    return {
+      ...existing,
+      services: existing.services.map((service) => ({
+        ...service,
+        componentIds: service.componentIds || [],
+        components: components
+          .filter((row) => (service.componentIds || []).includes(String(row._id)))
+          .map((row) => ({ id: String(row._id), name: row.name })),
+      })),
+    };
+  }
   const data = {
     _id: userId,
     services: [],
     collections: [],
     revision: 0,
+    componentSchemaVersion: 1,
     visibility: 'private',
     publicToken: randomBytes(24).toString('hex'),
   };
@@ -92,16 +108,33 @@ export async function monitorPlacement(db, body, userId, current) {
         : id(body.serviceId);
   if (!current && !serviceId)
     throw new InputError('Service is required.', 400, { serviceId: 'Service is required.' });
-  if (serviceId) {
-    const data = await catalog(db, userId);
-    if (!data.services.some((service) => service.id === String(serviceId)))
-      throw new InputError('Service not found.', 404, {
-        serviceId: 'This service is no longer available. Choose an available service.',
-      });
-  }
-  const component = text(body.component ?? current?.component ?? '', 80);
-  if (component && !serviceId) throw new InputError('Choose a service before adding a component.');
-  return { serviceId, component };
+  const data = serviceId ? await catalog(db, userId) : null;
+  const service = data?.services.find((row) => row.id === String(serviceId));
+  if (serviceId && !service)
+    throw new InputError('Service not found.', 404, { serviceId: 'Choose an available service.' });
+  const sameService = String(serviceId || '') === String(current?.serviceId || '');
+  const requestedId =
+    body.componentId !== undefined
+      ? body.componentId
+      : body.component !== undefined
+        ? null
+        : sameService
+          ? current?.componentId
+          : null;
+  const name = text(body.component ?? (sameService ? current?.component || '' : ''), 80);
+  const component = requestedId
+    ? service?.components.find((row) => row.id === requestedId)
+    : body.componentId === null || body.componentId === ''
+      ? null
+      : service?.components.find((row) => row.name.toLowerCase() === name.toLowerCase());
+  if (
+    (requestedId && (typeof requestedId !== 'string' || !component)) ||
+    (!requestedId && name && body.componentId === undefined && !component)
+  )
+    throw new InputError('Choose a component belonging to the selected service.', 400, {
+      componentId: 'Choose an available component for this service, or leave it unassigned.',
+    });
+  return { serviceId, componentId: component?.id || null, component: component?.name || '' };
 }
 
 /** Require workspace ownership for every monitor access. */
@@ -114,6 +147,7 @@ export async function requireMonitor(db, monitorId, userId) {
 /** Save the entire small catalog atomically to prevent concurrent dependency cycles. */
 async function saveCatalog(db, data) {
   const { _id, revision, ...fields } = data;
+  fields.services = fields.services.map(({ components: _projection, ...service }) => service);
   const result = await db
     .collection('catalogs')
     .updateOne({ _id, revision }, { $set: fields, $inc: { revision: 1 } });
@@ -162,6 +196,32 @@ export function installServiceRoutes(app, db) {
             req.body.healthPolicy === undefined ? current?.healthPolicy : req.body.healthPolicy,
           );
           item.description = text(req.body.description ?? current?.description ?? '', 1000);
+          if (req.body.components !== undefined)
+            throw new InputError('Use componentIds to select component records.', 400);
+          const availableComponents = await db
+            .collection('components')
+            .find({ workspaceId: req.workspaceId }, { projection: { name: 1 } })
+            .toArray();
+          item.componentIds = references(
+            req.body.componentIds ?? current?.componentIds ?? [],
+            availableComponents.map((row) => ({ id: String(row._id) })),
+            'componentIds',
+          );
+          const removed = (current?.componentIds || []).filter(
+            (value) => !item.componentIds.includes(value),
+          );
+          if (
+            removed.length &&
+            (await db
+              .collection('monitors')
+              .findOne(
+                { userId: req.workspaceId, serviceId: id(item.id), componentId: { $in: removed } },
+                { projection: { _id: 1 } },
+              ))
+          )
+            throw new InputError('Reassign monitors before removing a component.', 409, {
+              componentIds: 'Reassign monitors before removing a selected component.',
+            });
           item.dependencyIds = references(
             req.body.dependencyIds ?? current?.dependencyIds ?? [],
             data.services,
@@ -258,6 +318,7 @@ export function installServiceRoutes(app, db) {
             $set: {
               serviceId: null,
               component: '',
+              componentId: null,
               updatedAt: new Date(),
               updatedBy: req.user.email,
               updatedById: String(req.user._id),

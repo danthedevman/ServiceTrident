@@ -17,6 +17,7 @@ export const tables = [
   'catalogs',
   'operations',
   'monitors',
+  'components',
   'events',
   'eventAlerts',
   'probeJobs',
@@ -84,6 +85,10 @@ export async function migrate(pool, schema) {
       'CREATE TABLE IF NOT EXISTS "auditEvents" (id text PRIMARY KEY, data jsonb NOT NULL)',
     );
     await client.query('INSERT INTO sk_migrations(version) VALUES (2) ON CONFLICT DO NOTHING');
+    await client.query(
+      'CREATE TABLE IF NOT EXISTS "components" (id text PRIMARY KEY, data jsonb NOT NULL)',
+    );
+    await client.query('INSERT INTO sk_migrations(version) VALUES (12) ON CONFLICT DO NOTHING');
     for (const name of [
       'statusSubscribers',
       'publicStatusUpdates',

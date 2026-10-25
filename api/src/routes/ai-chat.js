@@ -1,3 +1,4 @@
+import { articleAccess } from '../domain/knowledge-access.js';
 import { createHash } from 'node:crypto';
 import { ObjectId } from 'mongodb';
 import { InputError } from '@servicetrident/shared/validation/validation';
@@ -18,10 +19,13 @@ const objectId = (value) => {
 };
 const kinds = ['incidents', 'tasks', 'knowledge', 'events', 'rcas'];
 const collection = (kind) => (kind === 'knowledge' ? 'articles' : kind);
-const scope = (req, kind) =>
+const scope = async (db, req, kind) =>
   kind === 'incidents'
     ? incidentAccess(req)
-    : { [kind === 'events' ? 'userId' : 'workspaceId']: req.workspaceId };
+    : {
+        [kind === 'events' ? 'userId' : 'workspaceId']: req.workspaceId,
+        ...(kind === 'knowledge' ? await articleAccess(db, req) : {}),
+      };
 const projection = {
   title: 1,
   number: 1,
@@ -131,7 +135,7 @@ async function demoRecordLinks(db, req, example) {
   const kindFor = { Incident: 'incidents', Task: 'tasks', Runbook: 'knowledge', Event: 'events' };
   const found = new Map();
   for (const kind of new Set(example.records.map((record) => kindFor[record.type]))) {
-    const filter = { ...scope(req, kind), demoBatchId: batch.batchId };
+    const filter = { ...(await scope(db, req, kind)), demoBatchId: batch.batchId };
     if (kind === 'knowledge')
       Object.assign(filter, { status: 'published', articleType: 'runbook' });
     if (kind === 'events') filter.status = 'down';
@@ -267,7 +271,10 @@ export function installAIChat(app, db, fetchImpl, limit) {
       const kind = choice(req.body.context.kind, kinds, 'kind');
       current = await db
         .collection(collection(kind))
-        .findOne({ ...scope(req, kind), _id: objectId(req.body.context.id) }, { projection });
+        .findOne(
+          { ...(await scope(db, req, kind)), _id: objectId(req.body.context.id) },
+          { projection },
+        );
       if (!current) throw new InputError('Record not found.', 404);
       current = { ...current, kind };
     }
@@ -291,7 +298,7 @@ export function installAIChat(app, db, fetchImpl, limit) {
     for (const ref of references) {
       const row = await db
         .collection(collection(ref.kind))
-        .findOne({ ...scope(req, ref.kind), _id: objectId(ref.id) }, { projection });
+        .findOne({ ...(await scope(db, req, ref.kind)), _id: objectId(ref.id) }, { projection });
       if (row) priorRecords.push(excerpt(row, ref.kind));
     }
     const conversationContext = JSON.stringify({
@@ -338,7 +345,7 @@ export function installAIChat(app, db, fetchImpl, limit) {
     if (intent === 'draft') requireResponder(req, res, () => {});
     const kind = choice(plan.kind, kinds, 'kind');
     const search = text(plan.search ?? '', 'search', 100, false);
-    const filter = scope(req, kind);
+    const filter = await scope(db, req, kind);
     let matchedMonitors = [];
     if (search) {
       const regex = { $regex: search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), $options: 'i' };
@@ -430,6 +437,7 @@ export function installAIChat(app, db, fetchImpl, limit) {
             {
               workspaceId: req.workspaceId,
               status: 'published',
+              $and: [await articleAccess(db, req)],
               $or: terms.map((word) => ({
                 title: { $regex: word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), $options: 'i' },
               })),
@@ -535,7 +543,10 @@ export function installAIChat(app, db, fetchImpl, limit) {
       if (action.operation === 'update') {
         const record = await db
           .collection(collection(action.kind))
-          .findOne({ ...scope(req, action.kind), _id: objectId(action.id) }, { projection });
+          .findOne(
+            { ...(await scope(db, req, action.kind)), _id: objectId(action.id) },
+            { projection },
+          );
         if (!record) throw new InputError('Record not found.', 404);
         if (
           action.kind === 'knowledge' &&
@@ -617,7 +628,7 @@ export function installAIChat(app, db, fetchImpl, limit) {
     if (action.operation === 'update' && ['rcas', 'knowledge'].includes(action.kind)) {
       const current = await db
         .collection(collection(action.kind))
-        .findOne({ ...scope(req, action.kind), _id: objectId(action.id) });
+        .findOne({ ...(await scope(db, req, action.kind)), _id: objectId(action.id) });
       if (!current) throw new InputError('Record not found.', 404);
       if (
         action.kind === 'knowledge' &&

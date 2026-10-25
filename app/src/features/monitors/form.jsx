@@ -65,6 +65,16 @@ function MonitorEditor({ monitor, onReset, defaults, readOnly }) {
   const [serviceId, setServiceId] = useState(
     monitor?.serviceId ?? searchParams.get('serviceId') ?? '',
   );
+  const [componentId, setComponentId] = useState(
+    monitor?.componentId || searchParams.get('componentId') || undefined,
+  );
+  const selectedService = serviceState.data?.services?.find((service) => service.id === serviceId);
+  const selectedComponent =
+    componentId === undefined
+      ? serviceId === monitor?.serviceId
+        ? selectedService?.components?.find((row) => row.name === monitor?.component)?.id || ''
+        : ''
+      : componentId;
   const [authentication, setAuthentication] = useState({
     ...(monitor?.authentication || { mode: 'none' }),
     authMethod: monitor?.authentication?.authMethod || 'client_secret_basic',
@@ -121,7 +131,7 @@ function MonitorEditor({ monitor, onReset, defaults, readOnly }) {
               }
             : null,
           serviceId: serviceId || null,
-          component: serviceId ? form.get('component') : '',
+          componentId: serviceId ? selectedComponent || null : null,
           name: form.get('name'),
           url: form.get('url'),
           intervalMinutes: monitorIntervalMinutes(form.get('intervalMinutes'), intervalUnit),
@@ -164,28 +174,50 @@ function MonitorEditor({ monitor, onReset, defaults, readOnly }) {
             label={monitor ? 'Service' : 'Service *'}
             name="serviceId"
             required={!monitor}
-            options={(serviceState.data?.services ?? []).map((service) => ({
-              id: service.id,
-              label: service.name,
-            }))}
+            options={(serviceState.data?.services ?? [])
+              .filter(
+                (service) =>
+                  !searchParams.get('componentId') ||
+                  (service.componentIds || []).includes(searchParams.get('componentId')),
+              )
+              .map((service) => ({
+                id: service.id,
+                label: service.name,
+              }))}
             value={serviceId}
-            onChange={setServiceId}
+            onChange={(value) => {
+              setServiceId(value);
+              setComponentId(
+                searchParams.get('componentId') &&
+                  serviceState.data?.services
+                    .find((service) => service.id === value)
+                    ?.componentIds?.includes(searchParams.get('componentId'))
+                  ? searchParams.get('componentId')
+                  : '',
+              );
+            }}
             disabled={serviceState.loading || !!serviceState.error}
           />
 
           {serviceId && (
-            <label className="field-label">
-              Component / subservice
-              <input
-                name="component"
-                maxLength={80}
-                defaultValue={monitor?.component ?? ''}
-                placeholder="API, Checkout, or Frontend"
-              />
-              <span className="field-hint">
-                Optional. Monitors with the same component name are grouped together.
-              </span>
-            </label>
+            <ReferenceField
+              label="Component"
+              referenceType="components"
+              serviceId={serviceId}
+              name="componentId"
+              options={(selectedService?.components || []).map((row) => ({
+                id: row.id,
+                label: row.name,
+              }))}
+              value={selectedComponent}
+              onChange={setComponentId}
+              disabled={!selectedService || serviceState.loading}
+            />
+          )}
+          {serviceId && !readOnly && (
+            <p className="field-hint">
+              Optional. Select components in the service’s Components field, then choose one here.
+            </p>
           )}
           <label className="field-label">
             Endpoint URL *

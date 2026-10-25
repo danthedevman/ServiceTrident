@@ -103,9 +103,11 @@ export function fieldErrors(kind, input = {}) {
     if (input.component && !input.serviceId)
       errors.component = 'Choose a service before assigning a component.';
   }
-  if (kind === 'services') text('description', 'Description', 1000);
+  if (kind === 'services') {
+    text('description', 'Description', 1000);
+  }
   for (const name of kind === 'services'
-    ? ['dependencyIds', 'collectionIds']
+    ? ['dependencyIds', 'collectionIds', 'componentIds']
     : kind === 'collections'
       ? ['serviceIds']
       : []) {

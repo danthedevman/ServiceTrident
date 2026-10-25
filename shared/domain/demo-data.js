@@ -1,8 +1,10 @@
+import { demoIndustry } from './demo-industries.js';
 import { InputError } from '../validation/input-error.js';
 
 export const DEMO_COUNT = 50;
 export const DEMO_TYPES = Object.freeze([
   ['services', 'Services'],
+  ['components', 'Service components'],
   ['collections', 'Collections'],
   ['monitors', 'Monitors'],
   ['events', 'Events'],
@@ -31,7 +33,7 @@ export const DEMO_TYPES = Object.freeze([
 
 /** The count is server-owned; stale confirmations cannot delete a newer demo batch. */
 export function validateDemoAction(action, body) {
-  const keys = action === 'add' ? ['confirmation'] : ['confirmation', 'batchId'];
+  const keys = action === 'add' ? ['confirmation', 'industry'] : ['confirmation', 'batchId'];
   if (
     !body ||
     typeof body !== 'object' ||
@@ -39,6 +41,10 @@ export function validateDemoAction(action, body) {
     Object.keys(body).some((key) => !keys.includes(key))
   )
     throw new InputError('Send only the demo-data confirmation.', 400);
+  if (action === 'add' && !demoIndustry(body.industry))
+    throw new InputError('Choose an available industry.', 400, {
+      industry: 'Choose an available industry.',
+    });
   if (body.confirmation !== (action === 'add' ? 'ADD DEMO DATA' : 'DELETE DEMO DATA'))
     throw new InputError('Confirm the demo-data action.', 400, {
       confirmation: 'Confirmation is required.',

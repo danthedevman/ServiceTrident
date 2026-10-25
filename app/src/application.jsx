@@ -1,3 +1,4 @@
+import { ComponentPage, ComponentsTable } from './features/services/components.jsx';
 import { PinnedPage } from './features/records/pinned.jsx';
 import { OperationalReporting } from './features/dashboard/operational-reporting.jsx';
 import { QuickStartPage } from './features/dashboard/quick-start.jsx';
@@ -95,6 +96,16 @@ export function App() {
                 <Route path="events" element={<EventsPage />} />
                 <Route path="alerts" element={<AlertsPage />} />
                 <Route path="events/:eventId" element={<EventDetail />} />
+                <Route path="components" element={<ComponentsTable />} />
+                <Route
+                  path="components/new"
+                  element={
+                    <AdminOnly page>
+                      <ComponentPage create />
+                    </AdminOnly>
+                  }
+                />
+                <Route path="components/:id" element={<ComponentPage />} />
                 <Route path="alerts/:id" element={<EventAlertDetail />} />
                 <Route path="dashboard/reports" element={<DashboardReport />} />
                 <Route path="help" element={<HelpPage />} />

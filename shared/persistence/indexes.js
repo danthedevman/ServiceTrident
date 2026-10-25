@@ -1,6 +1,9 @@
+import { migrateComponents } from '../domain/migrate-components.js';
 /** Install the shared index and retention contract on the selected backend. */
 export async function initializeDatabase(db) {
   await Promise.all([
+    db.collection('components').createIndex({ workspaceId: 1, nameKey: 1 }, { unique: true }),
+    db.collection('components').createIndex({ workspaceId: 1, createdAt: -1 }),
     db.collection('projectActivity').createIndex({ workspaceId: 1, projectId: 1, createdAt: -1 }),
     db.collection('projectMilestones').createIndex({ workspaceId: 1, projectId: 1, targetDate: 1 }),
     db.collection('tasks').createIndex({ workspaceId: 1, projectId: 1, status: 1, updatedAt: -1 }),
@@ -121,4 +124,5 @@ export async function initializeDatabase(db) {
       },
     },
   );
+  await migrateComponents(db);
 }

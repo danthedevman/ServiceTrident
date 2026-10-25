@@ -230,7 +230,7 @@ function DataTableView({
               {description && <p className="mt-1 text-xs text-slate-400">{description}</p>}
             </div>
           )}
-          <div className="flex flex-wrap gap-2">
+          <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
             <TableColumns
               columns={orderedColumns}
               hidden={columnLayout.hidden}

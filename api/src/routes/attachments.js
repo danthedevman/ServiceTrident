@@ -1,3 +1,4 @@
+import { articleAccess } from '../domain/knowledge-access.js';
 import express from 'express';
 import { rateLimit } from 'express-rate-limit';
 import { ObjectId } from 'mongodb';
@@ -12,11 +13,14 @@ import { id } from './services.js';
 
 const collections = { incidents: 'incidents', tasks: 'tasks', knowledge: 'articles' };
 /** Reuse the incident portal's visibility rule for every file read and write. */
-function recordFilter(req, kind, recordId) {
+async function recordFilter(db, req, kind, recordId) {
   if (!collections[kind] || (req.role === 'user' && kind !== 'incidents'))
     throw new InputError('Record not found.', 404);
   return {
     _id: id(recordId),
+    ...(kind === 'knowledge'
+      ? await articleAccess(db, req, !['GET', 'HEAD'].includes(req.method))
+      : {}),
     workspaceId: req.workspaceId,
     ...(req.role === 'user'
       ? { $or: [{ createdById: String(req.user._id) }, { openedForId: String(req.user._id) }] }
@@ -169,7 +173,10 @@ export function installAttachmentRoutes(app, db) {
       const record = await db
         .collection(collections[file.kind])
         .findOne(
-          { ...recordFilter(req, file.kind, file.recordId), attachmentIds: String(file._id) },
+          {
+            ...(await recordFilter(db, req, file.kind, file.recordId)),
+            attachmentIds: String(file._id),
+          },
           { projection: { _id: 1 } },
         );
       if (!record) throw new InputError('File not found.', 404);
@@ -194,7 +201,7 @@ export function installAttachmentRoutes(app, db) {
   });
   app.get('/api/attachments/:kind/:recordId', async (req, res) => {
     const { kind, recordId } = req.params,
-      filter = recordFilter(req, kind, recordId);
+      filter = await recordFilter(db, req, kind, recordId);
     const record = await db
       .collection(collections[kind])
       .findOne(filter, { projection: { attachmentIds: 1 } });
@@ -215,7 +222,7 @@ export function installAttachmentRoutes(app, db) {
   app.post('/api/attachments/:kind/:recordId', async (req, res) => {
     const { kind, recordId } = req.params;
     canWrite(req, kind);
-    const filter = recordFilter(req, kind, recordId),
+    const filter = await recordFilter(db, req, kind, recordId),
       collection = db.collection(collections[kind]),
       record = await collection.findOne(filter);
     if (!record) throw new InputError('Record not found.', 404);
@@ -243,7 +250,7 @@ export function installAttachmentRoutes(app, db) {
     const { kind, recordId, fileId } = req.params;
     canWrite(req, kind);
     id(fileId);
-    const filter = recordFilter(req, kind, recordId),
+    const filter = await recordFilter(db, req, kind, recordId),
       collection = db.collection(collections[kind]),
       record = await collection.findOne(filter);
     if (!record) throw new InputError('Record not found.', 404);

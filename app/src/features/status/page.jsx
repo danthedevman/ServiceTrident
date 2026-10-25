@@ -13,7 +13,7 @@ import {
 import { Select } from '../../components/forms/select.jsx';
 import { statusRange } from '../../../../shared/domain/status-range.js';
 import { StatusMessage } from './message.jsx';
-import React, { useLayoutEffect, useState } from 'react';
+import React, { useLayoutEffect, useMemo, useState } from 'react';
 import { ServiceHistory } from './service-history.jsx';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { AdminOnly } from '../../auth/role-gates.jsx';
@@ -55,6 +55,11 @@ export function StatusPage({ publicView = false, appearanceOverride }) {
       document.body.style.backgroundColor = previous;
     };
   }, [appearance, publicView, setPageAppearance]);
+  const historyRange = useMemo(
+    () => (data ? statusRange(range, new Date(data.generatedAt), data.timeZone || timeZone) : null),
+    [data, range, timeZone],
+  );
+  const [expanded, setExpanded] = useState(() => new Set());
   return (
     <section className="space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-4">
@@ -128,19 +133,62 @@ export function StatusPage({ publicView = false, appearanceOverride }) {
                 <StatusMessage message={service.message} compact />
                 <ServiceHistory
                   timeZone={data.timeZone || timeZone}
-                  days={
-                    statusRange(range, new Date(data.generatedAt), data.timeZone || timeZone).days
-                  }
-                  endDate={statusRange(
-                    range,
-                    new Date(data.generatedAt),
-                    data.timeZone || timeZone,
-                  ).end.toISOString()}
+                  days={historyRange.days}
+                  endDate={historyRange.end.toISOString()}
                   service={service}
                   services={data.services}
                   monitors={data.monitors}
                   generatedAt={data.generatedAt}
                 />
+                {!!service.components?.length && (
+                  <details
+                    className="w-full"
+                    data-status-components={service.id}
+                    onToggle={(event) => {
+                      const open = event.currentTarget.open;
+                      setExpanded((current) => {
+                        if (current.has(service.id) === open) return current;
+                        const next = new Set(current);
+                        if (open) next.add(service.id);
+                        else next.delete(service.id);
+                        return next;
+                      });
+                    }}
+                  >
+                    <summary className="w-fit cursor-pointer text-sm text-blue-700 dark:text-blue-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500">
+                      Components ({service.components.length})
+                    </summary>
+                    <ul className="mt-4 space-y-5 border-l border-slate-200 pl-4 dark:border-slate-700">
+                      {expanded.has(service.id) &&
+                        service.components.map((component) => (
+                          <li key={component.id} className="space-y-3">
+                            <div className="flex items-center justify-between gap-4">
+                              <span className="text-sm font-medium">{component.name}</span>
+                              <Badge status={component.status} />
+                            </div>
+                            <ServiceHistory
+                              service={{
+                                id: service.id,
+                                name: component.name,
+                                status: component.status,
+                                dependencyIds: [],
+                              }}
+                              services={[]}
+                              monitors={data.monitors.filter(
+                                (monitor) =>
+                                  monitor.serviceId === service.id &&
+                                  monitor.componentId === component.id,
+                              )}
+                              generatedAt={data.generatedAt}
+                              timeZone={data.timeZone || timeZone}
+                              days={historyRange.days}
+                              endDate={historyRange.end.toISOString()}
+                            />
+                          </li>
+                        ))}
+                    </ul>
+                  </details>
+                )}
               </li>
             ))}
           </ul>
@@ -179,7 +227,11 @@ export function PublicStatusPage() {
   const range = ['7', '14', '30', 'quarter', 'previous-quarter'].includes(requestedRange)
     ? requestedRange
     : '30';
-  const { data } = useResource(`/public/status/${token}?range=${range}`, 30000);
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const { data } = useResource(
+    `/public/status/${token}?range=${range}&timeZone=${encodeURIComponent(timeZone)}`,
+    30000,
+  );
   return (
     <div className="mx-auto max-w-4xl px-5 py-8">
       <header className="mb-4 flex items-center justify-between gap-4">

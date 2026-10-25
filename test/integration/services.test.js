@@ -171,7 +171,13 @@ test(
     await request(`/collections/${selectedCollection.id}`, owner, 'DELETE');
 
     const database = (
-      await request('/services', owner, 'POST', { name: 'Database', description: 'Storage health' })
+      await request('/services', owner, 'POST', {
+        name: 'Database',
+        description: 'Storage health',
+        componentIds: [
+          (await request('/components', owner, 'POST', { name: 'Storage' })).data.item.id,
+        ],
+      })
     ).data.item;
     const portal = (
       await request('/services', owner, 'POST', { name: 'Portal', dependencyIds: [database.id] })

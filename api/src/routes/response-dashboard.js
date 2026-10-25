@@ -1,3 +1,5 @@
+import { ObjectId } from 'mongodb';
+import { articleAccess, knowledgeAccess } from '../domain/knowledge-access.js';
 import {
   dashboardReport,
   dashboardReportFilter,
@@ -85,11 +87,18 @@ export function installResponseDashboardRoutes(app, db, appOrigin) {
         .toArray(),
     ]);
     const [bases, articleStatus, operations, catalog, members] = await Promise.all([
-      db.collection('knowledgeBases').countDocuments({ workspaceId }),
+      db
+        .collection('knowledgeBases')
+        .countDocuments({
+          workspaceId,
+          _id: {
+            $in: (await knowledgeAccess(db, req)).readable.map((value) => new ObjectId(value)),
+          },
+        }),
       db
         .collection('articles')
         .aggregate([
-          { $match: { workspaceId } },
+          { $match: { workspaceId, ...(await articleAccess(db, req)) } },
           { $group: { _id: '$status', count: { $sum: 1 } } },
         ])
         .toArray(),

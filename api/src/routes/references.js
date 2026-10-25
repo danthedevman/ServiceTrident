@@ -1,3 +1,4 @@
+import { articleAccess, knowledgeAccess } from '../domain/knowledge-access.js';
 import { InputError } from '@servicetrident/shared/validation/input-error';
 import { tableSearch } from '@servicetrident/shared/domain/table-search';
 import { catalog, id } from './services.js';
@@ -34,6 +35,7 @@ export function installReferenceRoutes(app, db) {
       knowledge: ['articles', 'title'],
       knowledgeBases: ['knowledgeBases', 'title'],
       monitors: ['monitors', 'name'],
+      components: ['components', 'name'],
     };
     if (Object.hasOwn(definitions, type)) {
       const [collection, label] = definitions[type];
@@ -47,6 +49,16 @@ export function installReferenceRoutes(app, db) {
             : type === 'monitors'
               ? { userId: req.workspaceId }
               : { workspaceId: req.workspaceId };
+      if (type === 'knowledge') base.$and = [await articleAccess(db, req)];
+      if (type === 'knowledgeBases')
+        base._id = { $in: (await knowledgeAccess(db, req)).readable.map(id) };
+      if (type === 'components' && req.query.serviceId) {
+        const service = (await catalog(db, req.workspaceId)).services.find(
+          (row) => row.id === req.query.serviceId,
+        );
+        if (!service) throw new InputError('Service not found.', 404);
+        base._id = { $in: (service.componentIds || []).map(id) };
+      }
       if (type === 'tasks' && req.query.projectId) {
         const projectId = String(req.query.projectId);
         if (

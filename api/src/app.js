@@ -1,3 +1,4 @@
+import { installComponentRoutes } from './routes/components.js';
 import { installPinRoutes } from './routes/pins.js';
 import { installProjectHubRoutes } from './routes/project-hub.js';
 import { installProjectRoutes } from './routes/projects.js';
@@ -208,6 +209,7 @@ export function createApp(db, { aiFetch, oidcFetch, integrationRequest } = {}) {
   installRecordDeletionRoutes(app, db);
   installSearchRoute(app, db);
   installServiceRoutes(app, db);
+  installComponentRoutes(app, db);
   installMonitorRoutes(app, db);
 
   app.get('/api/status', async (req, res) =>

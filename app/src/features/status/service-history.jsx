@@ -1,5 +1,5 @@
 import { serviceDays } from './service-days.js';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 /** Accessible daily status blocks with tooltips anchored above the hovered or focused block. */
@@ -14,6 +14,7 @@ export function ServiceHistory({
 }) {
   const [tooltip, setTooltip] = useState(null);
   useEffect(() => {
+    if (!tooltip) return;
     const dismiss = () => setTooltip(null);
     window.addEventListener('scroll', dismiss, true);
     window.addEventListener('resize', dismiss);
@@ -21,15 +22,19 @@ export function ServiceHistory({
       window.removeEventListener('scroll', dismiss, true);
       window.removeEventListener('resize', dismiss);
     };
-  }, []);
-  const days = serviceDays(
-    service,
-    services,
-    monitors,
-    endDate || generatedAt,
-    range,
-    generatedAt,
-    timeZone,
+  }, [!!tooltip]);
+  const days = useMemo(
+    () =>
+      serviceDays(
+        service,
+        services,
+        monitors,
+        endDate || generatedAt,
+        range,
+        generatedAt,
+        timeZone,
+      ),
+    [service, services, monitors, endDate, generatedAt, range, timeZone],
   );
   const show = (event, label) => {
     const rect = event.currentTarget.getBoundingClientRect();
