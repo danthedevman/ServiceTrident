@@ -143,6 +143,7 @@ export function WorkTable({
 }) {
   const navigate = useNavigate();
   const { user } = useContext(AuthContext);
+  const canEdit = ['admin', 'responder'].includes(user?.role);
   const task = kind === 'tasks';
   const [columnSearch, setColumnSearch] = useListFilter('columnSearch', '', kind);
   const [searchColumn, setSearchColumn] = useListFilter('searchColumn', '', kind);
@@ -490,6 +491,8 @@ export function WorkDetail({ kind = 'tasks' }) {
       ) : (
         <>
           <RecordWorkspace
+            showDetailsTab={task || editing}
+            showIdentity={task || editing}
             item={item}
             kind={kind}
             identityExtra={
@@ -545,27 +548,14 @@ export function WorkDetail({ kind = 'tasks' }) {
             }
             onEdit={canEdit && !editing ? () => setEditingId(id) : undefined}
             sidebar={
-              <>
+              task || editing ? (
                 <RecordMetadata
                   item={item}
-                  extra={[
-                    ['Status', item.statusLabel || label(item.status)],
-                    ...(task
-                      ? [['Priority', item.priorityLabel || displayValue(item.priority)]]
-                      : []),
-                  ]}
+                  extra={
+                    task ? [['Priority', item.priorityLabel || displayValue(item.priority)]] : []
+                  }
                 />
-                {!task && (
-                  <RecordSection title="Attachments">
-                    <AttachmentPanel
-                      compact
-                      kind={kind}
-                      recordId={item.id}
-                      imageIds={embeddedImageIds(item.contentDocument)}
-                    />
-                  </RecordSection>
-                )}
-              </>
+              ) : undefined
             }
             relatedTabs={
               task && (
@@ -1188,6 +1178,7 @@ function KnowledgeReader({ item, fields, schema, layout }) {
   const runbook = item.articleType === 'runbook';
   return (
     <RecordArticle
+      kind="knowledge"
       fields={schema || fields}
       layout={layout}
       item={item}
@@ -1217,6 +1208,14 @@ function KnowledgeReader({ item, fields, schema, layout }) {
           </ol>
         </section>
       )}
+      <RecordSection title="Attachments">
+        <AttachmentPanel
+          compact
+          kind="knowledge"
+          recordId={item.id}
+          imageIds={embeddedImageIds(item.contentDocument)}
+        />
+      </RecordSection>
     </RecordArticle>
   );
 }

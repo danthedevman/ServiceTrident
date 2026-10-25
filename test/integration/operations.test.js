@@ -155,7 +155,11 @@ test(
       (await request('/incidents', teammate, 'POST', { ...input, custom: {} })).status,
       400,
     );
-    const created = await request('/incidents', teammate, 'POST', {...input, source: 'monitor', sourceAccountId: String(workspaceId)});
+    const created = await request('/incidents', teammate, 'POST', {
+      ...input,
+      source: 'monitor',
+      sourceAccountId: String(workspaceId),
+    });
     assert.equal(created.status, 201);
     const incident = created.data.incident;
     assert.equal(incident.source, 'manual');
@@ -315,10 +319,13 @@ test(
     const automatic = await db.collection('incidents').findOne({ activeAutomatic: true });
     assert.equal(automatic.source, 'monitor');
     const origin = await request(`/incidents/${automatic._id}`, teammate);
-    assert.ok(origin.data.origin.some(row => row.href === `/monitors/${monitorId}`));
-    assert.ok(origin.data.origin.some(row => row.href?.endsWith(`/events/${triggerEventId}`)));
+    assert.ok(origin.data.origin.some((row) => row.href === `/monitors/${monitorId}`));
+    assert.ok(origin.data.origin.some((row) => row.href?.endsWith(`/events/${triggerEventId}`)));
     assert.equal((await request('/incidents?source=monitor', teammate)).data.total, 1);
-    assert.equal((await request('/incidents?searchColumn=source&search=Monitor', teammate)).data.total, 1);
+    assert.equal(
+      (await request('/incidents?searchColumn=source&search=Monitor', teammate)).data.total,
+      1,
+    );
     assert.equal(automatic.assigneeId, joined.data.user.id);
     assert.equal(automatic.triggeringChecks.length, 1);
     const eventsPath = `/tables/incident-monitor-events?recordId=${automatic._id}&sortBy=checkedAt&order=desc`;
@@ -408,7 +415,8 @@ test(
     assert.equal(failed.attempts, 5);
     assert.ok(!failed.error.includes('credential-secret'));
     assert.equal(
-      (await request(`/deliveries/${recovered._id}/retry`, owner, 'POST', {})).status,
+      (await request(`/deliveries/${recovered._id}/retry`, owner, 'POST', { confirm: true }))
+        .status,
       200,
     );
     const missingMemberName = await request(`/members/${joined.data.user.id}`, owner, 'PATCH', {

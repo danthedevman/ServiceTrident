@@ -257,7 +257,13 @@ test('workspace Events enforce roles, tenant isolation, filters, safe exports, m
   );
   const related = await request(`/related-counts/services/${serviceId}`, viewer.cookie);
   assert.equal(related.status, 200);
-  assert.deepEqual(related.data.counts, { incidents: 1, tasks: 1, knowledge: 0, monitors: 1 });
+  assert.deepEqual(related.data.counts, {
+    incidents: 1,
+    tasks: 1,
+    knowledge: 0,
+    monitors: 1,
+    components: 0,
+  });
   assert.equal(
     (await request(`/related-counts/services/${serviceId}`, outside.cookie)).status,
     404,

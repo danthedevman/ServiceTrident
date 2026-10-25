@@ -241,6 +241,7 @@ export function RcaPage({ create = false }) {
       </ValidatedForm>
     ) : item ? (
       <RecordArticle
+        kind="rcas"
         className="rca-reader"
         fields={[
           ...fields,
@@ -283,6 +284,8 @@ export function RcaPage({ create = false }) {
       <Notice error={resource.error || (!editor ? save.error : '')} />
       {item ? (
         <RecordWorkspace
+          showDetailsTab={!!editor}
+          showIdentity={!!editor}
           kind="rcas"
           item={item}
           onEdit={
@@ -296,7 +299,7 @@ export function RcaPage({ create = false }) {
               : undefined
           }
           actions={actions}
-          sidebar={<RecordMetadata item={item} />}
+          sidebar={editor ? <RecordMetadata item={item} /> : undefined}
           secondaryActions={
             !editor && canEdit && item.status !== 'archived' ? (
               <ConfirmDeleteButton

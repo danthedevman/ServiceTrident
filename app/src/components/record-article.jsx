@@ -1,3 +1,4 @@
+import { recordNumber } from '../lib/record-number.js';
 import React from 'react';
 import { formSections } from '../../../shared/forms/layout.js';
 import { DateTime } from '../preferences/date-time.jsx';
@@ -9,7 +10,15 @@ const references = {
   knowledgeBaseId: ['knowledgeBases', 'knowledgeBaseTitle'],
 };
 /** Read documents as prose; schema visibility and ordering still govern their published fields. */
-export function RecordArticle({ item, fields, layout, className = '', renderValue, children }) {
+export function RecordArticle({
+  item,
+  fields,
+  layout,
+  className = '',
+  kind,
+  renderValue,
+  children,
+}) {
   const visible = formSections(fields, layout).flatMap((section) => section.fields);
   const shown = (id) => visible.some((field) => field.id === id);
   const rawValue = (field) => (field.type === 'builtin' ? item[field.id] : item.custom?.[field.id]);
@@ -37,6 +46,9 @@ export function RecordArticle({ item, fields, layout, className = '', renderValu
     <article className={`knowledge-reader document-reader ${className}`}>
       <header className="knowledge-reader-header">
         <div className="flex flex-wrap items-center gap-3 text-sm text-slate-500">
+          <span className="font-mono text-xs" aria-label="Record number">
+            {recordNumber(kind, item)}
+          </span>
           {shown('status') && (
             <span data-record-field="status">
               <StateBadge status={item.status} label={item.statusLabel} />

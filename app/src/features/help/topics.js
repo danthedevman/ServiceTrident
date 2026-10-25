@@ -40,6 +40,16 @@ export const helpTopics = [
         caption:
           'Open a service by its name to review ownership, dependencies, and related records.',
       },
+      {
+        src: '/help/service-components.png',
+        alt: 'Service Components field with selected component references',
+        caption: 'Select component records to link them to the service.',
+      },
+      {
+        src: '/help/component-monitors.png',
+        alt: 'Component Monitors tab with Create Monitor action',
+        caption: 'Open a component’s Monitors tab to inspect or add its checks.',
+      },
     ],
     paragraphs: [
       'A service represents a capability your team supports, such as My Webapp. Create one with a clear name, description, and owners. In Components, select component records such as Payment API, Login API, and Frontend. Use Create Component in the picker to create a separate record, then select it. Created components remain saved even if the service draft is discarded. Open the Components related list to view component records and their Monitors. Collections organize related services.',
@@ -136,9 +146,15 @@ export const helpTopics = [
       },
       {
         src: '/help/knowledge-base-articles.png',
-        alt: 'Knowledge base article list showing Title, Author, Last Updated, search, and publication status filters',
+        alt: 'Knowledge base Articles tab with article cards, search and Status filter',
         caption:
           'Search within a knowledge base and use Status to choose publication status. Select an article panel to read it.',
+      },
+      {
+        src: '/help/knowledge-base-settings.png',
+        alt: 'Knowledge-base Settings with manager and article viewer reference fields',
+        caption:
+          'Edit Settings to choose users and groups that manage the base or read its articles.',
       },
     ],
     paragraphs: [
@@ -149,7 +165,7 @@ export const helpTopics = [
       'In Conversation, use comments for information everyone with incident access may read. Work notes are restricted to responders and admins. Type @ and select a person to mention them. Edit watchers adds users or groups to notifications without granting record access. Public-comment emails require SMTP; work notes do not send email.',
       'Select Resolve to open its confirmation dialog directly. Resolution notes are optional by default; admins may make them required in Form Builder. Confirm Resolve Incident to apply the change. Reopening also requires confirmation. For monitor-created incidents, review the automatic-lifecycle notice before resolving an ongoing outage manually.',
       'On the task board, select a card to read or Edit it in a modal. Save keeps you on the board; Open Record opens the full form and attachments. Admins and responders can drag cards or use Move To and ordering controls. Changes are shared with the workspace. Only admins reorder lanes. Use List View or Archived Tasks for table views. Select Record Number or Check Number in a table header to sort ascending or descending across the full list. Use Active Tasks to return from the archived list. Archived task records retain their status; edit it to restore a task.',
-      'Open Knowledge and select a knowledge base. Articles opens first; search or filter its articles. Open Settings and choose Edit to change the name, description, Managers — Users, Managers — Groups, Article Viewers — Users, or Article Viewers — Groups. Create Article in a base’s header associates a new article with it. All Articles → Create makes an article with an optional base. Choose Runbook for ordered recovery steps. Articles and RCAs open as readable documents. Choose Edit or double-click a field to open the form; Cancel returns to the reading view without saving.',
+      'Open Knowledge and select a knowledge base. Articles opens first; search or filter its articles. Open Settings and choose Edit to change the name, description, Managers — Users, Managers — Groups, Article Viewers — Users, or Article Viewers — Groups. Create Article in a base’s header associates a new article with it. All Articles → Create makes an article with an optional base. Choose Runbook for ordered recovery steps. Articles and RCAs open as readable documents with their record number and status in the header; Details appears only in edit mode. Choose Edit or double-click a field to open the form; Cancel returns to the reading view without saving.',
       'Administrators always manage and view all bases. With empty manager lists, responders can manage the base; selecting managers restricts management to them and administrators. Empty viewer lists allow workspace access; selecting viewers restricts the base and its articles to those users or groups, managers, and administrators. Group membership changes take effect on the next request. End users retain incident portal access only. Admins and responders with base management access can Publish saved articles and runbooks. Unpublish returns them to Draft after confirmation; Record actions → Archive Article hides them from active lists while retaining content. Save draft edits before these actions. Deleting a knowledge base requires choosing whether to move its articles to a different base or permanently delete them and their attachments.',
       'Attachments support files up to 5 MB, with up to 20 per record including embedded article images. New-form uploads attach when the record is created; abandoned uploads are eligible for cleanup after 24 hours. Files are access-controlled but not malware-scanned, so treat downloads as untrusted.',
     ],
@@ -209,7 +225,7 @@ export const helpTopics = [
       'Maintenance Windows keep collecting checks and events while operational notifications wait. Choose services and UTC start/end times; windows expire automatically. Unresolved, unacknowledged pages are re-evaluated afterward. Comment notifications remain available.',
       'In Integrations, review delivery state and errors. Failed deliveries allow a confirmed retry, limited to three additional cycles with a cooldown. Each cycle allows five attempts. A provider timeout can cause duplicate delivery; delivered does not mean read.',
       'Probe Agents run checks on another host. Create an agent, securely copy its token once and deploy the agent before selecting it on an unauthenticated monitor. Matching fresh checks confirm health; disagreement shows degraded and missing confirmation stays unknown. A region label does not deploy an agent.',
-      'Choose Operational Reporting on the dashboard for acknowledgment and resolution averages, recurring services, noisy sources, unowned alerts and delivery states. Review Metric Definitions and sample counts; event metrics use retained history up to 30 days.',
+      'On Dashboard, set Dashboard View to Operational Reporting for acknowledgment and resolution averages, recurring services, noisy sources, unowned alerts and delivery states. Review Metric Definitions and sample counts; event metrics use retained history up to 30 days.',
       'Overview starts with Needs Attention; select a count to open its matching report, or View Alerts to review active alerts. My Assignments shows work assigned to you; My Team shows work assigned to your groups and can include your own assignments. Quick Start provides setup links. Admins can select Quick Setup there or in the global Create modal to walk through service and monitor creation. Notifications and On Call are optional; use Skip to continue. Each saved step creates a record immediately; leaving retains saved records and discards unfinished input.',
     ],
   },

@@ -1071,6 +1071,24 @@ await context.route('**/api/**', async (route) => {
       generatedAt: '2026-10-10T17:05:06Z',
       statusTheme: statusAppearance,
     };
+  else if (path === '/operational-report')
+    data = {
+      days: Number(url.searchParams.get('days') || 30),
+      generatedAt: '2026-10-10T17:05:06Z',
+      eventHistoryDays: 30,
+      incidents: 18,
+      meanAcknowledgmentMinutes: 3.2,
+      meanResolutionMinutes: 24.6,
+      acknowledgmentSamples: 14,
+      resolutionSamples: 12,
+      unownedAlerts: 3,
+      repeatedServices: [{ serviceId: services[0].id, serviceName: services[0].name, count: 4 }],
+      noisySources: [{ sourceType: 'monitor', sourceName: monitors[0].name, firing: 4, count: 24 }],
+      deliveryStates: [
+        { state: 'delivered', count: 20 },
+        { state: 'failed', count: 1 },
+      ],
+    };
   else if (path === '/status')
     data = {
       services,
@@ -1794,7 +1812,7 @@ async function captureCollaboration() {
   await page.setViewportSize({ width: 1440, height: 960 });
   await page.goto(`${base}/settings?section=demo-data`);
   await page.getByRole('heading', { name: 'Demo Data', exact: true }).scrollIntoViewIfNeeded();
-  await page.getByText('New batches include 50 linked RCAs', { exact: false }).waitFor();
+  await page.getByRole('combobox', { name: 'Industry', exact: true }).waitFor();
   await page.screenshot({ path: `${output}/demo-data-rcas.png` });
 }
 
@@ -2501,6 +2519,38 @@ async function verifyFormHeadingRows() {
 }
 
 try {
+  if (process.env.HELP_CAPTURE_FOCUS === 'operational-dashboard') {
+    for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto(`${base}/operational-reporting`);
+      await page.waitForURL(`${base}/?view=operational`);
+      await page.getByText('Mean acknowledgment', { exact: true }).waitFor();
+      assert.equal(
+        await page.getByRole('heading', { name: 'Operational Reporting', exact: true }).count(),
+        0,
+      );
+      assert.equal(await page.locator('a[href="/operational-reporting"]').count(), 0);
+      assert.equal(await page.locator('.dashboard-scores').count(), 1);
+      await page.getByRole('combobox', { name: 'Reporting period', exact: true }).click();
+      await page.getByRole('option', { name: 'Last 90 days', exact: true }).click();
+      await page.getByText('Created in the last 90 days', { exact: true }).waitFor();
+      await page.screenshot({
+        path: `${output}/operational-dashboard${width === 390 ? '-mobile' : ''}.png`,
+      });
+      await page
+        .getByRole('heading', { name: 'Metric Definitions', exact: true })
+        .scrollIntoViewIfNeeded();
+      assert.ok(
+        await page.getByRole('heading', { name: 'Metric Definitions', exact: true }).isVisible(),
+      );
+    }
+    assert.deepEqual(faults, []);
+    console.log(
+      'Verified Operational Reporting dashboard, legacy redirect, unified metrics and responsive scrolling.',
+    );
+    await browser.close();
+    process.exit(0);
+  }
   if (process.env.HELP_CAPTURE_FOCUS === 'components-industries') {
     user.role = 'admin';
     demoArticles.push({
@@ -2556,7 +2606,7 @@ try {
       await page.screenshot({
         path: `${output}/component-monitors${width === 390 ? '-mobile' : ''}.png`,
       });
-      for (const path of ['/status', '/public/status/demo-share']) {
+      for (const path of ['/status', `/status/public/${'9'.repeat(48)}`]) {
         await page.goto(`${base}${path}`);
         const disclosure = page.locator('[data-status-components]').first();
         await disclosure.waitFor();
@@ -2564,7 +2614,7 @@ try {
         await disclosure.locator('summary').click();
         await disclosure.locator('button').first().waitFor();
         await page.screenshot({
-          path: `${output}/${path.startsWith('/public') ? 'public-' : ''}status-components${width === 390 ? '-mobile' : ''}.png`,
+          path: `${output}/${path.startsWith('/status/public') ? 'public-' : ''}status-components${width === 390 ? '-mobile' : ''}.png`,
         });
         await disclosure.locator('summary').click();
         await page.waitForFunction(
@@ -2590,7 +2640,8 @@ try {
       const baseName = page.getByRole('textbox', { name: 'Name', exact: true });
       await baseName.dblclick({ force: true });
       await page.waitForFunction(
-        () => !document.querySelector('input[name="title"]').matches(':disabled'),
+        () =>
+          !!document.querySelector('.static-record-fields:not([disabled]) input:not(:disabled)'),
       );
       await page.getByRole('button', { name: 'Cancel', exact: true }).click();
       await page.screenshot({
@@ -2602,8 +2653,14 @@ try {
       await page.goto(`${base}${path}`);
       const reader = page.locator('.document-reader');
       await reader.locator('h1').waitFor();
+      assert.equal(await page.locator('[aria-label="Record number"]').count(), 1);
+      assert.equal(await page.locator('.record-identity').count(), 0);
+      assert.equal(await page.locator('.record-sidebar').count(), 0);
+      assert.equal(await reader.locator('[data-record-field="status"]').count(), 1);
       assert.equal(await reader.locator('input, textarea, select, [role="combobox"]').count(), 0);
+      assert.equal(await page.getByRole('tab', { name: 'Details', exact: true }).count(), 0);
       await reader.locator('h1').dblclick();
+      await page.getByRole('tab', { name: 'Details', exact: true }).waitFor();
       await page.locator('form').waitFor();
       await page.getByRole('button', { name: 'Cancel', exact: true }).last().click();
       await reader.locator('h1').waitFor();
@@ -3138,7 +3195,6 @@ try {
       'On Call',
       'Knowledge',
       'RCAs',
-      'Operational Reporting',
       'Status Page',
       'Event Rules',
       'Escalation Policies',

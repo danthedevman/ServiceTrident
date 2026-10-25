@@ -81,7 +81,6 @@ const navigationGroups = [
     links: [
       ['/knowledge', 'Knowledge', BookOpenIcon],
       ['/rcas', 'RCAs', DocumentMagnifyingGlassIcon],
-      ['/operational-reporting', 'Operational Reporting', ChartBarSquareIcon],
       ['/status', 'Status Page', ChartBarSquareIcon],
     ],
   },

@@ -1,14 +1,19 @@
-import { settings } from '../repositories/settings.js';
 import { memberFilter } from '../repositories/members.js';
 import { InputError } from '@servicetrident/shared/validation/input-error';
 import { ObjectId } from 'mongodb';
 
+const workspaceGroups = async (db, workspaceId) =>
+  (await db.collection('operations').findOne({ _id: workspaceId }, { projection: { groups: 1 } }))
+    ?.groups || [];
+
 /** Managers also read; empty viewer lists preserve existing workspace visibility. */
 export async function knowledgeAccess(db, req) {
   if (req.knowledgeAccess) return req.knowledgeAccess;
-  const groups = (await settings(db, req.workspaceId)).groups || [];
+  const groups = await workspaceGroups(db, req.workspaceId);
   const userId = String(req.user._id);
-  const groupIds = new Set(groups.filter((g) => g.memberIds.includes(userId)).map((g) => g.id));
+  const groupIds = new Set(
+    groups.filter((g) => (g.memberIds || []).includes(userId)).map((g) => g.id),
+  );
   const bases = await db
     .collection('knowledgeBases')
     .find(
@@ -78,7 +83,7 @@ export async function validateKnowledgePermissions(db, req, body, current) {
             )
             .toArray()
         ).map((row) => String(row._id))
-      : ((await settings(db, req.workspaceId)).groups || []).map((g) => g.id);
+      : (await workspaceGroups(db, req.workspaceId)).map((g) => g.id);
     if (ids.some((id) => !valid.includes(id)))
       throw new InputError('Choose active users and groups from this workspace.', 400, {
         [key]: 'Choose active workspace references.',

@@ -394,13 +394,13 @@ export function installWorkRoutes(app, db, machine = null) {
               const base = await db
                 .collection('knowledgeBases')
                 .findOne({ _id: id(input.knowledgeBaseId), workspaceId: req.workspaceId });
+              if (!base) invalid('knowledgeBaseId', 'Choose a knowledge base from this workspace.');
               await assertBaseAccess(db, req, input.knowledgeBaseId, true);
               if (base?.deleting)
                 throw new InputError(
                   'This knowledge base is being deleted. Choose another base.',
                   409,
                 );
-              if (!base) invalid('knowledgeBaseId', 'Choose a knowledge base from this workspace.');
               input.knowledgeBaseTitle = base.title;
             }
           }

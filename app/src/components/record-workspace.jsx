@@ -44,6 +44,8 @@ export function RecordWorkspace({
   children,
   relatedTabs,
   detailsLabel = 'Details',
+  showDetailsTab = true,
+  showIdentity = true,
   editTabId = 'details',
   sidebar,
   label = 'Details',
@@ -80,10 +82,10 @@ export function RecordWorkspace({
   const registerRail = useContext(RecordRailContext),
     active = useContext(ActivePanelContext);
   useLayoutEffect(() => {
-    if (!active || !registerRail) return;
+    if (!active || !registerRail || !sidebar) return;
     registerRail(id, true);
     return () => registerRail(id, false);
-  }, [active, registerRail, id]);
+  }, [active, registerRail, id, !!sidebar]);
   const [toolbar, setToolbar] = useState(null);
   const [selectedTab, setSelectedTab] = useState(null);
   const editRecord = onEdit
@@ -101,8 +103,10 @@ export function RecordWorkspace({
         selectedId: selectedTab ?? undefined,
         onSelect: setSelectedTab,
       })
-    ) : (
+    ) : showDetailsTab ? (
       <RecordTabs details={details} tabs={[]} />
+    ) : (
+      details
     )
   ) : (
     details
@@ -144,32 +148,34 @@ export function RecordWorkspace({
                     {onEdit && <EditRecordButton onClick={editRecord} />}
                     {actions}
                   </div>
-                  <button
-                    type="button"
-                    ref={infoTrigger}
-                    className={`record-info-toggle shrink-0 ${infoExpanded ? 'record-info-active' : ''}`}
-                    aria-expanded={infoExpanded}
-                    aria-controls={id}
-                    aria-label={
-                      infoExpanded ? 'Collapse record information' : 'Expand record information'
-                    }
-                    title={
-                      infoExpanded ? 'Collapse record information' : 'Expand record information'
-                    }
-                    onClick={() =>
-                      narrowInfo
-                        ? setMobileInfoOpen(!mobileInfoOpen)
-                        : setPreference('rightCollapsed', !collapsed)
-                    }
-                  >
-                    <InformationCircleIcon className="h-5 w-5" aria-hidden="true" />
-                  </button>
+                  {sidebar && (
+                    <button
+                      type="button"
+                      ref={infoTrigger}
+                      className={`record-info-toggle shrink-0 ${infoExpanded ? 'record-info-active' : ''}`}
+                      aria-expanded={infoExpanded}
+                      aria-controls={id}
+                      aria-label={
+                        infoExpanded ? 'Collapse record information' : 'Expand record information'
+                      }
+                      title={
+                        infoExpanded ? 'Collapse record information' : 'Expand record information'
+                      }
+                      onClick={() =>
+                        narrowInfo
+                          ? setMobileInfoOpen(!mobileInfoOpen)
+                          : setPreference('rightCollapsed', !collapsed)
+                      }
+                    >
+                      <InformationCircleIcon className="h-5 w-5" aria-hidden="true" />
+                    </button>
+                  )}
                 </div>
               </div>
             </RecordHeader>
           )}
           <RecordActionContext.Provider value={toolbar}>
-            {item && (
+            {item && showIdentity && (
               <div className="record-identity flex flex-wrap items-center gap-3 py-1">
                 <span
                   className="break-all font-mono text-xs text-slate-500"
@@ -186,7 +192,7 @@ export function RecordWorkspace({
             </RelatedCountsContext.Provider>
           </RecordActionContext.Provider>
         </div>
-        {!narrowInfo && (
+        {sidebar && !narrowInfo && (
           <aside aria-label={label} data-collapsed={collapsed} className="record-sidebar min-w-0">
             <div
               {...handle}
@@ -216,7 +222,7 @@ export function RecordWorkspace({
             </div>
           </aside>
         )}
-        {narrowInfo && mobileInfoOpen && active && (
+        {sidebar && narrowInfo && mobileInfoOpen && active && (
           <Modal
             title={label}
             className="record-info-modal"

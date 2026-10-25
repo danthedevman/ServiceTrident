@@ -1,6 +1,5 @@
 import { ComponentPage, ComponentsTable } from './features/services/components.jsx';
 import { PinnedPage } from './features/records/pinned.jsx';
-import { OperationalReporting } from './features/dashboard/operational-reporting.jsx';
 import { QuickStartPage } from './features/dashboard/quick-start.jsx';
 import { AutomationSettings, ProbeSettings } from './features/settings/operational-automation.jsx';
 import { AlertGroupingSettings } from './features/settings/alert-grouping.jsx';
@@ -315,7 +314,10 @@ export function App() {
                     </AdminOnly>
                   }
                 />
-                <Route path="operational-reporting" element={<OperationalReporting />} />
+                <Route
+                  path="operational-reporting"
+                  element={<Navigate to="/?view=operational" replace />}
+                />
                 <Route path="on-call" element={<OnCallPage />} />
                 <Route
                   path="event-rules"

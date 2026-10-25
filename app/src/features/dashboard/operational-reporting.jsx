@@ -1,3 +1,4 @@
+import { ScoreGroup } from './score-group.jsx';
 import { AuthContext } from '../../auth/auth-context.js';
 import React, { useContext, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -14,8 +15,7 @@ export function OperationalReporting() {
     data = state.data;
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="font-semibold">Operational Reporting</h2>
+      <div className="flex justify-end">
         <Select
           aria-label="Reporting period"
           className="!w-auto"
@@ -34,40 +34,40 @@ export function OperationalReporting() {
         <Skeleton className="h-48" />
       ) : (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <ScoreGroup>
             {[
               [
                 'Mean acknowledgment',
                 duration(data.meanAcknowledgmentMinutes),
                 `${data.acknowledgmentSamples} recorded acknowledgments`,
-                'border-blue-500',
+                'text-blue-700 dark:text-blue-300',
               ],
               [
                 'Mean resolution',
                 duration(data.meanResolutionMinutes),
                 `${data.resolutionSamples} recorded resolutions`,
-                'border-emerald-500',
+                'text-emerald-700 dark:text-emerald-300',
               ],
               [
                 'Unowned alerts',
                 data.unownedAlerts,
                 'Active alerts without an assignment group',
-                'border-amber-500',
+                'text-amber-800 dark:text-amber-300',
               ],
               [
                 'Incidents',
                 data.incidents,
                 `Created in the last ${data.days} days`,
-                'border-rose-500',
+                'text-rose-700 dark:text-rose-300',
               ],
             ].map(([label, value, note, color]) => (
-              <section key={label} className={`panel border-l-4 p-4 ${color}`}>
+              <section key={label} className="p-5">
                 <h3 className="text-sm">{label}</h3>
-                <strong className="mt-2 block text-2xl tabular-nums">{value}</strong>
+                <strong className={`mt-2 block text-2xl tabular-nums ${color}`}>{value}</strong>
                 <p className="mt-2 text-xs text-slate-500">{note}</p>
               </section>
             ))}
-          </div>
+          </ScoreGroup>
           <div className="grid gap-5 lg:grid-cols-2">
             <section className="panel space-y-4 p-5">
               <h3 className="font-semibold">Noisy Sources</h3>

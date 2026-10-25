@@ -2944,3 +2944,31 @@ body:has([data-app-shell]) {
   color: light-dark(var(--color-blue-700), var(--color-blue-300));
   border-bottom-color: light-dark(var(--color-blue-600), var(--color-blue-400));
 }
+
+/* One shared surface for score sections, with dividers that follow the responsive grid. */
+.dashboard-scores {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  overflow: hidden;
+}
+.dashboard-scores > * {
+  min-width: 0;
+  box-shadow:
+    1px 0 0 var(--color-slate-200),
+    0 1px 0 var(--color-slate-200);
+}
+[data-theme='dark'] .dashboard-scores > * {
+  box-shadow:
+    1px 0 0 var(--color-slate-800),
+    0 1px 0 var(--color-slate-800);
+}
+@media (min-width: 640px) {
+  .dashboard-scores {
+    grid-template-columns: repeat(min(2, var(--score-columns)), minmax(0, 1fr));
+  }
+}
+@media (min-width: 1280px) {
+  .dashboard-scores {
+    grid-template-columns: repeat(var(--score-columns), minmax(0, 1fr));
+  }
+}
