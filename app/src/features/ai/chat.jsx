@@ -1,6 +1,6 @@
 import { createPortal } from 'react-dom';
 import React, { useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import {
   ChatBubbleLeftRightIcon,
   XMarkIcon,
@@ -21,7 +21,7 @@ import { AutoTextarea } from '../../components/forms/auto-textarea.jsx';
 import { ValidatedForm } from '../../components/forms/validated-form.jsx';
 import { Select } from '../../components/forms/select.jsx';
 import { Toggle } from '../../components/forms/toggle.jsx';
-import { Notice } from '../../components/forms/fields.jsx';
+import { Field, Notice } from '../../components/forms/fields.jsx';
 import { ConfirmDeleteButton } from '../../components/confirm-delete-button.jsx';
 import { AI_DEMO_EXAMPLES } from '../../../../shared/domain/ai-chat.js';
 
@@ -61,7 +61,7 @@ export function AIChatSettings({ data, refresh }) {
   }
   return (
     <section className="panel space-y-4 p-6" aria-label="AI Chat Settings">
-      <h2 className="font-semibold">AI Chat</h2>
+      <h2 className="font-semibold">Athena</h2>
       <label className="field-label flex items-center justify-between gap-3">
         Enable AI Chat
         <Toggle
@@ -83,9 +83,59 @@ export function AIChatSettings({ data, refresh }) {
         output, need no provider, and simulate actions without changing records.
       </p>
       <Notice error={error} />
+      <AthenaSettings key={data.revision} data={data} refresh={refresh} />
     </section>
   );
 }
+
+function AthenaSettings({ data, refresh }) {
+  const [style, setStyle] = useState(data.assistant?.responseStyle ?? 'balanced');
+  const [instructions, setInstructions] = useState(data.assistant?.instructions ?? '');
+  const [busy, setBusy] = useState(false),
+    [error, setError] = useState('');
+  return (
+    <ValidatedForm
+      className="space-y-4"
+      onSubmit={async (event) => {
+        event.preventDefault();
+        setBusy(true);
+        setError('');
+        try {
+          await writeApi('/ai/assistant', {
+            method: 'PUT',
+            body: { revision: data.revision, responseStyle: style, instructions },
+          });
+          await refresh();
+        } catch (failure) {
+          setError(failure.message);
+        } finally {
+          setBusy(false);
+        }
+      }}
+    >
+      <Field label="Response Style" name="responseStyle">
+        <Select value={style} onChange={(event) => setStyle(event.target.value)}>
+          <option value="concise">Concise</option>
+          <option value="balanced">Balanced</option>
+          <option value="detailed">Detailed</option>
+        </Select>
+      </Field>
+      <Field label="Workspace Instructions" name="assistantInstructions">
+        <AutoTextarea
+          rows={3}
+          maxLength={2000}
+          value={instructions}
+          onChange={(event) => setInstructions(event.target.value)}
+        />
+      </Field>
+      <Notice error={error} />
+      <button className="btn-primary" disabled={busy} aria-busy={busy}>
+        Save Athena Settings
+      </button>
+    </ValidatedForm>
+  );
+}
+
 function contextFor(path) {
   const match = path.match(/^\/(incidents|tasks|knowledge|rcas)\/([a-f\d]{24})\/?$/i);
   if (match) return { kind: match[1], id: match[2] };
@@ -94,7 +144,7 @@ function contextFor(path) {
   const event = path.match(/^\/monitors\/[a-f\d]{24}\/events\/([a-f\d]{24})\/?$/i);
   return event ? { kind: 'events', id: event[1] } : undefined;
 }
-/** Conversation and action tokens live only in memory, scoped by Layout's signed-in identity/role. */
+/** Action tokens remain in memory; saved transcripts are fetched through owner-scoped APIs. */
 function ResponseText({ text, records = [] }) {
   return text.split(/(\[\d{1,2}\])/g).map((part, index) => {
     const match = part.match(/^\[(\d{1,2})\]$/);
@@ -131,8 +181,7 @@ export function FloatingAIChat() {
     retainedContext = useRef(null);
   useEffect(() => setFullView(false), [location.key]);
   const previousFullView = useRef(false);
-  const conversationId = useRef(1),
-    nextConversationId = useRef(2);
+  const conversationId = useRef(crypto.randomUUID());
 
   const [prompt, setPrompt] = useState(''),
     [messages, setMessages] = useState([]);
@@ -178,9 +227,27 @@ export function FloatingAIChat() {
         node.inert = previous[index];
       });
   }, [open, fullView, enabled, location.pathname]);
+  async function refreshHistory() {
+    const result = await api('/ai/conversations', { toast: false });
+    setConversations(result.items);
+  }
+  useEffect(() => {
+    if (!open || !enabled) return;
+    let active = true;
+    api('/ai/conversations', { toast: false })
+      .then((result) => {
+        if (active) setConversations(result.items);
+      })
+      .catch((failure) => {
+        if (active) setError(failure.message);
+      });
+    return () => {
+      active = false;
+    };
+  }, [open, enabled]);
   function archiveCurrent() {
     if (!messages.length) return;
-    // History keeps outputs in memory, never reusable action tokens.
+    // Keep the current view available while refreshed server summaries arrive; never retain tokens in history.
     const entry = {
       id: conversationId.current,
       title: messages.find((row) => row.role === 'user')?.text.slice(0, 100) || 'Conversation',
@@ -209,7 +276,7 @@ export function FloatingAIChat() {
   function newConversation(nextMode = mode) {
     if (busy) return;
     archiveCurrent();
-    conversationId.current = nextConversationId.current++;
+    conversationId.current = crypto.randomUUID();
     setMessages([]);
     retainedContext.current = null;
     setPrompt('');
@@ -219,21 +286,29 @@ export function FloatingAIChat() {
     savedScroll.current = 0;
     if (transcript.current) transcript.current.scrollTop = 0;
   }
-  function selectConversation(entry) {
+  async function selectConversation(entry) {
     if (busy) return;
     if (entry.current) {
       setHistoryOpen(false);
       return;
     }
-    archiveCurrent();
-    conversationId.current = entry.id;
-    setMessages(entry.messages);
-    retainedContext.current = entry.context ?? null;
-    setMode(entry.mode);
-    setPrompt('');
+    setBusy(true);
     setError('');
-    savedScroll.current = 0;
-    setHistoryOpen(false);
+    try {
+      const { item } = await api(`/ai/conversations/${entry.id}`, { toast: false });
+      archiveCurrent();
+      conversationId.current = item.id;
+      setMessages(item.messages);
+      retainedContext.current = null;
+      setMode(item.mode);
+      setPrompt('');
+      savedScroll.current = 0;
+      setHistoryOpen(false);
+    } catch (failure) {
+      setError(failure.message);
+    } finally {
+      setBusy(false);
+    }
   }
   if (!enabled || user?.role === 'user') return null;
   async function send(message, exampleId) {
@@ -264,6 +339,7 @@ export function FloatingAIChat() {
         toast: false,
         body: {
           message,
+          conversationId: conversationId.current,
           demo,
           exampleId,
           context: demo ? undefined : context,
@@ -286,6 +362,7 @@ export function FloatingAIChat() {
         await new Promise((resolve) => setTimeout(resolve, 700));
       }
       setMessages((rows) => [...rows, { role: 'assistant', ...reply }]);
+      await refreshHistory();
     } catch (failure) {
       setError(failure.message);
     } finally {
@@ -324,7 +401,7 @@ export function FloatingAIChat() {
       }}
     >
       <header className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 p-4 dark:border-slate-700">
-        <h2 className="font-semibold">AI Chat</h2>
+        <h2 className="font-semibold">Athena</h2>
         <div className="flex items-center gap-1">
           <button
             type="button"
@@ -400,28 +477,48 @@ export function FloatingAIChat() {
         <div className="ai-chat-transcript space-y-2 p-4" aria-label="Conversations">
           <h3 className="font-semibold">Conversations</h3>
           <p className="text-xs text-slate-500">
-            Your current chat and up to 20 previous conversations are kept during this session.
-            Reloading or signing out clears them. Previous action proposals cannot be applied.
+            Up to 20 recent conversations are saved to your account across reloads and sign-ins.
+            Previous action proposals cannot be applied.
           </p>
           {historyEntries.length === 0 && <p className="text-sm">No conversations yet.</p>}
           {historyEntries.map((entry) => (
-            <button
-              type="button"
-              key={entry.id}
-              className="ai-conversation-entry"
-              aria-current={entry.current ? 'true' : undefined}
-              onClick={() => selectConversation(entry)}
-            >
-              <span className="block truncate font-medium" title={entry.title}>
-                {entry.title}
-              </span>
-              <span className="text-xs text-slate-500">
-                {entry.current ? 'Current · ' : ''}
-                {entry.mode === 'demo' ? 'Demo AI' : 'Workspace AI'} ·{' '}
-                {entry.messageCount ?? entry.messages.length} messages
-              </span>
-            </button>
+            <div key={entry.id} className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={busy}
+                className="ai-conversation-entry min-w-0 flex-1"
+                aria-current={entry.current ? 'true' : undefined}
+                onClick={() => selectConversation(entry)}
+              >
+                <span className="block truncate font-medium" title={entry.title}>
+                  {entry.title}
+                </span>
+                <span className="text-xs text-slate-500">
+                  {entry.current ? 'Current · ' : ''}
+                  {entry.mode === 'demo' ? 'Demo AI' : 'Workspace AI'} ·{' '}
+                  {entry.messageCount ?? entry.messages?.length ?? 0} messages
+                </span>
+              </button>
+              <ConfirmDeleteButton
+                title="Delete Conversation"
+                confirmation={`Delete “${entry.title}” from your conversation history?`}
+                className="btn-secondary shrink-0"
+                disabled={busy || !conversations.some((row) => row.id === entry.id)}
+                onConfirm={async () => {
+                  await api(`/ai/conversations/${entry.id}`, { method: 'DELETE', toast: false });
+                  if (entry.id === conversationId.current) {
+                    conversationId.current = crypto.randomUUID();
+                    setMessages([]);
+                    retainedContext.current = null;
+                  }
+                  await refreshHistory();
+                }}
+              >
+                Delete
+              </ConfirmDeleteButton>
+            </div>
           ))}
+          <Notice error={error} />
         </div>
       ) : (
         <>
@@ -438,7 +535,7 @@ export function FloatingAIChat() {
               <p className="text-sm">
                 {demo
                   ? 'Choose an example below to explore the assistant.'
-                  : 'Ask about incidents, assigned work, failed checks, runbooks, or a postmortem. Open a record to include its context.'}
+                  : 'Hi, I’m Athena. Ask a question, talk through a problem, or get help with your workspace. Open a record to discuss it with me.'}
               </p>
             )}
             {messages.map((message, index) => (
@@ -448,11 +545,25 @@ export function FloatingAIChat() {
                 className="space-y-2 rounded-lg border border-slate-200 p-3 dark:border-slate-700"
               >
                 <h3 className="text-sm font-semibold">
-                  {message.role === 'user' ? 'You' : message.demo ? 'Demo Assistant' : 'Assistant'}
+                  {message.role === 'user' ? 'You' : message.demo ? 'Athena · Demo' : 'Athena'}
                 </h3>
                 <p className="whitespace-pre-wrap break-words text-sm">
                   <ResponseText text={message.text} records={message.records} />
                 </p>
+                {message.navigation?.length > 0 && (
+                  <nav aria-label="Athena suggestions" className="flex flex-wrap gap-2">
+                    {message.navigation.map((destination) => (
+                      <Link
+                        key={destination.id}
+                        to={destination.href}
+                        className="btn-secondary text-sm"
+                        onClick={() => setOpen(false)}
+                      >
+                        {destination.label}
+                      </Link>
+                    ))}
+                  </nav>
+                )}
                 {message.filters && (
                   <p className="text-xs text-slate-500">
                     Search: {message.filters.kind} · {message.filters.search || 'Recent records'}
@@ -618,7 +729,7 @@ export function FloatingAIChat() {
                 )}
               </article>
             ))}
-            {busy && phase && (
+            {busy && demo && phase && (
               <div
                 role="status"
                 className="ai-chat-progress flex items-center gap-3 rounded-lg border border-slate-200 p-3 text-sm dark:border-slate-700"

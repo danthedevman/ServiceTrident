@@ -268,6 +268,8 @@ monitors.forEach((monitor) => {
 let capturedDemoIndustry = null;
 let capturedComponents = null;
 let failMove = false;
+const aiConversations = new Map();
+let aiAssistant = { responseStyle: 'balanced', instructions: '' };
 let aiProvider = null;
 let aiRevision = 0;
 let aiChatEnabled = true,
@@ -624,6 +626,32 @@ await context.route('**/api/**', async (route) => {
               },
             ],
     };
+  } else if (path === '/ai/conversations') {
+    data = {
+      items: [...aiConversations.values()]
+        .filter((row) => row.owner === user.id && row.ownerRole === user.role)
+        .reverse()
+        .map(({ id, title, mode, messages }) => ({
+          id,
+          title,
+          mode,
+          messageCount: messages.length,
+        })),
+    };
+  } else if (path.startsWith('/ai/conversations/')) {
+    const id = path.split('/').at(-1);
+    if (request.method() === 'DELETE') {
+      aiConversations.delete(id);
+      data = { ok: true };
+    } else {
+      const { owner: _owner, ownerRole: _role, ...item } = aiConversations.get(id);
+      data = { item };
+    }
+  } else if (path === '/ai/assistant') {
+    const body = request.postDataJSON();
+    aiAssistant = { responseStyle: body.responseStyle, instructions: body.instructions };
+    aiRevision++;
+    data = { ok: true };
   } else if (path === '/ai/settings') {
     if (request.method() === 'PUT') {
       const body = request.postDataJSON();
@@ -632,6 +660,7 @@ await context.route('**/api/**', async (route) => {
     }
     data = {
       provider: aiProvider,
+      assistant: aiAssistant,
       revision: aiRevision,
       chatEnabled: aiChatEnabled && !!aiProvider?.configured,
       demoAvailable: true,
@@ -704,6 +733,29 @@ await context.route('**/api/**', async (route) => {
         },
       };
     }
+    if (!body.demo && body.message === 'Take me to monitors')
+      data = {
+        text: 'Open Monitors to review checks and their recent results.',
+        demo: false,
+        records: [],
+        navigation: [{ id: 'monitors', label: 'Monitors', href: '/monitors' }],
+      };
+    const id = body.conversationId;
+    const prior = aiConversations.get(id);
+    const { action, demoAction, ...saved } = data;
+    aiConversations.set(id, {
+      id,
+      owner: user.id,
+      ownerRole: user.role,
+      title: prior?.title ?? body.message.slice(0, 100),
+      mode: body.demo ? 'demo' : 'live',
+      messages: [
+        ...(prior?.messages ?? []),
+        { role: 'user', text: body.message },
+        { role: 'assistant', ...saved, previousProposal: !!(action || demoAction) },
+      ].slice(-20),
+    });
+    data.conversationId = id;
   } else if (path === '/ai/actions') {
     tasks[0].status = 'done';
     tasks[0].statusOption = 'done';
@@ -1790,7 +1842,7 @@ async function captureCollaboration() {
     if (viewport.width < 768) assert.equal(radius, 0);
     else assert.ok(radius >= 12);
     assert.ok(
-      await page.locator('.app-topbar').evaluate((el) => el.getBoundingClientRect().height <= 48),
+      await page.locator('.app-topbar').evaluate((el) => el.getBoundingClientRect().height <= 45),
     );
   }
   await page.setViewportSize({ width: 1440, height: 960 });
@@ -2102,7 +2154,7 @@ async function captureReadmeRecords() {
   const collapse = page.getByRole('button', { name: 'Collapse navigation', exact: true });
   if (await collapse.count()) await collapse.click();
   await page.waitForFunction(
-    () => document.querySelector('.desktop-sidebar').getBoundingClientRect().width === 64,
+    () => document.querySelector('.desktop-sidebar').getBoundingClientRect().width === 45,
   );
   await page.goto(`${base}/incidents/${demoIncident.id}`);
   await page.getByRole('button', { name: 'Edit Record', exact: true }).waitFor();
@@ -2145,11 +2197,11 @@ async function captureReadmeRecords() {
       .getBoundingClientRect();
     return {
       delta: Math.abs(icon.left + icon.width / 2 - logo.left - logo.width / 2),
-      edge: Math.abs(rail.getBoundingClientRect().right - toggle.right),
+      edge: Math.abs(rail.getBoundingClientRect().right - toggle.right - 8),
     };
   });
   assert.ok(brandAlignment.delta < 1, 'Expanded logo aligns with navigation icons');
-  assert.ok(brandAlignment.edge < 1, 'Collapse toggle reaches the content-side edge');
+  assert.ok(brandAlignment.edge < 1, 'Collapse toggle keeps the navigation inset');
   assert.equal(
     await page
       .getByRole('button', { name: 'Collapse navigation', exact: true })
@@ -2242,6 +2294,7 @@ async function captureMobileNavigation() {
 }
 
 async function captureChatWorkspace() {
+  aiConversations.clear();
   if (!demoArticles.length) await captureRecordExports();
   user.role = 'admin';
   aiDemoEnabled = true;
@@ -2303,6 +2356,7 @@ async function captureChatWorkspace() {
   });
   await page.screenshot({ path: `${output}/ai-chat-history.png` });
   await panel.locator('.ai-conversation-entry').first().click();
+  await panel.locator('article').nth(11).waitFor();
   assert.equal(await panel.locator('article').count(), 12);
   assert.equal(
     await panel.getByRole('button', { name: 'Simulate Action', exact: true }).count(),
@@ -2343,10 +2397,13 @@ async function captureChatWorkspace() {
   await page.reload();
   await page.getByRole('button', { name: 'Open AI Chat', exact: true }).click();
   await panel.getByRole('button', { name: 'Conversation History', exact: true }).click();
+  await panel.locator('.ai-conversation-entry').first().waitFor();
+  assert.ok((await panel.locator('.ai-conversation-entry').count()) > 0, 'History survives reload');
+  await panel.locator('.ai-conversation-entry').first().click();
+  await panel.locator('[data-message-role="assistant"]').first().waitFor();
   assert.equal(
-    await panel.locator('.ai-conversation-entry').count(),
+    await panel.getByRole('button', { name: 'Simulate Action', exact: true }).count(),
     0,
-    'History is cleared on reload',
   );
 }
 
@@ -2622,6 +2679,203 @@ async function verifyFormHeadingRows() {
 }
 
 try {
+  if (process.env.HELP_CAPTURE_FOCUS === 'compact-shell') {
+    for (const role of ['admin', 'responder', 'viewer', 'user']) {
+      user.role = role;
+      user.uiPreferences = { ...user.uiPreferences, leftCollapsed: true };
+      await page.setViewportSize({ width: 1440, height: 700 });
+      await page.goto(`${base}/dashboard`);
+      await page.waitForFunction(
+        () => document.querySelector('.desktop-sidebar')?.getBoundingClientRect().width === 45,
+      );
+      const centered = await page.locator('.desktop-sidebar nav a').evaluateAll((links) =>
+        links
+          .filter((link) => link.getClientRects().length > 0)
+          .every((link) => {
+            const box = link.getBoundingClientRect();
+            return Math.abs(box.x + box.width / 2 - 22.5) < 1;
+          }),
+      );
+      assert.ok(centered, `${role} compact links stay centered`);
+      assert.equal(
+        await page.locator('#main').evaluate((node) => getComputedStyle(node).marginLeft),
+        '0px',
+      );
+      assert.deepEqual(
+        await page.locator('[data-app-shell]').evaluate((node) => ({
+          margin: getComputedStyle(node).marginLeft,
+          padding: getComputedStyle(node).paddingLeft,
+        })),
+        { margin: '45px', padding: '0px' },
+      );
+      for (const selector of [
+        '.desktop-sidebar .profile-avatar',
+        '.desktop-sidebar [data-brand-mark]',
+      ]) {
+        const box = await page.locator(selector).boundingBox();
+        assert.ok(Math.abs(box.x + box.width / 2 - 22.5) < 1, `${role} ${selector} centered`);
+      }
+      assert.equal((await page.locator('.app-topbar').boundingBox()).height, 45);
+      const profileButton = await page.locator('.desktop-sidebar .profile-trigger').boundingBox();
+      const mainPanel = await page.locator('#main').boundingBox();
+      assert.ok(
+        Math.abs(profileButton.y + profileButton.height - mainPanel.y - mainPanel.height) < 1,
+        'Profile button bottom aligns with the main panel',
+      );
+      if (role === 'admin') {
+        const profileBefore = await page.locator('.desktop-sidebar .profile-avatar').boundingBox();
+        await page.getByRole('button', { name: 'Expand Navigation', exact: true }).click();
+        await page.waitForFunction(
+          () => document.querySelector('.desktop-sidebar')?.getBoundingClientRect().width === 288,
+        );
+        const profileAfter = await page.locator('.desktop-sidebar .profile-avatar').boundingBox();
+        assert.ok(
+          profileAfter.y < profileBefore.y,
+          `Expanded profile returns to its higher inset position (${profileBefore.y} vs ${profileAfter.y})`,
+        );
+        await page.getByRole('button', { name: 'Collapse navigation', exact: true }).click();
+        await page.waitForFunction(
+          () => document.querySelector('.desktop-sidebar')?.getBoundingClientRect().width === 45,
+        );
+        await page.setViewportSize({ width: 1440, height: 260 });
+        const nav = page.locator('.desktop-sidebar nav');
+        await nav.evaluate((node) => {
+          node.scrollTop = node.scrollHeight;
+        });
+        assert.ok(
+          await nav.evaluate(
+            (node) =>
+              node.scrollTop > 0 && node.scrollTop + node.clientHeight >= node.scrollHeight - 2,
+          ),
+        );
+        await page.setViewportSize({ width: 1440, height: 700 });
+      }
+      await page.setViewportSize({ width: 390, height: 844 });
+      assert.equal((await page.locator('.mobile-topbar').boundingBox()).height, 45);
+      const mobileBrand = await page.locator('.mobile-topbar [data-brand-mark]').boundingBox();
+      assert.equal(mobileBrand.width, 28);
+      assert.equal(mobileBrand.height, 28);
+      assert.ok(
+        mobileBrand.y >= 4 && mobileBrand.y + mobileBrand.height <= 41,
+        'Mobile logo fits within navigation padding',
+      );
+    }
+    user.role = 'admin';
+    await verifyFormHeadingRows();
+    await page.setViewportSize({ width: 1440, height: 700 });
+    await page.goto(`${base}/tasks/${tasks[0].id}`);
+    await page
+      .getByRole('link', { name: 'Demo Customer Portal (opens in an app record tab)', exact: true })
+      .first()
+      .click();
+    await page.locator('.record-navigation-scroll').waitFor();
+    await page.locator('.record-navigation-scroll').evaluate((node) => {
+      node.scrollLeft = 0;
+    });
+    const tabsLeft = await page.locator('.record-navigation-scroll').boundingBox();
+    const railRight = await page.locator('.desktop-sidebar').boundingBox();
+    assert.ok(
+      Math.abs(tabsLeft.x - railRight.x - railRight.width) < 1,
+      'Collapsed tabs meet the sidebar without padding',
+    );
+    await captureMobileNavigation();
+    assert.deepEqual(faults, []);
+    console.log(
+      'Verified centered 45px rail links/logo/profile for every role, 45px top navigation, rail overflow and desktop/mobile form scrolling.',
+    );
+    await browser.close();
+    process.exit(0);
+  }
+  if (process.env.HELP_CAPTURE_FOCUS === 'athena') {
+    await captureChatWorkspace();
+    const originalId = user.id;
+    user.id = '123456789012345678901234';
+    await page.reload();
+    await page.getByRole('button', { name: 'Open AI Chat', exact: true }).click();
+    await page.getByRole('button', { name: 'Conversation History', exact: true }).click();
+    assert.equal(
+      await page.locator('.ai-conversation-entry').count(),
+      0,
+      'Other account has no history',
+    );
+    user.id = originalId;
+    await page.goto(`${base}/settings?section=ai`);
+    await page.getByRole('combobox', { name: 'Response Style', exact: true }).click();
+    await page.getByRole('option', { name: 'Detailed', exact: true }).click();
+    await page
+      .getByLabel('Workspace Instructions', { exact: true })
+      .fill('Explain evidence clearly and suggest practical next steps.');
+    await page.getByRole('button', { name: 'Save Athena Settings', exact: true }).click();
+    await page.waitForResponse(
+      (response) => response.url().endsWith('/api/ai/settings') && response.status() === 200,
+    );
+    await page.reload();
+    await page.getByRole('combobox', { name: 'Response Style', exact: true }).waitFor();
+    assert.ok(
+      (
+        await page.getByRole('combobox', { name: 'Response Style', exact: true }).textContent()
+      ).includes('Detailed'),
+    );
+    assert.equal(
+      await page.getByLabel('Workspace Instructions', { exact: true }).inputValue(),
+      'Explain evidence clearly and suggest practical next steps.',
+    );
+    await page.screenshot({ path: `${output}/ai-provider.png` });
+    await page.screenshot({ path: `${output}/athena-settings.png` });
+    for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: 844 });
+      const top = page.locator(width < 768 ? '.mobile-topbar' : '.app-topbar');
+      assert.equal((await top.boundingBox()).height, 45, 'Navigation height is 45px');
+      const scroll = page.locator('.record-scroll-area, .page-scroll-area');
+      await scroll.evaluate((node) => {
+        node.scrollTop = node.scrollHeight;
+      });
+      assert.ok(
+        await scroll.evaluate(
+          (node) => node.scrollTop + node.clientHeight >= node.scrollHeight - 2,
+        ),
+        'Settings bottom reachable',
+      );
+    }
+    await page.setViewportSize({ width: 1440, height: 960 });
+    await page.goto(`${base}/dashboard`);
+    await page.getByRole('button', { name: 'Open AI Chat', exact: true }).click();
+    await page.getByRole('button', { name: 'Conversation History', exact: true }).click();
+    await page.locator('.ai-conversation-entry').first().waitFor();
+    const count = await page.locator('.ai-conversation-entry').count();
+    await page
+      .locator('.ai-conversation-entry')
+      .first()
+      .locator('..')
+      .getByRole('button', { name: 'Delete', exact: true })
+      .click();
+    await page
+      .getByRole('dialog', { name: 'Delete Conversation', exact: true })
+      .getByRole('button', { name: 'Delete', exact: true })
+      .click();
+    await page
+      .getByRole('dialog', { name: 'Delete Conversation', exact: true })
+      .waitFor({ state: 'hidden' });
+    assert.equal(await page.locator('.ai-conversation-entry').count(), count - 1);
+    aiProvider = { type: 'openai', model: 'synthetic-model', configured: true };
+    aiChatEnabled = true;
+    await page.goto(`${base}/dashboard`);
+    await page.getByRole('button', { name: 'Open AI Chat', exact: true }).click();
+    await page.getByLabel('Message', { exact: true }).fill('Take me to monitors');
+    await page.getByRole('button', { name: 'Send', exact: true }).click();
+    await page
+      .getByRole('navigation', { name: 'Athena suggestions', exact: true })
+      .getByRole('link', { name: 'Monitors', exact: true })
+      .click();
+    await page.waitForURL(`${base}/monitors`);
+    assert.equal(await page.locator('#ai-chat-panel').count(), 0);
+    assert.deepEqual(faults, []);
+    console.log(
+      'Verified Athena settings, reload/account history isolation, deletion, navigation and desktop/mobile scrolling.',
+    );
+    await browser.close();
+    process.exit(0);
+  }
   if (process.env.HELP_CAPTURE_FOCUS === 'ai-models') {
     user.role = 'admin';
     aiProvider = { type: 'openai', model: 'saved-custom-model', configured: true };
@@ -2966,7 +3220,10 @@ try {
       let create = page.getByRole('dialog', { name: 'Create', exact: true });
       const search = create.getByRole('searchbox', { name: 'Search Create Actions', exact: true });
       await search.fill('component');
-      await create.locator('a[href="/components/new"]').click();
+      await create
+        .getByRole('region', { name: 'All Actions', exact: true })
+        .locator('a[href="/components/new"]')
+        .click();
       await page.waitForURL(`${base}/components/new`);
       await page.getByRole('button', { name: 'Create', exact: true }).first().click();
       create = page.getByRole('dialog', { name: 'Create', exact: true });
@@ -2974,13 +3231,13 @@ try {
         .getByRole('region', { name: 'Recently Used', exact: true })
         .locator('a[href="/components/new"]')
         .waitFor();
-      assert.equal(await create.locator('a[href="/components/new"]').count(), 1);
+      assert.equal(await create.locator('a[href="/components/new"]').count(), 2);
       assert.equal(
         await create
           .getByRole('region', { name: 'All Actions', exact: true })
           .locator('a[href="/components/new"]')
           .count(),
-        0,
+        1,
       );
       await create
         .getByRole('searchbox', { name: 'Search Create Actions', exact: true })
@@ -2989,10 +3246,10 @@ try {
         .getByRole('region', { name: 'Recently Used', exact: true })
         .locator('a[href="/components/new"]')
         .waitFor();
-      assert.equal(await create.locator('a[href="/components/new"]').count(), 1);
+      assert.equal(await create.locator('a[href="/components/new"]').count(), 2);
       assert.equal(
         await create.getByRole('region', { name: 'All Actions', exact: true }).count(),
-        0,
+        1,
       );
       await create.getByRole('searchbox', { name: 'Search Create Actions', exact: true }).fill('');
 
@@ -3006,6 +3263,15 @@ try {
       await create.getByRole('searchbox', { name: 'Search Create Actions', exact: true }).fill('');
       await create.locator('a[href="/groups?create=1"]').scrollIntoViewIfNeeded();
       assert.ok(await create.locator('a[href="/groups?create=1"]').isVisible());
+      const completeComponent = create
+        .getByRole('region', { name: 'All Actions', exact: true })
+        .locator('a[href="/components/new"]');
+      await completeComponent.scrollIntoViewIfNeeded();
+      await completeComponent.focus();
+      assert.ok(
+        await completeComponent.isVisible(),
+        'Recent action remains reachable in the complete catalog',
+      );
       await create.getByRole('button', { name: 'Close', exact: true }).click();
       assert.deepEqual(
         await page.evaluate(
@@ -4108,7 +4374,9 @@ try {
             .locator('.record-navigation-tab[data-active="true"]')
             .evaluate((el) => ({
               shadow: getComputedStyle(el).boxShadow,
-              top: getComputedStyle(el).borderTopColor,
+              borders: ['Top', 'Right', 'Bottom', 'Left'].map(
+                (side) => getComputedStyle(el)[`border${side}Width`],
+              ),
               icon: getComputedStyle(el.querySelector('[role="tab"] > svg')).color,
               corners: [
                 getComputedStyle(el).borderTopLeftRadius,
@@ -4117,7 +4385,19 @@ try {
             }));
           assert.deepEqual(activeStyle.corners, ['8px', '8px']);
           assert.equal(activeStyle.shadow, 'none');
-          assert.equal(activeStyle.top, 'rgba(0, 0, 0, 0)');
+          assert.deepEqual(activeStyle.borders, ['0px', '0px', '0px', '0px']);
+          assert.ok(
+            await page
+              .locator('.record-navigation-tab')
+              .evaluateAll((nodes) =>
+                nodes.every((node) =>
+                  ['Top', 'Right', 'Bottom', 'Left'].every(
+                    (side) => getComputedStyle(node)[`border${side}Width`] === '0px',
+                  ),
+                ),
+              ),
+            'All record tabs have no borders',
+          );
           assert.ok(activeStyle.icon !== 'rgba(0, 0, 0, 0)');
           const main = await page.locator('#main').boundingBox();
           assert.ok(
@@ -4332,10 +4612,11 @@ try {
       () =>
         Math.abs(
           document.querySelector('.desktop-sidebar nav a').getBoundingClientRect().top -
-            document.querySelector('#main').getBoundingClientRect().top,
+            document.querySelector('#main').getBoundingClientRect().top -
+            8,
         ) < 1,
     ),
-    'Main navigation starts level with the content frame',
+    'Main navigation keeps an 8px top inset below the content frame',
   );
 
   const expandedOrder = await page
@@ -4344,7 +4625,7 @@ try {
   await page.getByRole('button', { name: 'Collapse navigation', exact: true }).click();
   await page.waitForFunction(() => {
     const rail = document.querySelector('.desktop-sidebar');
-    return Math.abs(rail.getBoundingClientRect().width - 64) < 1;
+    return Math.abs(rail.getBoundingClientRect().width - 45) < 1;
   });
   assert.deepEqual(
     await page

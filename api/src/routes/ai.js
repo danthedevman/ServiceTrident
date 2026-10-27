@@ -25,6 +25,7 @@ export function installAI(app, db, fetchImpl) {
     res.json({
       provider: publicProvider(data.aiProvider),
       revision: data.revision,
+      assistant: data.aiAssistant ?? { responseStyle: 'balanced', instructions: '' },
       ...(await aiAvailability(db, req, data)),
     });
   });

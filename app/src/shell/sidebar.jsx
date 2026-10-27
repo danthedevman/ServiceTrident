@@ -306,7 +306,7 @@ export function Sidebar({
   const content = (compact, mobile = false) => (
     <>
       <div
-        className={`sidebar-brand-row flex h-12 shrink-0 items-center gap-2 ${compact ? 'justify-center px-3' : 'justify-between pl-5 pr-0'}`}
+        className={`sidebar-brand-row flex h-[45px] shrink-0 items-center gap-2 ${compact ? 'justify-center' : 'justify-between pl-6 pr-2'}`}
       >
         {compact ? (
           <div className="group relative grid h-10 w-10 shrink-0 place-items-center">
@@ -371,7 +371,7 @@ export function Sidebar({
       </div>
       <nav
         aria-label="Main navigation"
-        className={`min-h-0 flex-1 space-y-1 ${compact ? 'px-2 pb-2' : 'px-3 pb-3'} pt-0 overflow-y-auto overflow-x-hidden`}
+        className={`min-h-0 flex-1 space-y-1 ${compact ? 'px-1 pb-3' : 'px-4 pb-4'} pt-2 overflow-y-auto overflow-x-hidden`}
       >
         {groups.find((group) => !group.id)?.links.map((link) => renderLink(link, compact))}
         {!(compact || mobile) &&
@@ -437,7 +437,7 @@ export function Sidebar({
         )}
       </nav>
       <div
-        className={`sidebar-profile shrink-0 ${compact ? 'p-2' : 'p-3'} pb-[max(0.75rem,env(safe-area-inset-bottom))] ${mobile ? '!hidden' : ''}`}
+        className={`sidebar-profile shrink-0 ${compact ? 'sidebar-profile-compact' : ''} ${mobile ? '!hidden' : ''}`}
       >
         <ProfileMenu user={user} compact={compact} logout={logout} busy={busy} onNavigate={close} />
       </div>
@@ -481,7 +481,7 @@ export function Sidebar({
         <CreateDialog role={user?.role} onClose={() => setCreateOpen(false)} onNavigate={close} />
       )}
       <aside
-        className={`desktop-sidebar fixed inset-y-0 left-0 z-30 hidden flex-col bg-white dark:bg-slate-900 md:flex ${compact ? 'w-16' : 'w-72'}`}
+        className={`desktop-sidebar fixed inset-y-0 left-0 z-30 hidden flex-col bg-white dark:bg-slate-900 md:flex ${compact ? 'w-[45px]' : 'w-72'}`}
       >
         {content(compact)}
       </aside>
@@ -491,7 +491,7 @@ export function Sidebar({
       >
         <button
           type="button"
-          className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-[4px] hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500 dark:hover:bg-slate-800"
+          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[4px] hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500 dark:hover:bg-slate-800"
           aria-label="Open navigation"
           aria-haspopup="dialog"
           aria-expanded={mobileOpen}
@@ -638,9 +638,8 @@ function CreateDialog({ role, onNavigate, onClose }) {
   const filtered = options.filter((option) =>
     `${option.title} ${option.description}`.toLowerCase().includes(query),
   );
-  const recentIds = new Set(recent.map((option) => option.id));
   const visibleRecent = recent.filter((option) => filtered.some((match) => match.id === option.id));
-  const available = filtered.filter((option) => !recentIds.has(option.id));
+  const available = filtered;
   function actionLink({ id, to, title, description, Icon }, compact = false) {
     return (
       <Link

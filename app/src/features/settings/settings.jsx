@@ -1,3 +1,4 @@
+import { AIProviderPage } from '../ai/ai.jsx';
 import { DEMO_INDUSTRIES, demoIndustry } from '../../../../shared/domain/demo-industries.js';
 import { Select } from '../../components/forms/select.jsx';
 import { PageTitle } from '../../components/page-title.jsx';
@@ -274,6 +275,7 @@ export function SettingsPage() {
           ['service-accounts', 'Service Accounts'],
           ['audit', 'Audit Log'],
           ['demo-data', 'Demo Data'],
+          ['ai', 'AI Provider'],
           ...(marketing.data?.available ? [['hosting', 'Hosting Inquiries']] : []),
         ]
       : []),
@@ -297,7 +299,11 @@ export function SettingsPage() {
           ))}
         </nav>
         <div className="min-w-0" key={selected[0]}>
-          {selected[2] ? (
+          {selected[0] === 'ai' ? (
+            <div className="space-y-5">
+              <AIProviderPage />
+            </div>
+          ) : selected[2] ? (
             <section className="panel space-y-4 p-6">
               <h2 className="text-lg font-semibold">{selected[1]}</h2>
               <p>{selected[3]}</p>

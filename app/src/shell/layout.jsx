@@ -123,7 +123,7 @@ export function Layout() {
         style={{ '--record-tabs-height': `${tabHeight}px` }}
         data-nav-collapsed={collapsed}
         data-record-tabs-visible={recordLayout && tabHeight > 0 ? true : undefined}
-        className={`min-h-screen ${collapsed ? 'md:pl-16' : 'md:pl-72'}`}
+        className={`min-h-screen ${collapsed ? 'md:ml-[45px]' : 'md:ml-72'}`}
       >
         <Sidebar
           toolbarTarget={navigationActions}

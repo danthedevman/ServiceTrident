@@ -35,6 +35,7 @@ export const tables = [
   'deliveries',
   'demoData',
   'contactTokens',
+  'aiConversations',
   'marketingInquiries',
 ];
 
@@ -89,6 +90,10 @@ export async function migrate(pool, schema) {
       'CREATE TABLE IF NOT EXISTS "components" (id text PRIMARY KEY, data jsonb NOT NULL)',
     );
     await client.query('INSERT INTO sk_migrations(version) VALUES (12) ON CONFLICT DO NOTHING');
+    await client.query(
+      'CREATE TABLE IF NOT EXISTS "aiConversations" (id text PRIMARY KEY, data jsonb NOT NULL)',
+    );
+    await client.query('INSERT INTO sk_migrations(version) VALUES (13) ON CONFLICT DO NOTHING');
     for (const name of [
       'statusSubscribers',
       'publicStatusUpdates',

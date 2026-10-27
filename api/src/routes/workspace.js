@@ -239,6 +239,9 @@ export function installWorkspaceRoutes(app, db, appOrigin) {
       );
     await db.collection('users').deleteOne({ ...memberFilter(req.workspaceId), _id: userId });
     await db.collection('sessions').deleteMany({ userId });
+    await db
+      .collection('aiConversations')
+      .deleteMany({ workspaceId: req.workspaceId, actorId: userId });
     res.status(204).end();
   });
   app.patch('/api/members/:id', requireAdmin, async (req, res) => {
