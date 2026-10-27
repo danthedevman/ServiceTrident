@@ -1,8 +1,8 @@
+import { CreateButton } from '../../components/create-button.jsx';
 import { RecordDetailSection } from '../../components/record-detail-section.jsx';
 import { DateTime } from '../../preferences/date-time.jsx';
 import { displayValue } from '../../lib/display-value.js';
 import React, { useContext } from 'react';
-import { Link } from 'react-router-dom';
 import { useParams } from 'react-router-dom';
 import { useResource } from '../../data/use-resource.js';
 import { writeApi } from '../../data/query-client.js';
@@ -75,12 +75,12 @@ export function EventAlertDetail() {
       }
       actions={
         item && canEdit ? (
-          <Link
+          <CreateButton
             className="btn-primary"
             to={`/incidents/new?${new URLSearchParams({ alertId: id, serviceId: item.serviceId || '' })}`}
           >
-            Create Incident
-          </Link>
+            Create
+          </CreateButton>
         ) : null
       }
     >

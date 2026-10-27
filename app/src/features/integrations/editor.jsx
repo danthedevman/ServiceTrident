@@ -1,3 +1,4 @@
+import { CreateButton } from '../../components/create-button.jsx';
 import { StaticRecordFields } from '../../components/forms/record-field-layout.jsx';
 import { writeApi } from '../../data/query-client.js';
 import { ValidatedForm } from '../../components/forms/validated-form.jsx';
@@ -315,9 +316,7 @@ export function IntegrationEditor({
               </ConfirmDeleteButton>
             )}
             <CancelButton onCancel={close} to="/integrations" disabled={save.busy} />
-            <button className="btn-primary" disabled={save.busy}>
-              {save.busy ? 'Saving…' : 'Save'}
-            </button>
+            <CreateButton disabled={save.busy}>{initial.existing ? 'Save' : 'Create'}</CreateButton>
           </RecordActions>
         )}
       </ValidatedForm>

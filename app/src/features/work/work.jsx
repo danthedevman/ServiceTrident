@@ -1,3 +1,4 @@
+import { CreateButton } from '../../components/create-button.jsx';
 import { RecordArticle } from '../../components/record-article.jsx';
 import { SearchInput } from '../../components/forms/search-input.jsx';
 import { RecordFieldLayout } from '../../components/forms/record-field-layout.jsx';
@@ -19,11 +20,7 @@ import { mandatoryErrors } from '../../../../shared/forms/schema.js';
 import { RecordActions } from '../../components/record-actions.jsx';
 import { RecordTabs } from '../../components/record-tabs.jsx';
 import { CancelButton } from '../../components/forms/cancel-button.jsx';
-import {
-  RecordWorkspace,
-  RecordSection,
-  RecordMetadata,
-} from '../../components/record-workspace.jsx';
+import { RecordWorkspace, RecordMetadata } from '../../components/record-workspace.jsx';
 import { ActionMenu } from '../../components/action-menu.jsx';
 import {
   AttachmentLinks,
@@ -43,12 +40,7 @@ import { fieldChoices, recordFields } from '../../../../shared/forms/form-option
 import { displayValue } from '../../lib/display-value.js';
 import React, { useContext, useEffect, useLayoutEffect, useState, lazy, Suspense } from 'react';
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import {
-  PlusIcon,
-  ArrowUpTrayIcon,
-  ArrowDownTrayIcon,
-  ArchiveBoxIcon,
-} from '@heroicons/react/24/outline';
+import { ArrowUpTrayIcon, ArrowDownTrayIcon, ArchiveBoxIcon } from '@heroicons/react/24/outline';
 import { writeApi } from '../../data/query-client.js';
 import { TASK_STATUSES, ARTICLE_STATUSES } from '../../../../shared/forms/work-options.js';
 import { useResource } from '../../data/use-resource.js';
@@ -292,7 +284,7 @@ export function WorkTable({
         actions={
           canEdit &&
           !embedded && (
-            <button
+            <CreateButton
               className="btn-primary gap-2"
               onClick={() =>
                 navigate(
@@ -300,9 +292,8 @@ export function WorkTable({
                 )
               }
             >
-              <PlusIcon className="h-5 w-5" aria-hidden="true" />
               Create
-            </button>
+            </CreateButton>
           )
         }
         title={
@@ -552,7 +543,12 @@ export function WorkDetail({ kind = 'tasks' }) {
                 <RecordMetadata
                   item={item}
                   extra={
-                    task ? [['Priority', item.priorityLabel || displayValue(item.priority)]] : []
+                    task
+                      ? [
+                          ['Status', item.statusLabel || label(item.status)],
+                          ['Priority', item.priorityLabel || displayValue(item.priority)],
+                        ]
+                      : []
                   }
                 />
               ) : undefined
@@ -976,6 +972,34 @@ function WorkForm({
   };
   return (
     <ValidatedForm
+      validateValues={() => {
+        let content;
+        try {
+          content = !task
+            ? validateRichContent(value.contentDocument, { required: false }).text
+            : undefined;
+        } catch (error) {
+          return error.fields || { content: error.message };
+        }
+        const errors = mandatoryErrors(schema, {
+          ...value,
+          content: runbook
+            ? [content, ...value.steps.map((step) => `${step.title} ${step.instructions}`)].join(
+                '\n',
+              )
+            : content,
+          articleType: value.articleTypeOption,
+          status: value.statusOption,
+          priority: value.priorityOption,
+        });
+        if (
+          runbook &&
+          (!value.steps.length ||
+            value.steps.some((step) => !step.title.trim() || !step.instructions.trim()))
+        )
+          errors.steps = 'Add a title and instructions to at least one runbook step.';
+        return errors;
+      }}
       confirmDiscard={!onDirtyChange}
       dirty={dirty}
       noValidate
@@ -1162,12 +1186,12 @@ function WorkForm({
       )}
       <RecordActions>
         <CancelButton onCancel={onClose} to={`/${kind}`} disabled={save.busy} />
-        <button
+        <CreateButton
           className="btn-primary"
           disabled={save.busy || draft.busy || (task && !!value.incidentId && !incident)}
         >
-          {item ? 'Save' : `Create ${task ? 'Task' : 'Article'}`}
-        </button>
+          {item ? 'Save' : 'Create'}
+        </CreateButton>
       </RecordActions>
     </ValidatedForm>
   );
@@ -1208,14 +1232,12 @@ function KnowledgeReader({ item, fields, schema, layout }) {
           </ol>
         </section>
       )}
-      <RecordSection title="Attachments">
-        <AttachmentPanel
-          compact
-          kind="knowledge"
-          recordId={item.id}
-          imageIds={embeddedImageIds(item.contentDocument)}
-        />
-      </RecordSection>
+      <AttachmentLinks
+        kind="knowledge"
+        recordId={item.id}
+        title="Attachments"
+        imageIds={embeddedImageIds(item.contentDocument)}
+      />
     </RecordArticle>
   );
 }

@@ -56,6 +56,7 @@ export function Select({
     setInternal(option.value);
     native.current.value = option.value;
     onChange?.({ target: native.current, currentTarget: native.current });
+    native.current.dispatchEvent(new Event('input', { bubbles: true }));
     close();
     trigger.current.focus();
   }
@@ -134,6 +135,8 @@ export function Select({
         tabIndex={-1}
         aria-hidden="true"
         name={name}
+        data-validation-key={props['data-validation-key']}
+        aria-labelledby={props['aria-labelledby']}
         required={required}
         disabled={disabled}
         value={selected}

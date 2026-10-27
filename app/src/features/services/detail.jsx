@@ -1,5 +1,5 @@
+import { CreateButton } from '../../components/create-button.jsx';
 import { ComponentsTable } from './components.jsx';
-import { PlusIcon } from '@heroicons/react/24/outline';
 import { RecordTabs } from '../../components/record-tabs.jsx';
 import { IncidentsPage } from '../incidents/incidents.jsx';
 import { WorkTable } from '../work/work.jsx';
@@ -253,10 +253,9 @@ function ServiceMonitors({ serviceId }) {
         title="Service Monitors"
         actions={
           <AdminOnly>
-            <Link className="btn-primary" to={`/monitors/new?serviceId=${serviceId}`}>
-              <PlusIcon className="h-5 w-5 shrink-0" aria-hidden="true" />
+            <CreateButton className="btn-primary" to={`/monitors/new?serviceId=${serviceId}`}>
               Create
-            </Link>
+            </CreateButton>
           </AdminOnly>
         }
         rowKey={(row) => row.id}

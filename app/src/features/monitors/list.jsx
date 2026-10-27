@@ -1,4 +1,4 @@
-import { PlusIcon } from '@heroicons/react/24/outline';
+import { CreateButton } from '../../components/create-button.jsx';
 import { AdminOnly } from '../../auth/role-gates.jsx';
 
 import { DataTable } from '../../components/data-table.jsx';
@@ -29,10 +29,9 @@ export function MonitorList() {
           fullPage
           actions={
             <AdminOnly>
-              <Link to="/monitors/new" className="btn-primary">
-                <PlusIcon className="h-5 w-5 shrink-0" aria-hidden="true" />
+              <CreateButton to="/monitors/new" className="btn-primary">
                 Create
-              </Link>
+              </CreateButton>
             </AdminOnly>
           }
           title="Monitors"

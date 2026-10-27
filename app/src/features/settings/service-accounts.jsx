@@ -1,3 +1,4 @@
+import { CreateButton } from '../../components/create-button.jsx';
 import { StaticRecordFields } from '../../components/forms/record-field-layout.jsx';
 import React, { useState } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
@@ -241,9 +242,9 @@ function AccountForm({ item, onCancel, onSaved, readOnly = false }) {
           <button type="button" className="btn-secondary" disabled={busy} onClick={onCancel}>
             Cancel
           </button>
-          <button className="btn-primary" disabled={busy}>
-            {item ? 'Save' : 'Create Service Account'}
-          </button>
+          <CreateButton className="btn-primary" disabled={busy}>
+            {item ? 'Save' : 'Create'}
+          </CreateButton>
         </div>
       )}
     </ValidatedForm>
@@ -475,15 +476,15 @@ export function ServiceAccountsPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <PageTitle>Service Accounts</PageTitle>
         {!adding && (
-          <button
+          <CreateButton
             className="btn-primary"
             onClick={() => {
               setRevealed(null);
               setAdding(true);
             }}
           >
-            Add Service Account
-          </button>
+            Create
+          </CreateButton>
         )}
       </div>
       <p>Give external integrations only the record scopes and service access they need.</p>

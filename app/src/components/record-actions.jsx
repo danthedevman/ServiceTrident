@@ -1,3 +1,4 @@
+import { CreateButton } from './create-button.jsx';
 import { CancelButton } from './forms/cancel-button.jsx';
 import { ActivePanelContext } from './record-tabs.jsx';
 import React, { createContext, useContext, useId, useLayoutEffect, useRef, useState } from 'react';
@@ -37,7 +38,7 @@ export function RecordActions({ children }) {
       if (!React.isValidElement(child)) return child;
       if (child.type === React.Fragment)
         return React.cloneElement(child, {}, associate(child.props.children));
-      return child.type === 'button' || child.type === CancelButton
+      return child.type === 'button' || child.type === CancelButton || child.type === CreateButton
         ? React.cloneElement(child, { form: formId })
         : child;
     });

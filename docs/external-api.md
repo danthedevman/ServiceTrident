@@ -4,7 +4,7 @@ Workspace administrators configure **Settings → Service Accounts**. These are 
 
 ## Create and restrict an account
 
-1. Select **Add Service Account**, enter its name/description, and select the required scopes. No scope is selected automatically.
+1. Select **Create**, enter its name/description, and select the required scopes. No scope is selected automatically.
 2. Select **Permitted Services**, or explicitly enable **Allow all workspace services and unassigned records**. Restricted accounts must create records for an allowed service. Tasks linked to an incident inherit that incident’s service and must satisfy the same restriction. Every relationship is also checked against the account’s workspace.
 3. Enable **API Key**, **OAuth Client Credentials**, or both. Credentials default to 90 days; supported lifetimes are 1–365 days.
 4. Create the account and copy its one-time credentials to your integration’s secret manager. Dismiss the credentials panel afterwards. The API persists only SHA-256 digests of cryptographically random 256-bit credentials. The browser keeps the one-time response only in component memory, never local/session storage or the query cache.

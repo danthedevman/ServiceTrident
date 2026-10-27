@@ -22,7 +22,7 @@ export const referenceRoutes = {
 };
 
 /** Read-only relationships retain a labeled, keyboard-accessible link to a known route. */
-export function ReferenceValue({ type, id, label, empty = 'Unassigned' }) {
+export function ReferenceValue({ type, id, label, empty = 'Unassigned', showIcon = true }) {
   const route = referenceRoutes[type];
   if (!id || !route) return label || empty;
   return (
@@ -32,7 +32,7 @@ export function ReferenceValue({ type, id, label, empty = 'Unassigned' }) {
       className="inline-flex min-w-0 max-w-full items-center gap-1 text-blue-700 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500 dark:text-blue-300"
     >
       <span className="min-w-0 truncate">{label || 'Unavailable record'}</span>
-      <ArrowTopRightOnSquareIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
+      {showIcon && <ArrowTopRightOnSquareIcon className="h-4 w-4 shrink-0" aria-hidden="true" />}
       <span className="sr-only"> (opens in an app record tab)</span>
     </RecordLink>
   );

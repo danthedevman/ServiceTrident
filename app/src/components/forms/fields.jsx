@@ -1,7 +1,9 @@
+import { useValidationError } from './validation-context.js';
+import { controlError } from '../../../../shared/validation/form-validation.js';
 import { AutoTextarea } from './auto-textarea.jsx';
 import { Select } from './select.jsx';
 import { ReferenceField } from './reference-field.jsx';
-import React, { useId } from 'react';
+import React, { useId, useState } from 'react';
 
 /** Show text errors without rendering provider-supplied HTML. */
 export function Notice({ error }) {
@@ -18,16 +20,31 @@ export function Notice({ error }) {
 /** Label and associate server errors with ordinary form controls. */
 export function Field({ label, name, errors = {}, helpText, children }) {
   const labelId = useId();
+  const [edited, setEdited] = useState(children.props.defaultValue ?? '');
+  const value =
+    children.props.value ?? (children.props.type === 'checkbox' ? children.props.checked : edited);
+  const message = useValidationError(
+    errors[name],
+    value,
+    !controlError({ ...children.props, value, label, checked: children.props.checked }),
+    name,
+  );
   const fieldId = `${name || 'field'}-${labelId}`;
   return (
     <label className="field-label block">
       <span id={labelId}>{label}</span>
       {React.cloneElement(children, {
         id: fieldId,
+        name: children.props.name || name,
+        'data-validation-key': name,
+        onChange: (event) => {
+          setEdited(event.target.type === 'checkbox' ? event.target.checked : event.target.value);
+          children.props.onChange?.(event);
+        },
         'aria-labelledby': children.props['aria-labelledby'] || labelId,
-        'aria-invalid': !!errors[name],
+        'aria-invalid': !!message,
         'aria-describedby':
-          [helpText ? `${fieldId}-help` : '', errors[name] ? `${fieldId}-error` : '']
+          [helpText ? `${fieldId}-help` : '', message ? `${fieldId}-error` : '']
             .filter(Boolean)
             .join(' ') || undefined,
       })}
@@ -36,12 +53,12 @@ export function Field({ label, name, errors = {}, helpText, children }) {
           {helpText}
         </span>
       )}
-      {errors[name] && (
+      {message && (
         <span
           id={`${fieldId}-error`}
           className="mt-1 block text-sm text-rose-700 dark:text-rose-300"
         >
-          {errors[name]}
+          {message}
         </span>
       )}
     </label>
@@ -91,6 +108,7 @@ export function CustomField({ field, value, onChange, errors }) {
     input = (
       <input
         type="checkbox"
+        required={field.required}
         checked={value === true}
         onChange={(e) => onChange(e.target.checked)}
       />
@@ -99,6 +117,7 @@ export function CustomField({ field, value, onChange, errors }) {
     input = (
       <input
         type="number"
+        required={field.required}
         step="any"
         value={value ?? ''}
         onChange={(e) => onChange(e.target.value === '' ? '' : Number(e.target.value))}

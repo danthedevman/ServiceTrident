@@ -37,7 +37,9 @@ function persist(key, values, pending = false) {
       key,
       JSON.stringify({
         ...uiPreferences(values),
-        ...(key === previewKey ? { listFilters: {} } : {}),
+        ...(key === previewKey
+          ? { listFilters: {}, recordTabOrder: [], recentCreateActions: [] }
+          : {}),
         pending,
       }),
     );

@@ -2972,3 +2972,14 @@ body:has([data-app-shell]) {
     grid-template-columns: repeat(var(--score-columns), minmax(0, 1fr));
   }
 }
+
+.record-navigation-tab[data-drop-target='true'] {
+  outline: 2px solid var(--color-blue-500);
+  outline-offset: -2px;
+}
+.record-navigation-tab > [draggable='true'] {
+  cursor: grab;
+}
+.record-navigation-tab > [draggable='true']:active {
+  cursor: grabbing;
+}

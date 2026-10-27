@@ -89,19 +89,17 @@ test(
       false,
     );
     const fileId = new ObjectId();
-    await db
-      .collection('attachments')
-      .insertOne({
-        _id: fileId,
-        workspaceId: ownerUser._id,
-        kind: 'knowledge',
-        recordId: article.id,
-        name: 'synthetic.txt',
-        size: 9,
-        mime: 'text/plain',
-        data: Buffer.from('synthetic'),
-        createdAt: new Date(),
-      });
+    await db.collection('attachments').insertOne({
+      _id: fileId,
+      workspaceId: ownerUser._id,
+      kind: 'knowledge',
+      recordId: article.id,
+      name: 'synthetic.txt',
+      size: 9,
+      mime: 'text/plain',
+      data: Buffer.from('synthetic'),
+      createdAt: new Date(),
+    });
     await db
       .collection('articles')
       .updateOne({ _id: new ObjectId(article.id) }, { $set: { attachmentIds: [String(fileId)] } });
@@ -129,6 +127,77 @@ test(
         })
       ).status,
       404,
+    );
+    const incidentId = new ObjectId();
+    await db
+      .collection('incidents')
+      .insertOne({
+        _id: incidentId,
+        workspaceId: ownerUser._id,
+        title: 'Synthetic incident',
+        status: 'open',
+        knowledgeIds: [],
+        revision: 0,
+        timeline: [],
+      });
+    const linkPath = `/incidents/${incidentId}/articles`;
+    assert.equal(
+      (await request(linkPath, denied, 'PATCH', { knowledgeIds: [article.id], revision: 0 }))
+        .status,
+      400,
+    );
+    assert.equal(
+      (await request(linkPath, foreign, 'PATCH', { knowledgeIds: [], revision: 0 })).status,
+      404,
+    );
+    const linked = await request(linkPath, reader, 'PATCH', {
+      knowledgeIds: [article.id],
+      revision: 0,
+    });
+    assert.equal(linked.status, 200);
+    assert.deepEqual(linked.data.knowledgeIds, [article.id]);
+    assert.equal(
+      (await request(linkPath, reader, 'PATCH', { knowledgeIds: [], revision: 0 })).status,
+      409,
+    );
+    assert.equal(
+      (
+        await request(linkPath, owner, 'PATCH', {
+          knowledgeIds: [],
+          revision: 1,
+          status: 'resolved',
+        })
+      ).status,
+      400,
+    );
+    assert.equal(
+      (
+        await request(linkPath, owner, 'PATCH', {
+          knowledgeIds: [article.id, article.id],
+          revision: 1,
+        })
+      ).status,
+      400,
+    );
+    const retained = await request(linkPath, denied, 'PATCH', { knowledgeIds: [], revision: 1 });
+    assert.equal(retained.status, 200);
+    assert.deepEqual(
+      retained.data.knowledgeIds,
+      [article.id],
+      'An inaccessible existing relationship cannot be silently removed',
+    );
+    assert.equal((await db.collection('incidents').findOne({ _id: incidentId })).status, 'open');
+    await db.collection('users').updateOne({ _id: deniedUser._id }, { $set: { role: 'user' } });
+    assert.equal(
+      (await request(linkPath, denied, 'PATCH', { knowledgeIds: [], revision: 2 })).status,
+      403,
+    );
+    await db
+      .collection('users')
+      .updateOne({ _id: deniedUser._id }, { $set: { role: 'responder' } });
+    assert.equal(
+      (await request(linkPath, owner, 'PATCH', { knowledgeIds: [], revision: 2 })).status,
+      200,
     );
     const groupId = new ObjectId().toString();
     await db.collection('operations').updateOne(

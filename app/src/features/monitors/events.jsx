@@ -1,9 +1,9 @@
+import { CreateButton } from '../../components/create-button.jsx';
 import { useListFilter } from '../../data/use-list-filter.js';
 import { displayValue } from '../../lib/display-value.js';
 import { ReferenceValue } from '../../components/reference-value.jsx';
 import { AdminOnly } from '../../auth/role-gates.jsx';
-import { PlusIcon } from '@heroicons/react/24/outline';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import React from 'react';
 import { DataTable } from '../../components/data-table.jsx';
 import { ReferenceField } from '../../components/forms/reference-field.jsx';
@@ -82,13 +82,12 @@ export function EventsTable({
           !related &&
           !alerts && (
             <AdminOnly>
-              <Link
+              <CreateButton
                 className="btn-primary"
                 to={`/monitors/new${serviceId ? `?serviceId=${encodeURIComponent(serviceId)}` : ''}`}
               >
-                <PlusIcon className="h-5 w-5 shrink-0" aria-hidden="true" />
-                Create Monitor
-              </Link>
+                Create
+              </CreateButton>
             </AdminOnly>
           )
         }

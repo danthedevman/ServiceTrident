@@ -1,3 +1,4 @@
+import { useValidationError } from './validation-context.js';
 import { ReadOnlyFieldsContext } from './read-only-context.js';
 import { RecordLink, useRecordEditMarker } from '../record-navigation.jsx';
 import { useInfiniteResource, useResource } from '../../data/use-resource.js';
@@ -42,7 +43,7 @@ export function ReferenceField({
   multiple = false,
   name,
   disabled = false,
-  error,
+  error: suppliedError,
   helpText,
   onSearch,
   referenceType,
@@ -61,6 +62,16 @@ export function ReferenceField({
     [typing, setTyping] = useState(false);
   const markEdited = useRecordEditMarker();
   const input = useRef(null);
+  const error = useValidationError(
+    suppliedError,
+    value,
+    !required || (Array.isArray(value) ? value.length > 0 : !!value),
+    name || id,
+  );
+  const validationValue = JSON.stringify(value ?? '');
+  useEffect(() => {
+    input.current?.dispatchEvent(new Event('input', { bubbles: true }));
+  }, [validationValue]);
   const labels = useRef(new Map());
   const results = useRef(null);
   const popup = useRef(null);
@@ -268,6 +279,10 @@ export function ReferenceField({
             ref={input}
             id={id}
             data-reference-name={name}
+            data-validation-value={
+              (Array.isArray(value) ? value.length > 0 : !!value) ? 'selected' : ''
+            }
+            data-validation-required={required}
             role="combobox"
             aria-autocomplete="list"
             aria-haspopup="listbox"

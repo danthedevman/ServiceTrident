@@ -1,3 +1,4 @@
+import { CreateButton } from '../../components/create-button.jsx';
 import { SearchInput } from '../../components/forms/search-input.jsx';
 import { PinRecordAction } from '../records/pinned.jsx';
 import { RecordFieldEditing } from '../../components/forms/record-field-layout.jsx';
@@ -6,7 +7,6 @@ import { RecordExportActions } from '../../components/record-export-actions.jsx'
 import { useBoardDragScroll } from './use-board-drag-scroll.js';
 import { PageTitle } from '../../components/page-title.jsx';
 import {
-  PlusIcon,
   ListBulletIcon,
   ArchiveBoxIcon,
   ArrowUpIcon,
@@ -174,10 +174,9 @@ export function TaskBoard({ serviceId, incidentId, projectId = '', embedded = fa
                   <ArchiveBoxIcon className="h-5 w-5" aria-hidden="true" />
                 </Link>
                 {canEdit && (
-                  <Link className="btn-primary" to={`/tasks/new?${scope}`}>
-                    <PlusIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  <CreateButton className="btn-primary" to={`/tasks/new?${scope}`}>
                     Create
-                  </Link>
+                  </CreateButton>
                 )}
               </div>
             </header>

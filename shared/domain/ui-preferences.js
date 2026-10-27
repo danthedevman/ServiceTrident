@@ -1,3 +1,4 @@
+import { CREATE_ACTION_IDS } from './create-actions.js';
 import { validListFilters } from './list-filters.js';
 import { colorSchemeIds } from './color-schemes.js';
 import { InputError } from '../validation/input-error.js';
@@ -13,6 +14,8 @@ export const DEFAULT_UI_PREFERENCES = Object.freeze({
   filtersOpen: false,
   compactTables: false,
   tableLayouts: {},
+  recordTabOrder: [],
+  recentCreateActions: [],
   listFilters: {},
   dashboardTab: 'overview',
   dashboardGreeting: 'Welcome, {firstName}',
@@ -58,6 +61,20 @@ function validTableLayouts(value) {
 
 /** Validate the small allowlist of supported preference values. */
 function validPreference(key, value) {
+  if (key === 'recordTabOrder')
+    return (
+      Array.isArray(value) &&
+      value.length <= 20 &&
+      new Set(value).size === value.length &&
+      value.every((token) => typeof token === 'string' && /^[a-f0-9]{32}$/.test(token))
+    );
+  if (key === 'recentCreateActions')
+    return (
+      Array.isArray(value) &&
+      value.length <= 5 &&
+      new Set(value).size === value.length &&
+      value.every((id) => CREATE_ACTION_IDS.includes(id))
+    );
   if (key === 'rightPanelWidth') return Number.isInteger(value) && value >= 240 && value <= 560;
   if (key === 'dashboardGreeting')
     return (

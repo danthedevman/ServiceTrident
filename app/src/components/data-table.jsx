@@ -505,10 +505,6 @@ function DataTableView({
                               className="inline-flex items-center gap-1 text-blue-700 hover:underline dark:text-blue-300"
                             >
                               <span className="min-w-0 truncate">{row.number}</span>
-                              <ArrowTopRightOnSquareIcon
-                                className="h-4 w-4 shrink-0"
-                                aria-hidden="true"
-                              />
                             </RecordLink>
                           </div>
                         ) : column.render ? (

@@ -49,6 +49,11 @@ export function RecordArticle({
           <span className="font-mono text-xs" aria-label="Record number">
             {recordNumber(kind, item)}
           </span>
+          {shown('articleType') && (
+            <span className="knowledge-type">
+              {item.articleType === 'runbook' ? 'Runbook' : 'Article'}
+            </span>
+          )}
           {shown('status') && (
             <span data-record-field="status">
               <StateBadge status={item.status} label={item.statusLabel} />
@@ -80,7 +85,9 @@ export function RecordArticle({
         {visible
           .filter(
             (field) =>
-              !['title', 'summary', 'status', ...Object.keys(references)].includes(field.id),
+              !['title', 'summary', 'status', 'articleType', ...Object.keys(references)].includes(
+                field.id,
+              ),
           )
           .map((field) => {
             const content = value(field);

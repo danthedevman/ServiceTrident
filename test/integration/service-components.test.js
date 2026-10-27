@@ -67,6 +67,40 @@ test(
         .status,
       400,
     );
+    const associated = await request('/components', owner, 'POST', {
+      name: 'Search API',
+      serviceId: service.id,
+    });
+    assert.equal(associated.status, 201);
+    assert.ok(
+      (await request('/services', owner)).data.services
+        .find((row) => row.id === service.id)
+        .componentIds.includes(associated.data.item.id),
+    );
+    assert.equal(
+      (
+        await request('/components', other, 'POST', {
+          name: 'Denied association',
+          serviceId: service.id,
+        })
+      ).status,
+      400,
+    );
+    assert.equal(
+      (await request('/components', other)).data.items.some(
+        (row) => row.name === 'Denied association',
+      ),
+      false,
+    );
+    assert.equal(
+      (
+        await request(`/components/${associated.data.item.id}`, owner, 'PATCH', {
+          serviceId: service.id,
+          revision: associated.data.item.revision,
+        })
+      ).status,
+      400,
+    );
     const input = {
       name: 'Payment health',
       url: 'https://example.com/health',
@@ -116,7 +150,7 @@ test(
     );
     assert.equal(
       (await request('/tables/components?serviceId=' + service.id, owner)).data.total,
-      2,
+      3,
     );
     assert.equal((await request('/references/components?q=Payments', owner)).status, 200);
     const unlinked = (await request('/components', owner, 'POST', { name: 'Unlinked API' })).data
@@ -125,7 +159,7 @@ test(
       `/references/components?serviceId=${service.id}&selected=${unlinked.id}`,
       owner,
     );
-    assert.equal(scopedReferences.data.options.length, 2);
+    assert.equal(scopedReferences.data.options.length, 3);
     assert.equal(scopedReferences.data.selected.length, 0);
     assert.equal(
       (await request(`/references/components?serviceId=${service.id}`, other)).status,

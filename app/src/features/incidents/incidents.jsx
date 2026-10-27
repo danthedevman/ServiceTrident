@@ -1,3 +1,5 @@
+import { CreateButton } from '../../components/create-button.jsx';
+import { ArticleLinkDialog, ArticleLinkPicker } from '../../components/article-link-picker.jsx';
 import {
   RecordFieldLayout,
   RecordFieldsReadOnly,
@@ -18,7 +20,6 @@ import { notify } from '../../data/toast.js';
 import { AIAssistant } from '../ai/ai.jsx';
 import { writeApi } from '../../data/query-client.js';
 import { ConfirmDeleteButton } from '../../components/confirm-delete-button.jsx';
-import { PlusIcon } from '@heroicons/react/24/outline';
 import { FormSkeleton } from '../../components/skeleton.jsx';
 import { Select } from '../../components/forms/select.jsx';
 import { TableSearch } from '../../components/table-search.jsx';
@@ -144,13 +145,12 @@ export function IncidentsPage({ initialServiceId = '', related = false }) {
         fullPage={!related}
         actions={
           ['admin', 'responder', 'user'].includes(user?.role) && (
-            <Link
+            <CreateButton
               className="btn-primary"
               to={`/incidents/new${initialServiceId ? `?serviceId=${initialServiceId}` : ''}`}
             >
-              <PlusIcon className="h-5 w-5 shrink-0" aria-hidden="true" />
               Create
-            </Link>
+            </CreateButton>
           )
         }
         title={user?.role === 'user' ? 'My incidents' : 'Incidents'}
@@ -279,6 +279,7 @@ export function IncidentPage({ edit = false }) {
   const [formVersion, setFormVersion] = useState(0);
   const [editingId, setEditingId] = useState(null);
   const [resolving, setResolving] = useState(false);
+  const [linking, setLinking] = useState(false);
   const editing = editingId === useParams().id;
   const incident = useResource(id ? `/incidents/${id}` : null),
     schema = useResource('/incident-fields'),
@@ -301,6 +302,19 @@ export function IncidentPage({ edit = false }) {
   if (edit) return <Navigate replace to={`/incidents/${id}`} />;
   return (
     <div className={id ? 'space-y-6' : 'form-page'}>
+      {linking && item && canEdit && (
+        <ArticleLinkDialog
+          value={item.knowledgeIds || []}
+          articles={incident.data.knowledge || []}
+          onClose={() => setLinking(false)}
+          onApply={(knowledgeIds) =>
+            writeApi(`/incidents/${id}/articles`, {
+              method: 'PATCH',
+              body: { knowledgeIds, revision: item.revision },
+            })
+          }
+        />
+      )}
       {resolving && item && canEdit && (
         <ResolveIncidentDialog
           key={id}
@@ -711,11 +725,10 @@ export function IncidentPage({ edit = false }) {
                                         type="button"
                                         className="btn-secondary"
                                         onClick={() => {
-                                          setResolving(false);
-                                          setEditingId(id);
+                                          setLinking(true);
                                         }}
                                       >
-                                        Link articles
+                                        Link Articles
                                       </button>
                                     ) : undefined
                                   }
@@ -807,12 +820,6 @@ function IncidentEditor({
   const resolutionCancel = useRef(null);
   const [clientErrors, setClientErrors] = useState({});
   const errors = { ...save.fields, ...clientErrors };
-  const [articleSearch, setArticleSearch] = useState('');
-  const articles = useResource(
-    user.role !== 'user'
-      ? `/knowledge?${new URLSearchParams({ search: articleSearch, pageSize: '50' })}`
-      : null,
-  );
   const draft = useAttachmentDraft('incidents', incident?.id, incident?.attachmentIds ?? []);
   const initialChoice = (name, base) =>
     fieldChoices(
@@ -879,24 +886,14 @@ function IncidentEditor({
       );
     if (name === 'knowledgeIds')
       return user.role === 'user' ? null : (
-        <ReferenceField
+        <ArticleLinkPicker
           key={name}
-          multiple
-          referenceType="knowledge"
           label={field.label + (field.required ? ' *' : '')}
           helpText={field.helpText}
           value={value.knowledgeIds}
-          options={[
-            ...new Map(
-              [...linkedArticles, ...(articles.data?.items ?? [])].map((article) => [
-                article.id,
-                { id: article.id, label: article.title || 'Untitled article' },
-              ]),
-            ).values(),
-          ]}
+          articles={linkedArticles}
           onChange={(next) => set(name, next)}
-          onSearch={setArticleSearch}
-          error={errors[name] || articles.error}
+          error={errors[name]}
         />
       );
     if (name === 'resolutionNotes' && selectedStatus !== 'resolved') return null;
@@ -1004,6 +1001,13 @@ function IncidentEditor({
   const form = (
     <ValidatedForm
       dirty={dirty}
+      validateValues={() =>
+        mandatoryErrors(schema, {
+          ...value,
+          status: selectedStatus,
+          severity: value.severityOption,
+        })
+      }
       ref={formRef}
       className="form-body"
       noValidate
@@ -1068,15 +1072,9 @@ function IncidentEditor({
             Save
           </ConfirmDeleteButton>
         ) : (
-          <button className="btn-primary" disabled={save.busy || draft.busy}>
-            {save.busy
-              ? 'Saving…'
-              : resolving
-                ? 'Resolve incident'
-                : current
-                  ? 'Save'
-                  : 'Create Incident'}
-          </button>
+          <CreateButton className="btn-primary" disabled={save.busy || draft.busy}>
+            {resolving ? 'Resolve incident' : current ? 'Save' : 'Create'}
+          </CreateButton>
         )}
       </RecordActions>
     </ValidatedForm>

@@ -16,6 +16,8 @@ test('layout preferences accept only boolean changes and exclude unrelated user 
     filtersOpen: false,
     compactTables: false,
     tableLayouts: {},
+    recordTabOrder: [],
+    recentCreateActions: [],
     listFilters: {},
     dashboardTab: 'overview',
     dashboardGreeting: 'Welcome, {firstName}',
@@ -146,4 +148,26 @@ test('event records keep Events active on direct and nested monitor routes', () 
   assert.equal(navigationActive('/monitors', '/monitors/123'), true);
   assert.equal(navigationActive('/events', '/events-other'), false);
   assert.equal(navigationActive('/', '/dashboard'), true);
+});
+
+test('tab ordering and recent actions accept bounded layout identifiers only', () => {
+  const token = 'a'.repeat(32);
+  assert.deepEqual(
+    preferencePatch({ recordTabOrder: [token], recentCreateActions: ['component', 'incident'] }),
+    { recordTabOrder: [token], recentCreateActions: ['component', 'incident'] },
+  );
+  for (const patch of [
+    { recordTabOrder: [token, token] },
+    { recordTabOrder: ['/tasks/private-record'] },
+    { recordTabOrder: Array.from({ length: 21 }, (_, i) => i.toString(16).padStart(32, '0')) },
+    { recentCreateActions: ['component', 'component'] },
+    { recentCreateActions: ['unknown'] },
+    { recentCreateActions: ['incident', 'task', 'rca', 'component', 'service', 'monitor'] },
+  ])
+    assert.throws(() => preferencePatch(patch));
+  assert.deepEqual(
+    uiPreferences({ recordTabOrder: ['/private'], recentCreateActions: ['unknown'] })
+      .recordTabOrder,
+    [],
+  );
 });

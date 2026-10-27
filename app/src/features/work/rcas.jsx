@@ -1,8 +1,9 @@
+import { CreateButton } from '../../components/create-button.jsx';
 import { RecordArticle } from '../../components/record-article.jsx';
 import { RecordFieldLayout } from '../../components/forms/record-field-layout.jsx';
 import { useListFilter } from '../../data/use-list-filter.js';
 import { recordFields } from '../../../../shared/forms/form-options.js';
-import { PlusIcon, AdjustmentsHorizontalIcon } from '@heroicons/react/24/outline';
+import { AdjustmentsHorizontalIcon } from '@heroicons/react/24/outline';
 import React, { useContext, useEffect, useId, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { RCA_STATUSES, RCA_SECTIONS, RCA_FIELDS } from '../../../../shared/domain/rca.js';
@@ -48,13 +49,12 @@ export function RcaList({ incidentId = '', taskId = '', related = false }) {
       dateColumn="updatedAt"
       actions={
         canEdit ? (
-          <Link
+          <CreateButton
             className="btn-primary"
             to={`/rcas/new?${new URLSearchParams({ incidentId, taskId })}`}
           >
-            <PlusIcon className="h-5 w-5 shrink-0" aria-hidden="true" />
             Create
-          </Link>
+          </CreateButton>
         ) : undefined
       }
       secondaryActions={
@@ -154,9 +154,9 @@ export function RcaPage({ create = false }) {
         >
           Cancel
         </button>
-        <button type="submit" form={formId} className="btn-primary" disabled={save.busy}>
-          Save
-        </button>
+        <CreateButton type="submit" form={formId} disabled={save.busy}>
+          {create ? 'Create' : 'Save'}
+        </CreateButton>
       </>
     ) : undefined;
   const content =

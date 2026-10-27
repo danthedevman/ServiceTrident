@@ -1,3 +1,4 @@
+import { CreateButton } from '../../components/create-button.jsx';
 import { StaticRecordFields } from '../../components/forms/record-field-layout.jsx';
 import {
   monitorIntervalMinutes,
@@ -214,11 +215,6 @@ function MonitorEditor({ monitor, onReset, defaults, readOnly }) {
               disabled={!selectedService || serviceState.loading}
             />
           )}
-          {serviceId && !readOnly && (
-            <p className="field-hint">
-              Optional. Select components in the service’s Components field, then choose one here.
-            </p>
-          )}
           <label className="field-label">
             Endpoint URL *
             <input
@@ -391,9 +387,9 @@ function MonitorEditor({ monitor, onReset, defaults, readOnly }) {
         {!readOnly && (
           <RecordActions>
             <CancelButton onCancel={onReset} to="/monitors" disabled={busy} />
-            <button className="btn-primary" disabled={busy}>
-              {busy ? 'Saving…' : monitor ? 'Save' : 'Create Monitor'}
-            </button>
+            <CreateButton className="btn-primary" disabled={busy}>
+              {monitor ? 'Save' : 'Create'}
+            </CreateButton>
           </RecordActions>
         )}
       </ValidatedForm>

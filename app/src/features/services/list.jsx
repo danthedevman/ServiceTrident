@@ -1,4 +1,4 @@
-import { PlusIcon } from '@heroicons/react/24/outline';
+import { CreateButton } from '../../components/create-button.jsx';
 import React from 'react';
 import { Link, Navigate, useSearchParams } from 'react-router-dom';
 import { StateBadge } from '../../components/state-badge.jsx';
@@ -75,10 +75,9 @@ export function CatalogPage({ kind = 'services' }) {
         }
         actions={
           <AdminOnly>
-            <Link className="btn-primary" to={`/${kind}/new`}>
-              <PlusIcon className="h-5 w-5 shrink-0" aria-hidden="true" />
+            <CreateButton className="btn-primary" to={`/${kind}/new`}>
               Create
-            </Link>
+            </CreateButton>
           </AdminOnly>
         }
         title={isService ? 'Services' : 'Collections'}

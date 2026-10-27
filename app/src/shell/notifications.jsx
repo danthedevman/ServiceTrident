@@ -9,6 +9,8 @@ import { BellIcon, XMarkIcon, ArrowPathIcon } from '@heroicons/react/24/outline'
 import { useResource } from '../data/use-resource.js';
 import { useSave } from '../data/use-save.js';
 import { RecordLink } from '../components/record-navigation.jsx';
+import { SearchInput } from '../components/forms/search-input.jsx';
+import { Select } from '../components/forms/select.jsx';
 import { DateTime } from '../preferences/date-time.jsx';
 
 export function Notifications() {
@@ -197,17 +199,51 @@ function NotificationEntries({ entries, onOpen }) {
 }
 export function NotificationsPage() {
   const [tab, setTab] = useState('all');
+  const [search, setSearch] = useState(''),
+    [query, setQuery] = useState(''),
+    [order, setOrder] = useState('desc');
+  useEffect(() => {
+    const timer = setTimeout(() => setQuery(search.trim()), 250);
+    return () => clearTimeout(timer);
+  }, [search]);
   return (
     <section className="space-y-4" aria-label="Notification history">
       <NotificationTabs value={tab} onChange={setTab} all prefix="notification-page" />
-      <NotificationHistory key={tab} state={tab} />
+      <div className="flex flex-wrap items-end justify-end gap-3">
+        <label className="field-label flex-1 sm:max-w-sm">
+          <span className="sr-only">Search Notifications</span>
+          <SearchInput
+            value={search}
+            maxLength={100}
+            placeholder="Search title, number, or author"
+            onChange={(event) => setSearch(event.target.value)}
+          />
+        </label>
+        <label className="field-label">
+          Created
+          <Select
+            aria-label="Created"
+            value={order}
+            onChange={(event) => setOrder(event.target.value)}
+          >
+            <option value="desc">Newest First</option>
+            <option value="asc">Oldest First</option>
+          </Select>
+        </label>
+      </div>
+      <NotificationHistory
+        key={`${tab}-${query}-${order}`}
+        state={tab}
+        search={query}
+        order={order}
+      />
     </section>
   );
 }
-function NotificationHistory({ state }) {
+function NotificationHistory({ state, search, order }) {
   const { user } = useContext(AuthContext),
     save = useSave();
-  const path = `/notifications?state=${state}&pageSize=50`;
+  const path = `/notifications?${new URLSearchParams({ state, pageSize: 50, search, order })}`;
   const query = useInfiniteQuery({
     ...resourceOptions(path, user?.email ?? null),
     queryKey: [...resourceOptions(path, user?.email ?? null).queryKey, 'cursor'],

@@ -1,3 +1,4 @@
+import { CreateButton } from '../../components/create-button.jsx';
 import { useResource } from '../../data/use-resource.js';
 import { ValidatedForm } from '../../components/forms/validated-form.jsx';
 import React, { useState } from 'react';
@@ -25,8 +26,7 @@ export function UserAccountForm({ reset = false }) {
   const back = reset ? `/workspace/${id}` : '/workspace';
   const change = (key) => (event) => setValue({ ...value, [key]: event.target.value });
   const fields = { ...save.fields, ...errors };
-  function submit(event) {
-    event.preventDefault();
+  function validateAccount() {
     let found = fieldErrors('auth', {
       email: reset ? 'reset@example.com' : value.email,
       password: value.password,
@@ -41,6 +41,11 @@ export function UserAccountForm({ reset = false }) {
     }
     if (value.password !== value.confirmPassword) found.confirmPassword = 'Passwords must match.';
     if (reset && !value.currentPassword) found.currentPassword = 'Enter your current password.';
+    return found;
+  }
+  function submit(event) {
+    event.preventDefault();
+    const found = validateAccount();
     setErrors(found);
     if (Object.keys(found).length) {
       notify('Please correct the highlighted fields.', 'error');
@@ -58,7 +63,12 @@ export function UserAccountForm({ reset = false }) {
   }
   return (
     <FormPage title={reset ? 'Reset Password' : 'Create User'}>
-      <ValidatedForm noValidate className="form-body" onSubmit={submit}>
+      <ValidatedForm
+        noValidate
+        className="form-body"
+        validateValues={validateAccount}
+        onSubmit={submit}
+      >
         <Notice error={save.error || Object.values(errors)[0]} />
         {!reset && (
           <>
@@ -185,9 +195,9 @@ export function UserAccountForm({ reset = false }) {
           >
             Cancel
           </button>
-          <button className="btn-primary" disabled={save.busy}>
-            {save.busy ? 'Saving…' : reset ? 'Reset Password' : 'Create User'}
-          </button>
+          <CreateButton className="btn-primary" disabled={save.busy}>
+            {reset ? 'Reset Password' : 'Create'}
+          </CreateButton>
         </RecordActions>
       </ValidatedForm>
     </FormPage>

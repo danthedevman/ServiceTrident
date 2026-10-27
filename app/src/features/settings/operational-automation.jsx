@@ -1,3 +1,4 @@
+import { CreateButton } from '../../components/create-button.jsx';
 import { PageTitleRow } from '../../components/page-title.jsx';
 import React, { useId, useState } from 'react';
 import { useResource } from '../../data/use-resource.js';
@@ -112,17 +113,17 @@ export function AutomationSettings({ kind }) {
               >
                 Cancel
               </button>
-              <button
+              <CreateButton
                 type="submit"
                 form={formId}
                 className="btn-primary"
                 disabled={busy || (kind === 'eventRules' && draft.enabled && !preview)}
               >
-                Save
-              </button>
+                {state.data[kind].some((item) => item.id === draft.id) ? 'Save' : 'Create'}
+              </CreateButton>
             </>
           ) : (
-            <button
+            <CreateButton
               type="button"
               className="btn-primary"
               disabled={busy || !state.data}
@@ -133,7 +134,7 @@ export function AutomationSettings({ kind }) {
               }}
             >
               Create
-            </button>
+            </CreateButton>
           )
         }
       />
@@ -615,14 +616,14 @@ export function ProbeSettings() {
       <PageTitleRow
         title="Probe Agents"
         actions={
-          <button
+          <CreateButton
             type="submit"
             form={formId}
             className="btn-primary"
             disabled={busy || !state.data}
           >
             Create
-          </button>
+          </CreateButton>
         }
       />
       <p className="text-sm">

@@ -1,6 +1,7 @@
+import { CreateButton } from '../../components/create-button.jsx';
 import { RecordTabs } from '../../components/record-tabs.jsx';
 import React, { useContext, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { AuthContext } from '../../auth/auth-context.js';
 import { useResource } from '../../data/use-resource.js';
 import { writeApi } from '../../data/query-client.js';
@@ -13,6 +14,7 @@ import { AutoTextarea } from '../../components/forms/auto-textarea.jsx';
 import { ConfirmDeleteButton } from '../../components/confirm-delete-button.jsx';
 import { ErrorNotice } from '../../components/feedback.jsx';
 import { FormSkeleton } from '../../components/skeleton.jsx';
+import { ReferenceField } from '../../components/forms/reference-field.jsx';
 import { ReferenceValue } from '../../components/reference-value.jsx';
 
 /** The same authorized component table serves the list and a service's related records. */
@@ -29,7 +31,12 @@ export function ComponentsTable({ serviceId }) {
           key: 'number',
           label: 'Number',
           render: (row) => (
-            <ReferenceValue type="components" id={row.id} label={row.number || row.name} />
+            <ReferenceValue
+              type="components"
+              id={row.id}
+              label={row.number || row.name}
+              showIcon={false}
+            />
           ),
         },
         {
@@ -41,22 +48,27 @@ export function ComponentsTable({ serviceId }) {
       ]}
       actions={
         user?.role === 'admin' ? (
-          <Link className="btn-primary" to="/components/new">
-            Create Component
-          </Link>
+          <CreateButton
+            className="btn-primary"
+            to={`/components/new${serviceId ? `?serviceId=${serviceId}` : ''}`}
+          >
+            Create
+          </CreateButton>
         ) : undefined
       }
     />
   );
 }
 
-/** Component records have their own form; service membership is edited through service references. */
+/** Creation can also associate the new component with an existing service. */
 export function ComponentPage({ create = false }) {
   const { id } = useParams(),
     { user } = useContext(AuthContext),
-    navigate = useNavigate();
+    navigate = useNavigate(),
+    [searchParams] = useSearchParams();
+  const [serviceId, setServiceId] = useState(searchParams.get('serviceId') || '');
   const resource = useResource(create ? null : `/components/${id}`);
-  const services = useResource(create ? null : '/services');
+  const services = useResource('/services');
   const linkedServices =
     services.data?.services?.filter((service) => (service.componentIds || []).includes(id)) || [];
   const item = resource.data?.item;
@@ -76,6 +88,7 @@ export function ComponentPage({ create = false }) {
         body: {
           name: values.get('name'),
           description: values.get('description'),
+          ...(create ? { serviceId } : {}),
           ...(item ? { revision: item.revision } : {}),
         },
       });
@@ -121,6 +134,22 @@ export function ComponentPage({ create = false }) {
             defaultValue={item?.description || ''}
           />
         </label>
+        {create && (
+          <>
+            <ErrorNotice>{services.error}</ErrorNotice>
+            <ReferenceField
+              referenceType="services"
+              label="Service"
+              name="serviceId"
+              value={serviceId}
+              options={(services.data?.services || []).map((service) => ({
+                id: service.id,
+                label: service.name,
+              }))}
+              onChange={setServiceId}
+            />
+          </>
+        )}
       </StaticRecordFields>
       {!readOnly && (
         <RecordActions>
@@ -132,9 +161,9 @@ export function ComponentPage({ create = false }) {
           >
             Cancel
           </button>
-          <button className="btn-primary" disabled={busy}>
-            {create ? 'Create Component' : 'Save'}
-          </button>
+          <CreateButton className="btn-primary" disabled={busy}>
+            {create ? 'Create' : 'Save'}
+          </CreateButton>
         </RecordActions>
       )}
     </ValidatedForm>
@@ -166,6 +195,7 @@ export function ComponentPage({ create = false }) {
                             type="monitors"
                             id={row.id}
                             label={row.number || row.name}
+                            showIcon={false}
                           />
                         ),
                       },
@@ -180,12 +210,12 @@ export function ComponentPage({ create = false }) {
                     ]}
                     actions={
                       user?.role === 'admin' && linkedServices.length ? (
-                        <Link
+                        <CreateButton
                           className="btn-primary"
                           to={`/monitors/new?componentId=${id}${linkedServices.length === 1 ? `&serviceId=${linkedServices[0].id}` : ''}`}
                         >
-                          Create Monitor
-                        </Link>
+                          Create
+                        </CreateButton>
                       ) : undefined
                     }
                   />

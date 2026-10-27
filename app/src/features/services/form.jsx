@@ -1,3 +1,4 @@
+import { CreateButton } from '../../components/create-button.jsx';
 import { useResource } from '../../data/use-resource.js';
 import { StaticRecordFields } from '../../components/forms/record-field-layout.jsx';
 import { healthPolicy } from '../../../../shared/domain/service-health.js';
@@ -162,7 +163,6 @@ export function CatalogForm({
             value={componentIds}
             onChange={setComponentIds}
             disabled={componentRecords.loading || !!componentRecords.error}
-            helpText="Select the components used by this service, or create a component from the picker."
           />
         )}
         {isService && (
@@ -278,20 +278,15 @@ export function CatalogForm({
         {isService && (
           <p className="field-hint">
             A dependency outage affects this service's current status. Cycles are not allowed.
-            Select component records above, then choose one when assigning monitors.
           </p>
         )}
       </StaticRecordFields>
       {!readOnly && (
         <RecordActions>
           <CancelButton onCancel={onCancel} to={`/${kind}`} disabled={busy} />
-          <button className="btn-primary" disabled={busy}>
-            {busy
-              ? 'Saving…'
-              : item
-                ? 'Save'
-                : `Create ${kind === 'services' ? 'Service' : 'Collection'}`}
-          </button>
+          <CreateButton className="btn-primary" disabled={busy}>
+            {item ? 'Save' : 'Create'}
+          </CreateButton>
         </RecordActions>
       )}
     </ValidatedForm>

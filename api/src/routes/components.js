@@ -1,7 +1,7 @@
 import { auditStamp, auditFields } from '@servicetrident/shared/domain/audit';
 import { InputError } from '@servicetrident/shared/validation/input-error';
 import { requireAdmin } from '../auth/auth.js';
-import { catalog, id } from './services.js';
+import { catalog, id, saveCatalog } from './services.js';
 
 export const componentView = (row) => ({
   id: String(row._id),
@@ -47,9 +47,17 @@ export function installComponentRoutes(app, db) {
         !body ||
         typeof body !== 'object' ||
         Array.isArray(body) ||
-        Object.keys(body).some((key) => !['name', 'description', 'revision'].includes(key))
+        Object.keys(body).some(
+          (key) =>
+            ![
+              'name',
+              'description',
+              'revision',
+              ...(method === 'post' ? ['serviceId'] : []),
+            ].includes(key),
+        )
       )
-        throw new InputError('Send only component name, description and revision.', 400);
+        throw new InputError('Send only supported component fields.', 400);
       const current =
         method === 'patch'
           ? await db
@@ -74,6 +82,21 @@ export function installComponentRoutes(app, db) {
           1000
       )
         throw new InputError('A workspace supports up to 1,000 components.', 409);
+      const serviceId = method === 'post' ? body.serviceId : undefined;
+      let serviceCatalog;
+      if (serviceId !== undefined && serviceId !== '') {
+        id(serviceId);
+        serviceCatalog = await catalog(db, req.workspaceId);
+        const service = serviceCatalog.services.find((entry) => entry.id === serviceId);
+        if (!service)
+          throw new InputError('Select a service in this workspace.', 400, {
+            serviceId: 'Select an available service.',
+          });
+        if (service.componentIds.length >= 50)
+          throw new InputError('This service already has 50 components.', 400, {
+            serviceId: 'Choose another service or remove an existing component first.',
+          });
+      }
       const row = {
         ...auditStamp(current, req.user),
         workspaceId: req.workspaceId,
@@ -94,21 +117,39 @@ export function installComponentRoutes(app, db) {
             );
           if (!result.matchedCount)
             throw new InputError('This component changed. Reload before saving.', 409);
-          await db
-            .collection('monitors')
-            .updateMany(
-              { userId: req.workspaceId, componentId: String(_id), component: { $ne: row.name } },
-              {
-                $set: {
-                  component: row.name,
-                  updatedAt: row.updatedAt,
-                  updatedBy: row.updatedBy,
-                  updatedById: row.updatedById,
-                },
-                $inc: { revision: 1 },
+          await db.collection('monitors').updateMany(
+            { userId: req.workspaceId, componentId: String(_id), component: { $ne: row.name } },
+            {
+              $set: {
+                component: row.name,
+                updatedAt: row.updatedAt,
+                updatedBy: row.updatedBy,
+                updatedById: row.updatedById,
               },
+              $inc: { revision: 1 },
+            },
+          );
+        } else {
+          _id = (await db.collection('components').insertOne(row)).insertedId;
+          if (serviceCatalog) {
+            serviceCatalog.services = serviceCatalog.services.map((service) =>
+              service.id === serviceId
+                ? {
+                    ...service,
+                    ...auditStamp(service, req.user),
+                    componentIds: [...service.componentIds, String(_id)],
+                  }
+                : service,
             );
-        } else _id = (await db.collection('components').insertOne(row)).insertedId;
+            try {
+              await saveCatalog(db, serviceCatalog);
+            } catch (error) {
+              // A failed catalog revision must not leave an unassociated creation behind.
+              await db.collection('components').deleteOne({ _id, workspaceId: req.workspaceId });
+              throw error;
+            }
+          }
+        }
       } catch (error) {
         if (error.code === 11000)
           throw new InputError('A component with this name already exists.', 409, {

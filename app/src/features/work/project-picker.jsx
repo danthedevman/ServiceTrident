@@ -1,4 +1,5 @@
-import { PlusIcon, PencilSquareIcon } from '@heroicons/react/24/outline';
+import { CreateButton } from '../../components/create-button.jsx';
+import { PencilSquareIcon } from '@heroicons/react/24/outline';
 import { createPortal } from 'react-dom';
 import React, { useContext, useEffect, useState, useId } from 'react';
 import { AuthContext } from '../../auth/auth-context.js';
@@ -44,20 +45,15 @@ export function ProjectPicker({
         </div>
       )}
       {editable && showCreate && (
-        <button
+        <CreateButton
           type="button"
-          className={
-            showSelector
-              ? 'btn-secondary !h-11 !w-11 !p-0 inline-flex items-center justify-center shrink-0'
-              : 'btn-primary inline-flex items-center gap-2'
-          }
-          aria-label={actionLabel || 'Create Project'}
+          className="btn-primary shrink-0"
+          aria-label="Create"
           title="Create Project"
           onClick={() => setMode('create')}
         >
-          <PlusIcon className="h-4 w-4" aria-hidden="true" />
-          {!showSelector && (actionLabel || 'Create')}
-        </button>
+          Create
+        </CreateButton>
       )}
       {editable && showEdit && value && (
         <button
@@ -239,14 +235,14 @@ function ProjectForm({
             >
               Cancel
             </button>
-            <button
+            <CreateButton
               type="submit"
               form={formId}
               className={deleting ? 'btn-danger' : 'btn-primary'}
               disabled={save.busy}
             >
               {deleting ? 'Delete' : item ? 'Save' : 'Create'}
-            </button>
+            </CreateButton>
           </React.Fragment>,
           actionsTarget,
         )}

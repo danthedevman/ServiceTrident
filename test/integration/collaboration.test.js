@@ -214,6 +214,41 @@ test('mentions, watchers and notification reads preserve tenant and internal-not
   assert.equal(alerts.status, 200);
   assert.equal(alerts.data.notifications.length, 2);
   assert.ok(alerts.data.notifications.every((entry) => entry.unread && !('body' in entry)));
+  const oldest = await call('/notifications?order=asc&pageSize=1', staff.cookie);
+  assert.equal(oldest.status, 200);
+  assert.equal(oldest.data.notifications[0].id, alerts.data.notifications.at(-1).id);
+  const oldestNext = await call(
+    `/notifications?order=asc&pageSize=1&cursor=${encodeURIComponent(oldest.data.nextCursor)}`,
+    staff.cookie,
+  );
+  assert.equal(oldestNext.data.notifications[0].id, alerts.data.notifications[0].id);
+  assert.equal(
+    (
+      await call(
+        `/notifications?order=desc&cursor=${encodeURIComponent(oldest.data.nextCursor)}`,
+        staff.cookie,
+      )
+    ).status,
+    400,
+  );
+  assert.equal(
+    (await call('/notifications?search=INC0000001', staff.cookie)).data.notifications.length,
+    2,
+  );
+  assert.equal(
+    (await call('/notifications?search=collaboration', staff.cookie)).data.notifications.length,
+    2,
+  );
+  assert.equal(
+    (await call('/notifications?search=%5B.*%5D', staff.cookie)).data.notifications.length,
+    0,
+  );
+  assert.equal(
+    (await call('/notifications?search=collaboration', foreign.cookie)).data.notifications.length,
+    0,
+  );
+  assert.equal((await call('/notifications?order=invalid', staff.cookie)).status, 400);
+  assert.equal((await call(`/notifications?search=${'x'.repeat(101)}`, staff.cookie)).status, 400);
   const first = await call('/notifications?pageSize=1&state=all', staff.cookie);
   assert.equal(first.status, 200, first.data.error);
   assert.equal(first.data.notifications.length, 1);

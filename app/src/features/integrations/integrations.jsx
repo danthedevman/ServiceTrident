@@ -1,7 +1,7 @@
+import { CreateButton } from '../../components/create-button.jsx';
 import { ConfirmDeleteButton } from '../../components/confirm-delete-button.jsx';
 import { PageTitle } from '../../components/page-title.jsx';
 import { RecordHeader } from '../../components/record-actions.jsx';
-import { PlusIcon } from '@heroicons/react/24/outline';
 import { api } from '../../data/api.js';
 import { writeApi } from '../../data/query-client.js';
 import { StateBadge } from '../../components/state-badge.jsx';
@@ -117,14 +117,13 @@ export function IntegrationsPage({ form = false }) {
   }
 
   const actions = (
-    <button
+    <CreateButton
       disabled={!config.data}
       className="btn-primary"
       onClick={() => navigate('/integrations/new')}
     >
-      <PlusIcon className="h-5 w-5 shrink-0" aria-hidden="true" />
       Create
-    </button>
+    </CreateButton>
   );
   return (
     <div className="list-page integrations-page">

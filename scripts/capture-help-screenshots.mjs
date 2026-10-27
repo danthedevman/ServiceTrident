@@ -53,6 +53,14 @@ const captureScreenshot = page.screenshot.bind(page);
 // Record documentation shows the reading area; panel behavior is tested separately.
 page.screenshot = async (options) => {
   if (options?.path?.endsWith('/failure.png')) return captureScreenshot(options);
+  await page.waitForFunction(
+    () =>
+      ![...document.querySelectorAll('.skeleton')].some(
+        (node) => node.getClientRects().length && getComputedStyle(node).visibility !== 'hidden',
+      ),
+  );
+  await page.evaluate(() => document.fonts.ready);
+
   const collapse = page.locator(
     '.record-sticky-header button[aria-label="Collapse record information"]',
   );
@@ -446,11 +454,16 @@ await context.route('**/api/**', async (route) => {
       unread: !notificationsRead && index % 3 !== 2,
       createdAt: new Date(Date.UTC(2026, 9, 15, 11, 30) - index * 60000).toISOString(),
     })).filter((row) => state === 'all' || (state === 'unread' ? row.unread : !row.unread));
+    const search = (url.searchParams.get('search') || '').toLowerCase();
+    const filtered = entries.filter((row) =>
+      [row.title, row.number, row.author].some((text) => text.toLowerCase().includes(search)),
+    );
+    if (url.searchParams.get('order') === 'asc') filtered.reverse();
     data = {
-      notifications: entries.slice(offset, offset + size),
+      notifications: filtered.slice(offset, offset + size),
       checkedAt: new Date().toISOString(),
-      nextCursor: offset + size < entries.length ? `page-${offset + size}` : null,
-      hasMore: offset + size < entries.length,
+      nextCursor: offset + size < filtered.length ? `page-${offset + size}` : null,
+      hasMore: offset + size < filtered.length,
     };
   } else if (path === '/notifications/read') {
     notificationsRead = true;
@@ -577,6 +590,13 @@ await context.route('**/api/**', async (route) => {
         ? [demoIncident]
         : [];
     data = { incidents: rows, total: rows.length, page: 1, pageSize: 50 };
+  } else if (path === `/incidents/${demoIncident.id}/articles`) {
+    assert.equal(request.method(), 'PATCH');
+    const body = request.postDataJSON();
+    assert.equal(body.revision, demoIncident.revision);
+    demoIncident.knowledgeIds = body.knowledgeIds;
+    demoIncident.revision++;
+    data = { knowledgeIds: body.knowledgeIds, revision: demoIncident.revision };
   } else if (path === `/incidents/${demoIncident.id}`) {
     if (request.method() === 'PATCH') {
       incidentWrites++;
@@ -586,7 +606,7 @@ await context.route('**/api/**', async (route) => {
     }
     data = {
       incident: demoIncident,
-      knowledge: [],
+      knowledge: demoArticles.filter((row) => (demoIncident.knowledgeIds || []).includes(row.id)),
       comments: demoComments,
       origin:
         user.role === 'user'
@@ -935,6 +955,13 @@ await context.route('**/api/**', async (route) => {
         components: componentRecords.filter((row) => capturedComponents.includes(row.id)),
       },
     };
+  } else if (path === '/components' && request.method() === 'POST') {
+    const body = request.postDataJSON();
+    const item = { id: 'cacacacacacacacacacacaca', number: 'CMP0000004', revision: 0, ...body };
+    componentRecords.push(item);
+    if (body.serviceId)
+      services.find((row) => row.id === body.serviceId).componentIds.push(item.id);
+    data = { item };
   } else if (path === '/components') data = { items: componentRecords };
   else if (path.startsWith('/components/'))
     data = { item: componentRecords.find((row) => row.id === path.split('/').pop()) };
@@ -1407,6 +1434,35 @@ await context.route('**/api/**', async (route) => {
         .map((row) => ({ id: row.id, label: row.title })),
       hasMore: false,
     };
+  else if (path === '/references/knowledge') {
+    const q = (url.searchParams.get('q') || '').toLowerCase();
+    data = {
+      options: demoArticles
+        .filter((row) => row.title.toLowerCase().includes(q))
+        .slice(
+          (Number(url.searchParams.get('page') || 1) - 1) * 30,
+          Number(url.searchParams.get('page') || 1) * 30,
+        )
+        .map((row) => ({ id: row.id, label: row.title })),
+      selected: demoArticles
+        .filter((row) => (url.searchParams.get('selected') || '').includes(row.id))
+        .map((row) => ({ id: row.id, label: row.title })),
+      hasMore:
+        demoArticles.filter((row) => row.title.toLowerCase().includes(q)).length >
+        Number(url.searchParams.get('page') || 1) * 30,
+    };
+  } else if (path === '/search')
+    data = {
+      results: [
+        {
+          type: 'services',
+          id: services[0].id,
+          title: services[0].name,
+          href: `/services/${services[0].id}`,
+          label: 'Service',
+        },
+      ],
+    };
   else if (path.startsWith('/references/')) data = { options: [], selected: [], hasMore: false };
   else if (path === '/auth/preferences') {
     user.uiPreferences = uiPreferences({ ...user.uiPreferences, ...request.postDataJSON() });
@@ -1449,7 +1505,10 @@ async function captureRcaWorkflows() {
   await page.getByRole('combobox', { name: 'Corrective Action Tasks', exact: true }).click();
   await page.getByRole('option', { name: tasks[0].title, exact: true }).click();
   await page.keyboard.press('Escape');
-  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await page
+    .locator('.record-sticky-header')
+    .getByRole('button', { name: 'Create', exact: true })
+    .click();
   await page.waitForURL('**/rcas/fafafafafafafafafafafafa');
   await page.locator('.rca-reader [data-record-field=title]').waitFor();
   await page.screenshot({ path: `${output}/rca-record.png` });
@@ -2204,6 +2263,33 @@ async function captureChatWorkspace() {
       'Answers preserve the reading position',
     );
   }
+  const activeProposals = await panel
+    .getByRole('button', { name: 'Simulate Action', exact: true })
+    .count();
+  await panel.getByRole('button', { name: 'Conversation History', exact: true }).click();
+  assert.equal(
+    await panel.locator('.ai-conversation-entry').count(),
+    1,
+    'Current chat appears without first starting another conversation',
+  );
+  await panel.locator('.ai-conversation-entry[aria-current="true"]').click();
+  assert.equal(await panel.locator('article').count(), 12);
+  assert.equal(
+    await panel.getByRole('button', { name: 'Simulate Action', exact: true }).count(),
+    activeProposals,
+    'Returning to the current chat preserves its active proposal',
+  );
+  await panel.getByRole('button', { name: 'Close AI Chat', exact: true }).click();
+  await page.getByRole('button', { name: 'Open AI Chat', exact: true }).click();
+  await panel.getByRole('button', { name: 'Conversation History', exact: true }).click();
+  assert.equal(
+    await panel.locator('.ai-conversation-entry').count(),
+    1,
+    'Current history survives closing the panel',
+  );
+  await page.locator('.desktop-sidebar a[href="/services"]').first().click();
+  await panel.locator('.ai-conversation-entry[aria-current="true"]').waitFor();
+  await panel.locator('.ai-conversation-entry[aria-current="true"]').click();
   await panel.getByRole('button', { name: 'New Conversation', exact: true }).click();
   assert.equal(await panel.locator('article').count(), 0);
   await panel.getByRole('button', { name: 'Conversation History', exact: true }).click();
@@ -2331,6 +2417,23 @@ async function captureNotificationHistory() {
     () => document.querySelectorAll('.notification-history .notification-entry').length === 61,
   );
   await page.screenshot({ path: `${output}/notifications-page.png` });
+  await page.getByRole('searchbox', { name: 'Search Notifications', exact: true }).fill('Taylor');
+  await page.waitForFunction(
+    () => document.querySelectorAll('.notification-history .notification-entry').length === 30,
+  );
+  await page.getByRole('combobox', { name: 'Created', exact: true }).click();
+  await page.getByRole('option', { name: 'Oldest First', exact: true }).click();
+  await page.waitForFunction(() =>
+    document
+      .querySelector('.notification-history .notification-entry')
+      ?.textContent.includes('Taylor'),
+  );
+  await page
+    .getByRole('searchbox', { name: 'Search Notifications', exact: true })
+    .fill('no-matching-alert');
+  await page.getByText('No notifications in this view.', { exact: true }).waitFor();
+  await page.getByRole('searchbox', { name: 'Search Notifications', exact: true }).fill('');
+  await page.getByRole('button', { name: 'Load More', exact: true }).waitFor();
   await page.getByRole('tab', { name: 'Unread', exact: true }).click();
   await page.getByRole('button', { name: 'Mark all as read', exact: true }).click();
   await page.getByText('No notifications in this view.', { exact: true }).waitFor();
@@ -2378,7 +2481,7 @@ async function captureEventManagement() {
   );
   assert.equal(demoEventAlert.status, 'acknowledged');
   await page.screenshot({ path: `${output}/event-alert.png` });
-  await page.getByRole('link', { name: 'Create Incident', exact: true }).click();
+  await page.getByRole('link', { name: 'Create', exact: true }).click();
   await page.getByLabel('Title *', { exact: true }).waitFor();
   assert.equal(
     await page.getByLabel('Title *', { exact: true }).inputValue(),
@@ -2519,6 +2622,414 @@ async function verifyFormHeadingRows() {
 }
 
 try {
+  if (process.env.HELP_CAPTURE_FOCUS === 'ai-models') {
+    user.role = 'admin';
+    aiProvider = { type: 'openai', model: 'saved-custom-model', configured: true };
+    for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto(`${base}/integrations/ai`);
+      await page.getByLabel('Custom Model', { exact: true }).waitFor();
+      assert.equal(
+        await page.getByLabel('Custom Model', { exact: true }).inputValue(),
+        aiProvider.model,
+      );
+      await page.getByRole('button', { name: 'Model', exact: true }).click();
+      await page.getByRole('combobox', { name: 'Search Models', exact: true }).fill('Sol');
+      await page.getByRole('option', { name: 'GPT-6.1 Sol', exact: true }).click();
+      assert.equal(
+        await page.getByRole('button', { name: 'Test Connection', exact: true }).isDisabled(),
+        true,
+      );
+      await page.getByRole('button', { name: 'Save', exact: true }).click();
+      await page.waitForFunction(() =>
+        [...document.querySelectorAll('button')].some(
+          (button) => button.textContent.trim() === 'Test Connection' && !button.disabled,
+        ),
+      );
+      assert.equal(aiProvider.model, 'gpt-6.1-sol');
+      await page.getByRole('button', { name: 'Model', exact: true }).click();
+      await page.getByRole('option', { name: 'GPT-6 Astra', exact: true }).waitFor();
+      await page.screenshot({
+        path: `${output}/ai-model-picker${width === 390 ? '-mobile' : ''}.png`,
+      });
+      await page.keyboard.press('Escape');
+      await page.getByRole('combobox', { name: 'Provider', exact: true }).click();
+      await page.getByRole('option', { name: 'Claude (Anthropic)', exact: true }).click();
+      assert.equal(await page.getByLabel('API Key', { exact: true }).inputValue(), '');
+      await page.getByRole('button', { name: 'Model', exact: true }).click();
+      assert.equal(await page.getByRole('option', { name: 'GPT-6.1 Sol', exact: true }).count(), 0);
+      await page.getByRole('option', { name: 'Claude Sonnet 5.5', exact: true }).click();
+      await page.getByLabel('API Key', { exact: true }).fill('synthetic-browser-test-key');
+      await page.getByRole('button', { name: 'Save', exact: true }).click();
+      await page.waitForFunction(() => document.querySelector('input[name="aiKey"]')?.value === '');
+      assert.equal(aiProvider.type, 'claude');
+      assert.equal(aiProvider.model, 'claude-sonnet-5-5');
+      await page.getByRole('button', { name: 'Test Connection', exact: true }).click();
+      await page.getByText('Provider connection succeeded.', { exact: true }).waitFor();
+      await page.getByRole('button', { name: 'Model', exact: true }).click();
+      await page.getByRole('option', { name: 'Custom Model', exact: true }).click();
+      await page.getByRole('button', { name: 'Save', exact: true }).click();
+      await page.getByRole('button', { name: 'Custom Model is required.', exact: true }).waitFor();
+      await page.getByLabel('Custom Model', { exact: true }).fill('custom-claude-model');
+      await page
+        .getByRole('button', { name: 'Custom Model is required.', exact: true })
+        .waitFor({ state: 'hidden' });
+      await page.getByRole('button', { name: 'Save', exact: true }).click();
+      await page.waitForFunction(
+        () =>
+          document.querySelector('input[name="aiCustomModel"]')?.value === 'custom-claude-model',
+      );
+      await page.waitForFunction(() =>
+        [...document.querySelectorAll('button')].some(
+          (button) => button.textContent.trim() === 'Test Connection' && !button.disabled,
+        ),
+      );
+      assert.equal(aiProvider.model, 'custom-claude-model');
+      aiProvider = { type: 'openai', model: 'saved-custom-model', configured: true };
+      aiRevision++;
+    }
+    assert.deepEqual(faults, []);
+    console.log(
+      'Verified provider-specific searchable model choices, saved/custom IDs, provider resets, required validation, synthetic connection testing and desktop/mobile scrolling.',
+    );
+    await browser.close();
+    process.exit(0);
+  }
+  if (process.env.HELP_CAPTURE_FOCUS === 'live-validation') {
+    user.role = 'admin';
+    builderFields.push(
+      {
+        id: 'custom_region',
+        label: 'Region',
+        type: 'select',
+        required: true,
+        options: ['East', 'West'],
+      },
+      { id: 'custom_approved', label: 'Approval', type: 'checkbox', required: true },
+    );
+    for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto(`${base}/components/new`);
+      await page
+        .locator('.record-sticky-header')
+        .getByRole('button', { name: 'Create', exact: true })
+        .click();
+      const name = page.getByRole('textbox', { name: 'Name *', exact: true });
+      await page.getByRole('button', { name: 'Name is required.', exact: true }).waitFor();
+      await name.fill('   ');
+      await page.getByRole('button', { name: 'Name is required.', exact: true }).waitFor();
+      await name.fill('Synthetic component');
+      await page
+        .getByRole('button', { name: 'Name is required.', exact: true })
+        .waitFor({ state: 'hidden' });
+      assert.ok(
+        await name.evaluate((node) => document.activeElement === node),
+        'Correction retains input focus',
+      );
+      assert.notEqual(await name.getAttribute('aria-invalid'), 'true');
+      await name.fill('');
+      await page.getByRole('button', { name: 'Name is required.', exact: true }).waitFor();
+      await name.fill('Corrected component');
+      await page.getByRole('alert').waitFor({ state: 'hidden' });
+      await page.goto(`${base}/monitors/new`);
+      await page
+        .locator('.record-sticky-header')
+        .getByRole('button', { name: 'Create', exact: true })
+        .click();
+      const monitorName = page.getByRole('textbox', { name: 'Monitor name *', exact: true });
+      await monitorName.fill('Synthetic monitor');
+      const url = page.locator('input[name="url"]');
+      await url.fill('invalid-url');
+      assert.equal(await url.getAttribute('aria-invalid'), 'true');
+      await url.fill('https://example.com/health');
+      await page.getByRole('button', { name: 'Service is required.', exact: true }).waitFor();
+      const service = page.getByRole('combobox', { name: 'Service *', exact: true });
+      await service.fill('Customer');
+      await page.getByRole('button', { name: 'Service is required.', exact: true }).waitFor();
+      await page.getByRole('option', { name: services[0].name, exact: true }).click();
+      await page.keyboard.press('Escape');
+      await page.getByRole('alert').waitFor({ state: 'hidden' });
+      await page.goto(`${base}/tasks/new`);
+      await page
+        .locator('.record-sticky-header')
+        .getByRole('button', { name: 'Create', exact: true })
+        .click();
+      const region = page.getByRole('combobox', { name: 'Region *', exact: true });
+      await region.waitFor();
+      await region.click();
+      await page.getByRole('option', { name: 'East', exact: true }).click();
+      await page.getByRole('checkbox', { name: 'Approval *', exact: true }).check();
+      await page.getByLabel(/^Title/).fill('Synthetic task');
+      await page.getByRole('alert').waitFor({ state: 'hidden' });
+      assert.notEqual(await region.getAttribute('aria-invalid'), 'true');
+    }
+    await page.goto(`${base}/workspace/new`);
+    await page
+      .locator('.record-sticky-header')
+      .getByRole('button', { name: 'Create', exact: true })
+      .click();
+    await page.locator('input[name="displayName"]').fill('Synthetic tester');
+    await page.locator('input[name="email"]').fill('synthetic@example.invalid');
+    await page.locator('input[name="password"]').fill('synthetic browser test password');
+    await page.locator('input[name="confirmPassword"]').fill('does not match');
+    await page.getByRole('button', { name: 'Passwords must match.', exact: true }).waitFor();
+    await page.locator('input[name="confirmPassword"]').fill('synthetic browser test password');
+    await page.getByRole('alert').waitFor({ state: 'hidden' });
+    anonymous = true;
+    await page.goto(`${base}/register`);
+    await page.getByRole('button', { name: 'Create Account', exact: true }).click();
+    const email = page.locator('input[name="email"]');
+    await email.fill('incorrect');
+    await page
+      .getByRole('button', {
+        name: 'Enter a valid email address, such as you@example.com.',
+        exact: true,
+      })
+      .waitFor();
+    await email.fill('synthetic@example.invalid');
+    await page
+      .getByRole('button', {
+        name: 'Enter a valid email address, such as you@example.com.',
+        exact: true,
+      })
+      .waitFor({ state: 'hidden' });
+    await page.locator('input[name="displayName"]').fill('Synthetic tester');
+    await page.locator('input[name="password"]').fill('short');
+    await page
+      .getByRole('button', { name: 'Password must contain 12 to 128 characters.', exact: true })
+      .waitFor();
+    await page.locator('input[name="password"]').fill('synthetic browser test password');
+    await page.getByRole('alert').waitFor({ state: 'hidden' });
+    assert.deepEqual(faults, []);
+    console.log(
+      'Verified live required/format validation, whitespace, references, selects, checkboxes, error restoration, focus, and auth fields on desktop/mobile.',
+    );
+    await browser.close();
+    process.exit(0);
+  }
+  if (process.env.HELP_CAPTURE_FOCUS === 'creation-article-search') {
+    user.role = 'admin';
+    demoArticles.push({
+      id: 'bcbcbcbcbcbcbcbcbcbcbcbc',
+      title: 'Synthetic recovery procedure',
+      status: 'published',
+      content: 'Safe synthetic instructions',
+    });
+    for (let index = 0; index < 35; index++)
+      demoArticles.push({
+        id: (index + 1).toString(16).padStart(24, '0'),
+        title: `Procedure ${String(index + 1).padStart(2, '0')}`,
+        status: 'published',
+      });
+    for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto(`${base}/components/new?serviceId=${services[0].id}`);
+      await page.getByRole('textbox', { name: 'Name *', exact: true }).fill('Synthetic API');
+      const service = page.getByRole('combobox', { name: 'Service', exact: true });
+      await service.waitFor();
+      await page.screenshot({
+        path: `${output}/component-create${width === 390 ? '-mobile' : ''}.png`,
+      });
+      const create = page
+        .locator('.record-sticky-header')
+        .getByRole('button', { name: 'Create', exact: true });
+      assert.ok(await create.getAttribute('form'), 'Shared Create submits its portaled form');
+      if (width === 1440) {
+        await create.click();
+        await page.waitForURL(`${base}/components/cacacacacacacacacacacaca`);
+        assert.ok(services[0].componentIds.includes('cacacacacacacacacacacaca'));
+      }
+      demoIncident.knowledgeIds = [];
+      await page.goto(`${base}/incidents/${demoIncident.id}`);
+      await page.getByRole('tab', { name: /^Knowledge/ }).click();
+      await page.getByRole('button', { name: 'Link Articles', exact: true }).click();
+      const dialog = page.getByRole('dialog', { name: 'Link Articles', exact: true });
+      await dialog
+        .getByRole('searchbox', { name: 'Search Articles', exact: true })
+        .fill('recovery');
+      await dialog
+        .getByRole('checkbox', { name: 'Synthetic recovery procedure', exact: true })
+        .check();
+      await page.screenshot({
+        path: `${output}/incident-link-articles${width === 390 ? '-mobile' : ''}.png`,
+      });
+      await dialog.getByRole('searchbox', { name: 'Search Articles', exact: true }).fill('');
+      await dialog.getByRole('button', { name: 'Load More', exact: true }).click();
+      const lastArticle = dialog.getByRole('checkbox', { name: 'Procedure 35', exact: true });
+      await lastArticle.scrollIntoViewIfNeeded();
+      await lastArticle.focus();
+      const scroll = await dialog.locator(':scope > div').evaluate((node) => ({
+        top: node.scrollTop,
+        total: node.scrollHeight,
+        height: node.clientHeight,
+      }));
+      assert.ok(
+        scroll.top > 0 && scroll.total > scroll.height,
+        'Populated article results scroll within the dialog',
+      );
+      await dialog.getByRole('button', { name: 'Link Articles', exact: true }).click();
+      await dialog.waitFor({ state: 'hidden' });
+      assert.ok(demoIncident.knowledgeIds.includes(demoArticles[0].id));
+      await page.getByRole('button', { name: 'Search Workspace', exact: true }).click();
+      const search = page.getByRole('dialog', { name: 'Search Workspace', exact: true });
+      await search.getByRole('searchbox', { name: 'Search', exact: true }).fill('Synthetic');
+      await search.getByRole('link').first().waitFor();
+      assert.equal(await search.getByText('Up to 6 matches', { exact: false }).count(), 0);
+      assert.equal(await search.locator('.field-label > .sr-only').count(), 2);
+      assert.equal(await search.getByText('Searching…', { exact: true }).count(), 0);
+      await search.getByRole('button', { name: 'Close', exact: true }).click();
+    }
+    await captureNotificationHistory();
+    assert.deepEqual(faults, []);
+    console.log(
+      'Verified shared Create form submissions, service association, article linking, quiet global search, and notification search/order on desktop/mobile.',
+    );
+    await browser.close();
+    process.exit(0);
+  }
+  if (process.env.HELP_CAPTURE_FOCUS === 'personal-tabs-create') {
+    user.role = 'admin';
+    user.uiPreferences = {
+      ...user.uiPreferences,
+      rightCollapsed: true,
+      recordTabOrder: [],
+      recentCreateActions: [],
+    };
+    await page.goto(`${base}/tasks/${tasks[0].id}`);
+    await page.getByRole('button', { name: 'Edit Record', exact: true }).waitFor();
+    await page.locator(`a[href="/services/${services[0].id}"]:visible`).first().click();
+    await page.waitForURL(`${base}/services/${services[0].id}`);
+    const strip = page.getByRole('navigation', { name: 'Open record tabs', exact: true });
+    const tabs = strip.locator('[role="tab"]');
+    await tabs.first().click();
+    await page.getByRole('button', { name: 'Edit Record', exact: true }).click();
+    const title = page.getByRole('textbox', { name: /^Title/ });
+    await title.fill('Unsaved personal tab draft');
+    await tabs.first().focus();
+    await page.keyboard.press('Alt+Shift+ArrowRight');
+    await page.waitForFunction(() =>
+      document.querySelector('.record-navigation-tab').textContent.includes('Service'),
+    );
+    assert.equal(await title.inputValue(), 'Unsaved personal tab draft');
+    assert.equal(new URL(page.url()).pathname, `/tasks/${tasks[0].id}`);
+    const activeName = await strip.locator('[aria-selected="true"]').innerText();
+    const transfer = await page.evaluateHandle(() => new DataTransfer());
+    await tabs.first().dispatchEvent('dragstart', { dataTransfer: transfer });
+    const target = strip.locator('.record-navigation-tab').last();
+    await target.dispatchEvent('dragover', { dataTransfer: transfer });
+    await target.dispatchEvent('drop', { dataTransfer: transfer });
+    await page.waitForFunction(() =>
+      document.querySelector('.record-navigation-tab').textContent.includes('Task'),
+    );
+    assert.equal(await strip.locator('[aria-selected="true"]').innerText(), activeName);
+    assert.equal(await title.inputValue(), 'Unsaved personal tab draft');
+    await strip.getByRole('button', { name: 'Reorder Tabs', exact: true }).click();
+    let dialog = page.getByRole('dialog', { name: 'Reorder Tabs', exact: true });
+    await dialog
+      .getByRole('button', { name: /Move .* right/ })
+      .first()
+      .click();
+    await page.screenshot({ path: `${output}/record-tab-order.png` });
+    await dialog.getByRole('button', { name: 'Done', exact: true }).click();
+    assert.equal(await title.inputValue(), 'Unsaved personal tab draft');
+    await page.waitForFunction(() =>
+      Object.keys(localStorage)
+        .filter((key) => key.startsWith('servicetrident-layout:'))
+        .every((key) => JSON.parse(localStorage.getItem(key)).pending === false),
+    );
+    assert.equal(user.uiPreferences.recordTabOrder.length, 2);
+    const savedOrder = await tabs.allTextContents();
+    // Reload intentionally loses the draft, but preserves the personal order and active record.
+    await page.reload();
+    await page.getByRole('button', { name: 'Edit Record', exact: true }).waitFor();
+    assert.deepEqual(
+      await tabs.allTextContents(),
+      savedOrder.map((label) => label.replace(' •', '')),
+    );
+    assert.deepEqual(
+      await page.evaluate(
+        () => JSON.parse(localStorage.getItem('servicetrident-layout')).recordTabOrder,
+      ),
+      [],
+    );
+    await page.setViewportSize({ width: 390, height: 720 });
+    await strip.getByRole('button', { name: 'Reorder Tabs', exact: true }).click();
+    dialog = page.getByRole('dialog', { name: 'Reorder Tabs', exact: true });
+    await dialog.getByRole('button', { name: 'Reset Order', exact: true }).click();
+    await dialog.getByRole('button', { name: 'Done', exact: true }).click();
+    await page.waitForFunction(() =>
+      document.querySelector('.record-navigation-tab').textContent.includes('Task'),
+    );
+    for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: 720 });
+      await page.getByRole('button', { name: 'Create', exact: true }).first().click();
+      let create = page.getByRole('dialog', { name: 'Create', exact: true });
+      const search = create.getByRole('searchbox', { name: 'Search Create Actions', exact: true });
+      await search.fill('component');
+      await create.locator('a[href="/components/new"]').click();
+      await page.waitForURL(`${base}/components/new`);
+      await page.getByRole('button', { name: 'Create', exact: true }).first().click();
+      create = page.getByRole('dialog', { name: 'Create', exact: true });
+      await create
+        .getByRole('region', { name: 'Recently Used', exact: true })
+        .locator('a[href="/components/new"]')
+        .waitFor();
+      assert.equal(await create.locator('a[href="/components/new"]').count(), 1);
+      assert.equal(
+        await create
+          .getByRole('region', { name: 'All Actions', exact: true })
+          .locator('a[href="/components/new"]')
+          .count(),
+        0,
+      );
+      await create
+        .getByRole('searchbox', { name: 'Search Create Actions', exact: true })
+        .fill('component');
+      await create
+        .getByRole('region', { name: 'Recently Used', exact: true })
+        .locator('a[href="/components/new"]')
+        .waitFor();
+      assert.equal(await create.locator('a[href="/components/new"]').count(), 1);
+      assert.equal(
+        await create.getByRole('region', { name: 'All Actions', exact: true }).count(),
+        0,
+      );
+      await create.getByRole('searchbox', { name: 'Search Create Actions', exact: true }).fill('');
+
+      await page.screenshot({
+        path: `${output}/global-create-actions${width === 390 ? '-mobile' : ''}.png`,
+      });
+      await create
+        .getByRole('searchbox', { name: 'Search Create Actions', exact: true })
+        .fill('not-a-create-action');
+      await create.getByText('No actions match your search.', { exact: true }).waitFor();
+      await create.getByRole('searchbox', { name: 'Search Create Actions', exact: true }).fill('');
+      await create.locator('a[href="/groups?create=1"]').scrollIntoViewIfNeeded();
+      assert.ok(await create.locator('a[href="/groups?create=1"]').isVisible());
+      await create.getByRole('button', { name: 'Close', exact: true }).click();
+      assert.deepEqual(
+        await page.evaluate(
+          () => JSON.parse(localStorage.getItem('servicetrident-layout')).recentCreateActions,
+        ),
+        [],
+      );
+    }
+    user.role = 'responder';
+    await page.reload();
+    await page.getByRole('button', { name: 'Create', exact: true }).first().click();
+    const limited = page.getByRole('dialog', { name: 'Create', exact: true });
+    assert.equal(await limited.locator('a[href="/components/new"]').count(), 0);
+    await limited
+      .getByRole('searchbox', { name: 'Search Create Actions', exact: true })
+      .fill('component');
+    await limited.getByText('No actions match your search.', { exact: true }).waitFor();
+    assert.deepEqual(faults, []);
+    console.log(
+      'Verified personal tab drag/keyboard/modal moves, draft preservation, saved order, global Create search/recents and role boundaries on desktop/mobile.',
+    );
+    await browser.close();
+    process.exit(0);
+  }
   if (process.env.HELP_CAPTURE_FOCUS === 'operational-dashboard') {
     for (const width of [1440, 390]) {
       await page.setViewportSize({ width, height: 900 });
@@ -2599,10 +3110,25 @@ try {
         path: `${output}/service-components${width === 390 ? '-mobile' : ''}.png`,
       });
       await page.getByRole('tab', { name: /^Components/ }).click();
-      await page.locator(`a[href="/components/${services[0].componentIds[0]}"]`).last().click();
+      await page
+        .locator(`a[href="/components/${services[0].componentIds[0]}"]:visible`)
+        .first()
+        .click();
       await page.waitForURL(`${base}/components/${services[0].componentIds[0]}`);
-      await page.getByRole('tab', { name: /^Monitors/ }).click();
-      await page.getByRole('link', { name: 'Create Monitor', exact: true }).waitFor();
+      await page
+        .getByRole('heading', {
+          name: componentRecords.find((row) => row.id === services[0].componentIds[0]).name,
+          exact: true,
+        })
+        .waitFor();
+      await page
+        .locator('.record-scroll-area:not([hidden])')
+        .getByRole('tab', { name: 'Monitors', exact: true })
+        .click();
+      await page
+        .locator('.record-scroll-area:not([hidden])')
+        .getByRole('link', { name: 'Create', exact: true })
+        .waitFor();
       await page.screenshot({
         path: `${output}/component-monitors${width === 390 ? '-mobile' : ''}.png`,
       });
@@ -2625,6 +3151,15 @@ try {
           .last()
           .evaluate((node) => node.scrollTo(0, node.scrollHeight));
       }
+      await page.goto(`${base}/settings?section=demo-data`);
+      const industry = page.getByRole('combobox', { name: 'Industry', exact: true });
+      for (const preset of DEMO_INDUSTRIES) {
+        await industry.click();
+        await page.getByRole('option', { name: preset.label, exact: true }).click();
+      }
+      await page.screenshot({
+        path: `${output}/demo-industry-presets${width === 390 ? '-mobile' : ''}.png`,
+      });
       await page.goto(`${base}/knowledge/bases/${demoBases[0].id}`);
       assert.equal(
         await page
@@ -2653,6 +3188,8 @@ try {
       await page.goto(`${base}${path}`);
       const reader = page.locator('.document-reader');
       await reader.locator('h1').waitFor();
+      if (path.startsWith('/knowledge/'))
+        await reader.getByText(demoArticles[0].content, { exact: true }).waitFor();
       assert.equal(await page.locator('[aria-label="Record number"]').count(), 1);
       assert.equal(await page.locator('.record-identity').count(), 0);
       assert.equal(await page.locator('.record-sidebar').count(), 0);
@@ -3338,11 +3875,11 @@ try {
     await page.goto(`${base}/`);
     await page.getByRole('link', { name: 'Quick Setup', exact: true }).click();
     await page.getByRole('textbox', { name: 'Service Name', exact: true }).fill('Customer API');
-    await page.getByRole('button', { name: 'Create Service', exact: true }).click();
+    await page.locator('form').getByRole('button', { name: 'Create', exact: true }).click();
     await page
       .getByRole('textbox', { name: 'Endpoint URL', exact: true })
       .fill('https://example.com/health');
-    await page.getByRole('button', { name: 'Create Monitor', exact: true }).click();
+    await page.locator('form').getByRole('button', { name: 'Create', exact: true }).click();
     await page.getByRole('heading', { name: 'Notifications (optional)', exact: true }).waitFor();
     await page.screenshot({ path: `${output}/quick-setup.png` });
     await page.getByRole('button', { name: 'Skip', exact: true }).click();
@@ -3357,7 +3894,8 @@ try {
     await page.getByRole('textbox', { name: 'Service Name', exact: true }).waitFor();
     await page.setViewportSize({ width: 390, height: 720 });
     await page
-      .getByRole('button', { name: 'Create Service', exact: true })
+      .locator('form')
+      .getByRole('button', { name: 'Create', exact: true })
       .scrollIntoViewIfNeeded();
     assert.deepEqual(faults, []);
     console.log('Verified Quick Setup dashboard/global entry points and optional steps.');
@@ -4691,24 +5229,27 @@ try {
   await page
     .getByLabel('Description', { exact: true })
     .fill('Synthetic recovery procedures for documentation.');
-  await page.getByRole('button', { name: 'Create Knowledge Base', exact: true }).click();
+  await page
+    .locator('.record-sticky-header')
+    .getByRole('button', { name: 'Create', exact: true })
+    .click();
   await page.getByRole('heading', { name: 'Demo Recovery Guides', exact: true }).waitFor();
   assert.equal(
     await page
       .getByRole('region', { name: 'Articles', exact: true })
-      .getByRole('link', { name: 'Create Article', exact: true })
+      .getByRole('link', { name: 'Create', exact: true })
       .count(),
     0,
   );
   await page
     .locator('.record-sticky-header')
-    .getByRole('link', { name: 'Create Article', exact: true })
+    .getByRole('link', { name: 'Create', exact: true })
     .click();
   await page.getByRole('combobox', { name: /^Knowledge Base/ }).waitFor();
   await page.getByLabel('Title *', { exact: true }).fill('Demo portal recovery guide');
   const createAction = page
     .locator('.record-sticky-header')
-    .getByRole('button', { name: 'Create Article', exact: true });
+    .getByRole('button', { name: 'Create', exact: true });
   await createAction.waitFor();
   assert.ok(
     await createAction.getAttribute('form'),
@@ -4745,7 +5286,10 @@ try {
     .fill(
       'Confirm that recent checks are successful, then document the recovery and any follow-up tasks.',
     );
-  await page.getByRole('button', { name: 'Create Article', exact: true }).click();
+  await page
+    .locator('.record-sticky-header')
+    .getByRole('button', { name: 'Create', exact: true })
+    .click();
   await page.getByRole('heading', { name: 'Step-by-Step Process', exact: true }).waitFor();
   await page.getByText(/Loading article/).waitFor({ state: 'hidden' });
   const publishArticle = page.getByRole('button', { name: 'Publish', exact: true });
@@ -4798,7 +5342,10 @@ try {
 
   await page.locator('.app-topbar').getByRole('button', { name: 'Create', exact: true }).click();
   await page.waitForURL('**/knowledge/new');
-  await page.getByRole('button', { name: 'Create Article', exact: true }).waitFor();
+  await page
+    .locator('.record-sticky-header')
+    .getByRole('button', { name: 'Create', exact: true })
+    .waitFor();
   assert.equal(
     await page.getByRole('heading', { name: 'Create Knowledge Base', exact: true }).count(),
     0,
@@ -5000,9 +5547,9 @@ try {
     .waitFor();
   await page.screenshot({ path: `${output}/servicenow-oauth.png` });
   await page.goto(`${base}/settings/service-accounts`);
-  await page.getByRole('button', { name: 'Add Service Account', exact: true }).click();
+  await page.getByRole('button', { name: 'Create', exact: true }).last().click();
   const accountForm = page.getByRole('form', { name: 'Add Service Account', exact: true });
-  await accountForm.getByRole('button', { name: 'Create Service Account', exact: true }).click();
+  await accountForm.getByRole('button', { name: 'Create', exact: true }).click();
   await accountForm.getByRole('button', { name: 'Name is required.', exact: true }).waitFor();
   await accountForm.getByLabel('Name', { exact: true }).fill('Demo Automation');
   await accountForm.getByRole('checkbox', { name: 'Create incidents', exact: true }).check();
@@ -5033,13 +5580,13 @@ try {
   await page.goto(`${base}/settings/identity-providers`);
   await page.getByRole('heading', { name: 'Demo Work Identity', exact: true }).waitFor();
   await page.screenshot({ path: `${output}/identity-provider-settings.png` });
-  await page.getByRole('button', { name: 'Add Provider', exact: true }).click();
+  await page.getByRole('button', { name: 'Create', exact: true }).last().click();
   const identityForm = page.getByRole('form', { name: 'Add Identity Provider', exact: true });
   assert.equal(
     await identityForm.getByRole('switch', { name: 'Enabled', exact: true }).isChecked(),
     true,
   );
-  await identityForm.getByRole('button', { name: 'Save', exact: true }).click();
+  await identityForm.getByRole('button', { name: 'Create', exact: true }).click();
   await identityForm
     .getByRole('button', { name: 'Display Name is required.', exact: true })
     .waitFor();
@@ -5123,7 +5670,8 @@ try {
     providerHeader.top < 1 && providerHeader.left <= 1 && providerHeader.right <= 1,
     'Provider header aligns with the bordered content surface below the top toolbar',
   );
-  await page.getByLabel('Model', { exact: true }).fill('demo-model');
+  await page.getByRole('button', { name: 'Model', exact: true }).click();
+  await page.getByRole('option', { name: 'GPT-6.1 Sol', exact: true }).click();
   await page.getByLabel('API Key', { exact: true }).fill('synthetic-browser-test-key');
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await page.getByText('A key is saved.', { exact: false }).waitFor();
@@ -5728,21 +6276,20 @@ try {
     .click();
   await page.getByRole('button', { name: 'Done', exact: true }).click();
   assert.ok(recordRequests.some((path) => path === '/tables/events'));
-  await page.getByRole('link', { name: 'Create Monitor', exact: true }).waitFor();
+  await page
+    .locator('.record-sticky-header')
+    .getByRole('link', { name: 'Create', exact: true })
+    .waitFor();
   await page.getByRole('columnheader', { name: 'Incident', exact: true }).waitFor();
   await page.locator(`td a[href="/incidents/${demoIncident.id}"]`).first().waitFor();
   await page.screenshot({ path: `${output}/events-list.png` });
   const eventNumber = page.getByRole('link', { name: 'EVT0000001', exact: true });
   await eventNumber.waitFor();
-  const inlineNumber = await eventNumber.evaluate((link) => {
-    const text = link.querySelector('span').getBoundingClientRect();
-    const icon = link.querySelector('svg').getBoundingClientRect();
-    return (
-      icon.left >= text.right &&
-      Math.abs(icon.top + icon.height / 2 - (text.top + text.height / 2)) < 2
-    );
-  });
-  assert.ok(inlineNumber, 'Record number and reference icon stay on the same line');
+  assert.equal(
+    await eventNumber.locator('svg').count(),
+    0,
+    'Record numbers stay clickable without a launch icon',
+  );
   await eventNumber.click();
   await page.getByRole('tab', { name: /^Incidents/ }).click();
   await page

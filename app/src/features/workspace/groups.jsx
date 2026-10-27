@@ -1,6 +1,6 @@
+import { CreateButton } from '../../components/create-button.jsx';
 import { StaticRecordFields } from '../../components/forms/record-field-layout.jsx';
 import { ValidatedForm } from '../../components/forms/validated-form.jsx';
-import { PlusIcon } from '@heroicons/react/24/outline';
 import { RecordActions } from '../../components/record-actions.jsx';
 import { CancelButton } from '../../components/forms/cancel-button.jsx';
 import { FormPage } from '../../components/forms/form-page.jsx';
@@ -116,10 +116,9 @@ export function GroupsPage({ form = false }) {
           }
           actions={
             admin && (
-              <button className="btn-primary" onClick={() => navigate('/groups/new')}>
-                <PlusIcon className="h-5 w-5 shrink-0" aria-hidden="true" />
+              <CreateButton className="btn-primary" onClick={() => navigate('/groups/new')}>
                 Create
-              </button>
+              </CreateButton>
             )
           }
           title="Groups"
@@ -251,9 +250,7 @@ function GroupEditor({ initial, revision, members, onClose, onSaved, readOnly = 
         {!readOnly && (
           <RecordActions>
             <CancelButton onCancel={onClose} to={'/groups'} disabled={save.busy} />
-            <button className="btn-primary" disabled={save.busy}>
-              {save.busy ? 'Saving…' : 'Save'}
-            </button>
+            <CreateButton disabled={save.busy}>{initial.id ? 'Save' : 'Create'}</CreateButton>
           </RecordActions>
         )}
       </ValidatedForm>

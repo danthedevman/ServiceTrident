@@ -1,3 +1,4 @@
+import { useValidationError } from '../../components/forms/validation-context.js';
 import React, { useState } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -8,7 +9,11 @@ import {
   ArrowUturnLeftIcon,
   ArrowUturnRightIcon,
 } from '@heroicons/react/24/outline';
-import { safeLink, textDocument } from '../../../../shared/files/rich-content.js';
+import {
+  safeLink,
+  textDocument,
+  validateRichContent,
+} from '../../../../shared/files/rich-content.js';
 
 const localImage = /^\/api\/attachments\/files\/[a-f0-9]{24}\/preview$/;
 const PrivateImage = Image.extend({
@@ -27,10 +32,17 @@ export function RichEditor({
   onChange,
   uploadImage,
   busy,
-  error,
+  error: suppliedError,
   label = 'Article content',
   helpText,
 }) {
+  let valid = false;
+  try {
+    valid = !!validateRichContent(value ?? textDocument(''), { required: false }).text;
+  } catch {
+    /* Retain the field error until the document is valid. */
+  }
+  const error = useValidationError(suppliedError, value, valid, 'content');
   const [message, setMessage] = useState(''),
     [linkOpen, setLinkOpen] = useState(false),
     [href, setHref] = useState('');
@@ -54,6 +66,7 @@ export function RichEditor({
       attributes: {
         class: 'rich-content rich-editor-body',
         role: 'textbox',
+        'data-validation-key': 'content',
         'aria-multiline': 'true',
         'aria-label': label,
         'aria-describedby': helpText ? 'article-content-help' : undefined,

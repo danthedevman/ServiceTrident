@@ -1,5 +1,5 @@
+import { CreateButton } from '../../components/create-button.jsx';
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
 import { PuzzlePieceIcon } from '@heroicons/react/24/outline';
 import { providers, emailPresets } from '../../../../shared/integrations/providers.js';
 
@@ -54,13 +54,13 @@ export function IntegrationCatalog({ integrations = [], loading = false }) {
                   <p className="text-xs text-slate-500 dark:text-slate-400">
                     {loading ? '' : count ? `${count} configured` : 'Not configured'}
                   </p>
-                  <Link
+                  <CreateButton
                     className="btn-secondary"
                     aria-label={`Configure ${provider.name}`}
                     to={`/integrations/new?provider=${provider.id}`}
                   >
-                    Configure
-                  </Link>
+                    Create
+                  </CreateButton>
                 </article>
               );
             })}

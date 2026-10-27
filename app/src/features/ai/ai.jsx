@@ -1,3 +1,4 @@
+import { AI_MODELS } from './models.js';
 import { AIChatSettings } from './chat.jsx';
 import { ValidatedForm } from '../../components/forms/validated-form.jsx';
 import { AutoTextarea } from '../../components/forms/auto-textarea.jsx';
@@ -40,14 +41,29 @@ export function AIProviderPage() {
 function ProviderForm({ data, refresh }) {
   const [type, setType] = useState(data.provider?.type ?? 'openai');
   const [model, setModel] = useState(data.provider?.model ?? '');
+  const [custom, setCustom] = useState(
+    () =>
+      !!data.provider?.model &&
+      !(AI_MODELS[data.provider.type] || []).some((entry) => entry.id === data.provider.model),
+  );
+  const models = AI_MODELS[type] || [];
   const [key, setKey] = useState('');
+  const changed = type !== data.provider?.type || model !== data.provider?.model || !!key;
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(''),
     [message, setMessage] = useState('');
   return (
     <ValidatedForm
       className="form-page form-body"
-      onSubmit={async (event) => {
+      validateValues={() =>
+        custom && model.trim() && !/^[a-zA-Z0-9._:-]+$/.test(model.trim())
+          ? {
+              aiCustomModel:
+                'Enter a model identifier using letters, numbers, dots, hyphens, underscores or colons.',
+            }
+          : {}
+      }
+      onSubmit={async (event, reportErrors) => {
         event.preventDefault();
         setBusy(true);
         setError('');
@@ -60,6 +76,7 @@ function ProviderForm({ data, refresh }) {
           await refresh();
         } catch (failure) {
           setError(failure.message);
+          reportErrors?.(failure.fields);
         } finally {
           setBusy(false);
         }
@@ -76,25 +93,53 @@ function ProviderForm({ data, refresh }) {
           onChange={(event) => {
             setType(event.target.value);
             setKey('');
+            setModel('');
+            setCustom(false);
+            setError('');
+            setMessage('');
           }}
         >
           <option value="openai">OpenAI</option>
           <option value="claude">Claude (Anthropic)</option>
         </Select>
       </Field>
-      <Field
-        label="Model"
-        name="aiModel"
-        helpText="Enter a model identifier available to your provider API account."
-      >
-        <input
+      <Field label="Model" name="aiModel">
+        <Select
           required
-          maxLength={120}
-          value={model}
-          onChange={(event) => setModel(event.target.value)}
-          placeholder="Model identifier"
-        />
+          searchable
+          searchLabel="Search Models"
+          value={custom ? '__custom__' : model}
+          onChange={(event) => {
+            const next = event.target.value;
+            setCustom(next === '__custom__');
+            setModel(next === '__custom__' ? '' : next);
+            setError('');
+            setMessage('');
+          }}
+        >
+          <option value="">Choose a model</option>
+          {models.map((entry) => (
+            <option key={entry.id} value={entry.id}>
+              {entry.label}
+            </option>
+          ))}
+          <option value="__custom__">Custom Model</option>
+        </Select>
       </Field>
+      {custom && (
+        <Field label="Custom Model" name="aiCustomModel">
+          <input
+            required
+            maxLength={120}
+            value={model}
+            onChange={(event) => {
+              setModel(event.target.value);
+              setMessage('');
+            }}
+            placeholder="Model identifier"
+          />
+        </Field>
+      )}
       <Field
         label="API Key"
         name="aiKey"
@@ -120,6 +165,9 @@ function ProviderForm({ data, refresh }) {
       </p>
       <Notice error={error} />
       {message && <p role="status">{message}</p>}
+      {data.provider?.configured && changed && (
+        <p className="text-sm text-slate-500">Save changes before testing the connection.</p>
+      )}
       <RecordActions>
         {data.provider?.configured && (
           <>
@@ -140,7 +188,7 @@ function ProviderForm({ data, refresh }) {
             <button
               className="btn-secondary"
               type="button"
-              disabled={busy}
+              disabled={busy || changed}
               onClick={async () => {
                 setBusy(true);
                 setError('');

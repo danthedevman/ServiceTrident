@@ -1,7 +1,7 @@
+import { CreateButton } from '../../components/create-button.jsx';
 import { ValidatedForm } from '../../components/forms/validated-form.jsx';
 import { PageTitle } from '../../components/page-title.jsx';
 import { UserAccountForm } from './user-account-form.jsx';
-import { PlusIcon } from '@heroicons/react/24/outline';
 import { UserRecord } from './user-record.jsx';
 import { StateBadge } from '../../components/state-badge.jsx';
 import { displayValue } from '../../lib/display-value.js';
@@ -64,10 +64,9 @@ export function WorkspacePage({ form }) {
     admin = user?.role === 'admin';
   const members = useResource(id ? '/members' : null);
   const actions = (
-    <button className="btn-primary" onClick={() => navigate('/workspace/new')}>
-      <PlusIcon className="h-5 w-5 shrink-0" aria-hidden="true" />
+    <CreateButton className="btn-primary" onClick={() => navigate('/workspace/new')}>
       Create
-    </button>
+    </CreateButton>
   );
   if (!admin)
     return (

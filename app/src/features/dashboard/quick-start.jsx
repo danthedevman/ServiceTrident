@@ -1,3 +1,4 @@
+import { CreateButton } from '../../components/create-button.jsx';
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { ValidatedForm } from '../../components/forms/validated-form.jsx';
@@ -153,9 +154,9 @@ function SetupWizard() {
               />
             </Field>
             <div className="flex justify-end">
-              <button className="btn-primary" disabled={pending}>
-                Create Service
-              </button>
+              <CreateButton className="btn-primary" disabled={pending}>
+                Create
+              </CreateButton>
             </div>
           </ValidatedForm>
         )}
@@ -218,9 +219,9 @@ function SetupWizard() {
               />
             </Field>
             <div className="flex justify-end">
-              <button className="btn-primary" disabled={pending}>
-                Create Monitor
-              </button>
+              <CreateButton className="btn-primary" disabled={pending}>
+                Create
+              </CreateButton>
             </div>
           </ValidatedForm>
         )}

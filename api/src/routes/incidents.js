@@ -34,8 +34,86 @@ import { incidentAccess } from '../domain/incidents.js';
 import { requireIncidentCreator } from '../domain/incidents.js';
 import { incidentQuery } from '../domain/incidents.js';
 import { incidentView } from '../domain/incidents.js';
+/** Existing inaccessible links survive edits; only readable workspace articles can be added. */
+async function linkedArticleIds(db, req, values, current = []) {
+  if (
+    !Array.isArray(values) ||
+    values.length > 50 ||
+    new Set(values).size !== values.length ||
+    values.some((value) => typeof value !== 'string' || !/^[a-f\d]{24}$/i.test(value))
+  )
+    invalid('knowledgeIds', 'Choose up to 50 distinct articles.');
+  const readable = await db
+    .collection('articles')
+    .find(
+      {
+        workspaceId: req.workspaceId,
+        _id: { $in: [...new Set([...values, ...current])].map(id) },
+        ...(await articleAccess(db, req)),
+      },
+      { projection: { _id: 1 } },
+    )
+    .toArray();
+  const permitted = new Set(readable.map((row) => String(row._id)));
+  const protectedIds = current.filter((value) => !permitted.has(value));
+  references(values, [...permitted, ...protectedIds], 'knowledgeIds');
+  const result = [...new Set([...values, ...protectedIds])];
+  if (result.length > 50)
+    invalid('knowledgeIds', 'Choose up to 50 articles including existing unavailable links.');
+  return result;
+}
 /** Register incidents routes; authentication and workspace policy run in app.js. */
 export function installIncidentsRoutes(app, db, appOrigin, machine = null) {
+  app.patch('/api/incidents/:id/articles', requireResponder, async (req, res) => {
+    if (
+      !req.body ||
+      Array.isArray(req.body) ||
+      Object.keys(req.body).some((key) => !['knowledgeIds', 'revision'].includes(key))
+    )
+      throw new InputError('Send only article selections and revision.', 400);
+    const current = await db
+      .collection('incidents')
+      .findOne({ _id: id(req.params.id), ...incidentAccess(req) });
+    if (!current) throw new InputError('Incident not found.', 404);
+    if (!Number.isInteger(req.body.revision) || req.body.revision !== current.revision)
+      throw new InputError('This incident changed. Refresh and try again.', 409);
+    const knowledgeIds = await linkedArticleIds(
+      db,
+      req,
+      req.body.knowledgeIds,
+      current.knowledgeIds || [],
+    );
+    const now = new Date();
+    const result = await db.collection('incidents').updateOne(
+      { _id: current._id, workspaceId: req.workspaceId, revision: current.revision },
+      {
+        $set: {
+          knowledgeIds,
+          updatedAt: now,
+          updatedBy: req.user.email,
+          updatedById: String(req.user._id),
+          updatedByType: 'user',
+        },
+        $inc: { revision: 1 },
+        $push: {
+          timeline: {
+            $each: [
+              {
+                at: now,
+                by: req.user.email,
+                status: current.status,
+                note: 'Linked articles updated',
+              },
+            ],
+            $slice: -200,
+          },
+        },
+      },
+    );
+    if (!result.matchedCount)
+      throw new InputError('This incident changed. Refresh and try again.', 409);
+    res.json({ knowledgeIds, revision: current.revision + 1 });
+  });
   app.get('/api/incidents', async (req, res) => {
     const { filter, sort, page, pageSize } = incidentQuery(req.query, req);
     const [total, rows] = await Promise.all([
@@ -291,30 +369,13 @@ export function installIncidentsRoutes(app, db, appOrigin, machine = null) {
         )
       )
         invalid('assigneeId', 'Choose an active teammate.');
-      const knowledgeIds = body.knowledgeIds ?? current?.knowledgeIds ?? [];
-      if (req.role === 'user' && knowledgeIds.length)
+      if (req.role === 'user' && body.knowledgeIds?.length)
         invalid('knowledgeIds', 'A responder can link knowledge.');
-      if (
-        !Array.isArray(knowledgeIds) ||
-        knowledgeIds.length > 50 ||
-        knowledgeIds.some((value) => typeof value !== 'string' || !ObjectId.isValid(value))
-      )
-        invalid('knowledgeIds', 'Choose up to 50 knowledge records from this workspace.');
-      const articles = await db
-        .collection('articles')
-        .find(
-          {
-            workspaceId: req.workspaceId,
-            _id: { $in: knowledgeIds.map((value) => id(value)) },
-            ...(await articleAccess(db, req)),
-          },
-          { projection: { _id: 1 } },
-        )
-        .toArray();
-      references(
-        knowledgeIds,
-        articles.map((article) => String(article._id)),
-        'knowledgeIds',
+      const knowledgeIds = await linkedArticleIds(
+        db,
+        req,
+        body.knowledgeIds ?? current?.knowledgeIds ?? [],
+        current?.knowledgeIds || [],
       );
       const resolutionNotes = text(
         body.resolutionNotes ?? current?.resolutionNotes ?? '',

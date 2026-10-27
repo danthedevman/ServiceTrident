@@ -52,9 +52,10 @@ export function Layout() {
     /^\/monitors\/[a-f0-9]{24}\/events\/[a-f0-9]{24}\/?$/.test(location.pathname) ||
     /^\/(incidents|tasks|rcas|knowledge)\/fields\/?$/.test(location.pathname) ||
     /^\/knowledge\/bases\/[a-f0-9]{24}\/?$/.test(location.pathname) ||
-    /^\/(incidents|tasks|rcas|knowledge|services|collections|monitors|groups|integrations|workspace|on-call)\/(?!new(?:\/|$)|fields(?:\/|$)|articles(?:\/|$)|ai(?:\/|$))[^/]+\/?$/.test(
+    /^\/(incidents|tasks|rcas|knowledge|services|components|collections|monitors|groups|integrations|workspace|on-call)\/(?!new(?:\/|$)|fields(?:\/|$)|articles(?:\/|$)|ai(?:\/|$))[^/]+\/?$/.test(
       location.pathname,
     );
+  const documentPage = /^\/(knowledge|rcas)\/[a-f0-9]{24}\/?$/.test(location.pathname);
   const formPage = /\/(new|invite|password|settings|ai)(?:\/|$)/.test(location.pathname);
   const recordLayout = recordPage || formPage;
   const listPage = [
@@ -63,6 +64,7 @@ export function Layout() {
     '/alerts',
     '/settings/audit',
     '/services',
+    '/components',
     '/collections',
     '/monitors',
     '/incidents',
@@ -85,7 +87,12 @@ export function Layout() {
   const [recordHeader, setRecordHeader] = useState(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  const { leftCollapsed: collapsed, rightCollapsed, setPreference } = useUiPreferences();
+  const {
+    leftCollapsed: collapsed,
+    rightCollapsed,
+    setPreference,
+    error: preferenceError,
+  } = useUiPreferences();
   const changeCollapsed = (value) => setPreference('leftCollapsed', value);
   if (!sessionLoading && !user) return <Navigate to="/login" replace />;
   const logout = async () => {
@@ -135,7 +142,7 @@ export function Layout() {
         <main
           id="main"
           data-record-collapsed={
-            recordLayout && (recordPage || hasRail) ? rightCollapsed : undefined
+            recordLayout && ((recordPage && !documentPage) || hasRail) ? rightCollapsed : undefined
           }
           className={
             listPage ? 'list-main' : recordLayout ? 'record-main mx-auto max-w-none' : 'page-main'
@@ -148,7 +155,7 @@ export function Layout() {
             {!dashboardPage && <Breadcrumbs resolveNames={!sessionLoading} />}
             <div ref={setRecordHeader} className="record-header-actions" />
           </div>
-          <ErrorNotice>{error}</ErrorNotice>
+          <ErrorNotice>{error || preferenceError}</ErrorNotice>
           <RecordRailContext.Provider value={registerRail}>
             <BreadcrumbTitleContext.Provider value={!dashboardPage}>
               <RecordTabOutlet

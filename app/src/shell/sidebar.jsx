@@ -1,3 +1,4 @@
+import { SearchInput } from '../components/forms/search-input.jsx';
 import { navigationActive } from '../lib/navigation-active.js';
 import { useUiPreferences } from '../preferences/ui-preferences.jsx';
 import { createPortal } from 'react-dom';
@@ -532,8 +533,12 @@ export function Sidebar({
 
 /** Native dialog provides focus trapping and Escape support for global creation choices. */
 function CreateDialog({ role, onNavigate, onClose }) {
+  const { recentCreateActions, setPreference, ready, error } = useUiPreferences();
+  const [search, setSearch] = useState('');
+  const searchInput = useRef(null);
   const options = [
     {
+      id: 'incident',
       to: '/incidents/new',
       title: 'Incident',
       description: 'Track an issue affecting a service.',
@@ -542,24 +547,28 @@ function CreateDialog({ role, onNavigate, onClose }) {
     ...(['admin', 'responder'].includes(role)
       ? [
           {
+            id: 'task',
             to: '/tasks/new',
             title: 'Task',
             description: 'Track work for an incident or service.',
             Icon: ClipboardDocumentListIcon,
           },
           {
+            id: 'rca',
             to: '/rcas/new',
             title: 'RCA',
             description: 'Analyze an incident and track corrective actions.',
             Icon: DocumentMagnifyingGlassIcon,
           },
           {
+            id: 'knowledge-base',
             to: '/knowledge/bases/new',
             title: 'Knowledge Base',
             description: 'Create a home for runbooks and solutions.',
             Icon: BookOpenIcon,
           },
           {
+            id: 'knowledge-article',
             to: '/knowledge/new',
             title: 'Knowledge Article',
             description: 'Write an article or a step-by-step runbook.',
@@ -570,6 +579,7 @@ function CreateDialog({ role, onNavigate, onClose }) {
     ...(role === 'admin'
       ? [
           {
+            id: 'quick-setup',
             to: '/quick-start',
             title: 'Quick Setup',
             description:
@@ -577,30 +587,42 @@ function CreateDialog({ role, onNavigate, onClose }) {
             Icon: AdjustmentsHorizontalIcon,
           },
           {
+            id: 'user',
             to: '/workspace/new',
             title: 'User',
             description: 'Create or invite a workspace user.',
             Icon: UserGroupIcon,
           },
           {
+            id: 'monitor',
             to: '/monitors/new',
             title: 'Monitor',
             description: 'Schedule a service health check.',
             Icon: SignalIcon,
           },
           {
+            id: 'service',
             to: '/services/new',
             title: 'Service',
             description: 'Organize monitors and dependencies.',
             Icon: ServerStackIcon,
           },
           {
+            id: 'component',
+            to: '/components/new',
+            title: 'Component',
+            description: 'Add a reusable service component and assign monitors to it.',
+            Icon: PuzzlePieceIcon,
+          },
+          {
+            id: 'collection',
             to: '/collections/new',
             title: 'Collection',
             description: 'Group related services together.',
             Icon: FolderIcon,
           },
           {
+            id: 'group',
             to: '/groups?create=1',
             title: 'Group',
             description: 'Organize workspace members.',
@@ -609,26 +631,92 @@ function CreateDialog({ role, onNavigate, onClose }) {
         ]
       : []),
   ];
-  return (
-    <Modal title="Create" onClose={onClose}>
-      <div className="grid gap-3 sm:grid-cols-2">
-        {options.map(({ to, title, description, Icon }) => (
-          <Link
-            key={to}
-            to={to}
-            className="rounded-xl border border-slate-200 p-5 hover:border-blue-500 hover:bg-blue-50 focus-visible:outline-2 focus-visible:outline-blue-600 dark:border-slate-700 dark:hover:border-blue-400 dark:hover:bg-blue-950"
-            onClick={() => {
-              onClose();
-              onNavigate();
-            }}
-          >
-            <Icon className="mb-3 h-6 w-6 text-blue-700 dark:text-blue-400" aria-hidden="true" />
-            <span className="block font-semibold">{title}</span>
+  const query = search.trim().toLowerCase();
+  const recent = ready
+    ? recentCreateActions.map((id) => options.find((option) => option.id === id)).filter(Boolean)
+    : [];
+  const filtered = options.filter((option) =>
+    `${option.title} ${option.description}`.toLowerCase().includes(query),
+  );
+  const recentIds = new Set(recent.map((option) => option.id));
+  const visibleRecent = recent.filter((option) => filtered.some((match) => match.id === option.id));
+  const available = filtered.filter((option) => !recentIds.has(option.id));
+  function actionLink({ id, to, title, description, Icon }, compact = false) {
+    return (
+      <Link
+        key={id}
+        to={to}
+        className={
+          compact
+            ? 'flex items-center gap-3 rounded-lg border border-slate-200 px-4 py-3 hover:bg-blue-50 dark:border-slate-700 dark:hover:bg-blue-950'
+            : 'rounded-xl border border-slate-200 p-5 hover:border-blue-500 hover:bg-blue-50 focus-visible:outline-2 focus-visible:outline-blue-600 dark:border-slate-700 dark:hover:border-blue-400 dark:hover:bg-blue-950'
+        }
+        onClick={() => {
+          if (ready)
+            setPreference(
+              'recentCreateActions',
+              [id, ...recentCreateActions.filter((entry) => entry !== id)].slice(0, 5),
+            );
+          onClose();
+          onNavigate();
+        }}
+      >
+        <Icon
+          className={`${compact ? 'h-5 w-5 shrink-0' : 'mb-3 h-6 w-6'} text-blue-700 dark:text-blue-400`}
+          aria-hidden="true"
+        />
+        <span>
+          <span className="block font-semibold">{title}</span>
+          {!compact && (
             <span className="mt-1 block text-sm text-slate-500 dark:text-slate-400">
               {description}
             </span>
-          </Link>
-        ))}
+          )}
+        </span>
+      </Link>
+    );
+  }
+  return (
+    <Modal title="Create" onClose={onClose} initialFocusRef={searchInput}>
+      <div className="space-y-5">
+        <label className="field-label block">
+          <span className="sr-only">Search Create Actions</span>
+          <SearchInput
+            ref={searchInput}
+            aria-label="Search Create Actions"
+            type="search"
+            maxLength={100}
+            placeholder="Search actions…"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+        </label>
+        {error && (
+          <p role="alert" className="text-sm text-rose-700 dark:text-rose-300">
+            {error}
+          </p>
+        )}
+        {visibleRecent.length > 0 && (
+          <section aria-label="Recently Used" className="space-y-3">
+            <h3 className="text-sm font-semibold">Recently Used</h3>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {visibleRecent.map((option) => actionLink(option, true))}
+            </div>
+          </section>
+        )}
+        {available.length > 0 && (
+          <section aria-label="All Actions" className="space-y-3">
+            {visibleRecent.length > 0 && <h3 className="text-sm font-semibold">All Actions</h3>}
+            <div className="grid gap-3 sm:grid-cols-2">
+              {available.map((option) => actionLink(option))}
+            </div>
+          </section>
+        )}
+        {!filtered.length && (
+          <p role="status" className="text-sm text-slate-500">
+            No actions match your search.
+          </p>
+        )}
       </div>
     </Modal>
   );

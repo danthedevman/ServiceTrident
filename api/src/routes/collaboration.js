@@ -109,6 +109,15 @@ export function installCollaborationRoutes(app, db) {
   });
   app.get('/api/notifications', async (req, res) => {
     const state = choice(req.query.state ?? 'all', ['all', 'unread', 'read'], 'state');
+    const order = choice(req.query.order ?? 'desc', ['asc', 'desc'], 'order');
+    if (
+      req.query.search !== undefined &&
+      (typeof req.query.search !== 'string' || req.query.search.length > 100)
+    )
+      invalid('search', 'Use at most 100 search characters.');
+    const search = (req.query.search || '').trim();
+    const direction = order === 'asc' ? 1 : -1;
+    const comparison = order === 'asc' ? '$gt' : '$lt';
     const pageSize = Number(req.query.pageSize ?? 100);
     if (!Number.isSafeInteger(pageSize) || pageSize < 1 || pageSize > 100)
       invalid('pageSize', 'Choose a page size between 1 and 100.');
@@ -123,6 +132,26 @@ export function installCollaborationRoutes(app, db) {
         ? { createdAt: { [state === 'unread' ? '$gt' : '$lte']: new Date(seen) } }
         : {}),
     };
+    if (search) {
+      const escaped = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const matches = await db
+        .collection('incidents')
+        .find(
+          {
+            ...incidentAccess(req),
+            $or: [
+              { title: { $regex: escaped, $options: 'i' } },
+              { number: { $regex: escaped, $options: 'i' } },
+            ],
+          },
+          { projection: { _id: 1 }, maxTimeMS: 3000 },
+        )
+        .toArray();
+      filter.$or = [
+        { incidentId: { $in: matches.map((row) => row._id) } },
+        { author: { $regex: escaped, $options: 'i' } },
+      ];
+    }
     if (req.query.cursor) {
       let cursor;
       try {
@@ -136,6 +165,8 @@ export function installCollaborationRoutes(app, db) {
         cursor.actor !== String(req.user._id) ||
         cursor.workspace !== String(req.workspaceId) ||
         cursor.state !== state ||
+        cursor.order !== order ||
+        cursor.search !== search ||
         cursor.seen !== seen ||
         !Number.isFinite(cursor.expires) ||
         cursor.expires <= Date.now() ||
@@ -146,8 +177,8 @@ export function installCollaborationRoutes(app, db) {
       filter.$and = [
         {
           $or: [
-            { createdAt: { $lt: new Date(cursor.at) } },
-            { createdAt: new Date(cursor.at), _id: { $lt: new ObjectId(cursor.id) } },
+            { createdAt: { [comparison]: new Date(cursor.at) } },
+            { createdAt: new Date(cursor.at), _id: { [comparison]: new ObjectId(cursor.id) } },
           ],
         },
       ];
@@ -155,7 +186,7 @@ export function installCollaborationRoutes(app, db) {
     const candidates = await db
       .collection('incidentComments')
       .find(filter, { maxTimeMS: 3000 })
-      .sort({ createdAt: -1, _id: -1 })
+      .sort({ createdAt: direction, _id: direction })
       .limit(pageSize + 1)
       .toArray();
     const entries = candidates.slice(0, pageSize);
@@ -167,6 +198,8 @@ export function installCollaborationRoutes(app, db) {
             actor: String(req.user._id),
             workspace: String(req.workspaceId),
             state,
+            order,
+            search,
             seen,
             id: String(last._id),
             at: new Date(last.createdAt).toISOString(),

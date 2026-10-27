@@ -145,7 +145,7 @@ export async function requireMonitor(db, monitorId, userId) {
 }
 
 /** Save the entire small catalog atomically to prevent concurrent dependency cycles. */
-async function saveCatalog(db, data) {
+export async function saveCatalog(db, data) {
   const { _id, revision, ...fields } = data;
   fields.services = fields.services.map(({ components: _projection, ...service }) => service);
   const result = await db

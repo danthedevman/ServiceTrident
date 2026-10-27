@@ -14,11 +14,11 @@ export const fileAccept =
   '.pdf,.txt,.csv,.log,.json,.md,.png,.jpg,.jpeg,.gif,.webp,.zip,.docx,.xlsx,.pptx';
 
 /** Show saved attachment downloads using the same authorized, cached record query as the list. */
-export function AttachmentLinks({ kind, recordId }) {
+export function AttachmentLinks({ kind, recordId, imageIds = [], title }) {
   const resource = useResource(`/attachments/${kind}/${recordId}`);
-  const files = resource.data?.attachments ?? [];
+  const files = (resource.data?.attachments ?? []).filter((file) => !imageIds.includes(file.id));
   if (!files.length) return null;
-  return (
+  const links = (
     <ul aria-label="Attached files" className="flex flex-wrap gap-x-4 gap-y-2">
       {files.map((file) => (
         <li key={file.id} className="min-w-0 max-w-full">
@@ -33,6 +33,14 @@ export function AttachmentLinks({ kind, recordId }) {
         </li>
       ))}
     </ul>
+  );
+  return title ? (
+    <section aria-label={title}>
+      <h2>{title}</h2>
+      {links}
+    </section>
+  ) : (
+    links
   );
 }
 /** Stage private uploads until the parent record is saved; aborted drafts are cleaned by workers. */

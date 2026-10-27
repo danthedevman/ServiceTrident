@@ -56,6 +56,9 @@ test(
       { filtersOpen: 'true' },
       { compactTables: 'true' },
       { dashboardTab: 'unknown' },
+      { recordTabOrder: ['/tasks/private'] },
+      { recentCreateActions: ['unknown'] },
+      { recentCreateActions: ['component', 'component'] },
       { leftCollapsed: true, userId: other.data.user.id },
     ])
       assert.equal((await request('/auth/preferences', owner.cookie, 'PATCH', body)).status, 400);
@@ -121,6 +124,14 @@ test(
       (await request('/auth/preferences', owner.cookie, 'PATCH', appearance)).status,
       200,
     );
+    const quickActions = {
+      recordTabOrder: ['a'.repeat(32), 'b'.repeat(32)],
+      recentCreateActions: ['component', 'task'],
+    };
+    assert.equal(
+      (await request('/auth/preferences', owner.cookie, 'PATCH', quickActions)).status,
+      200,
+    );
     const anotherSession = await request('/auth/login', null, 'POST', credentials);
     assert.deepEqual(anotherSession.data.user.uiPreferences, {
       ...right.data.preferences,
@@ -128,6 +139,7 @@ test(
       dashboardTab: 'tasks',
       tableLayouts,
       ...appearance,
+      ...quickActions,
     });
     assert.equal((await request('/auth/me', other.cookie)).data.user.uiPreferences, null);
     assert.equal(

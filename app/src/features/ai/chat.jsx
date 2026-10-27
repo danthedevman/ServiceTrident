@@ -221,6 +221,10 @@ export function FloatingAIChat() {
   }
   function selectConversation(entry) {
     if (busy) return;
+    if (entry.current) {
+      setHistoryOpen(false);
+      return;
+    }
     archiveCurrent();
     conversationId.current = entry.id;
     setMessages(entry.messages);
@@ -292,6 +296,21 @@ export function FloatingAIChat() {
   function updateMessage(index, patch) {
     setMessages((rows) => rows.map((row, i) => (i === index ? { ...row, ...patch } : row)));
   }
+  const historyEntries = [
+    ...(messages.length
+      ? [
+          {
+            id: conversationId.current,
+            title:
+              messages.find((row) => row.role === 'user')?.text.slice(0, 100) || 'Conversation',
+            mode: demo ? 'demo' : 'live',
+            current: true,
+            messageCount: messages.length,
+          },
+        ]
+      : []),
+    ...conversations.filter((entry) => entry.id !== conversationId.current),
+  ];
   const chatPanel = (
     <section
       id="ai-chat-panel"
@@ -378,35 +397,31 @@ export function FloatingAIChat() {
         </p>
       </div>
       {historyOpen ? (
-        <div className="ai-chat-transcript space-y-2 p-4" aria-label="Previous Conversations">
-          <h3 className="font-semibold">Previous Conversations</h3>
+        <div className="ai-chat-transcript space-y-2 p-4" aria-label="Conversations">
+          <h3 className="font-semibold">Conversations</h3>
           <p className="text-xs text-slate-500">
-            Up to 20 conversations are kept during this session. Reloading or signing out clears
-            them. Previous action proposals cannot be applied.
+            Your current chat and up to 20 previous conversations are kept during this session.
+            Reloading or signing out clears them. Previous action proposals cannot be applied.
           </p>
-          {!conversations.some((entry) => entry.id !== conversationId.current) && (
-            <p className="text-sm">
-              No previous conversations yet. Use the plus button to start another.
-            </p>
-          )}
-          {conversations
-            .filter((entry) => entry.id !== conversationId.current)
-            .map((entry) => (
-              <button
-                type="button"
-                key={entry.id}
-                className="ai-conversation-entry"
-                onClick={() => selectConversation(entry)}
-              >
-                <span className="block truncate font-medium" title={entry.title}>
-                  {entry.title}
-                </span>
-                <span className="text-xs text-slate-500">
-                  {entry.mode === 'demo' ? 'Demo AI' : 'Workspace AI'} · {entry.messages.length}{' '}
-                  messages
-                </span>
-              </button>
-            ))}
+          {historyEntries.length === 0 && <p className="text-sm">No conversations yet.</p>}
+          {historyEntries.map((entry) => (
+            <button
+              type="button"
+              key={entry.id}
+              className="ai-conversation-entry"
+              aria-current={entry.current ? 'true' : undefined}
+              onClick={() => selectConversation(entry)}
+            >
+              <span className="block truncate font-medium" title={entry.title}>
+                {entry.title}
+              </span>
+              <span className="text-xs text-slate-500">
+                {entry.current ? 'Current · ' : ''}
+                {entry.mode === 'demo' ? 'Demo AI' : 'Workspace AI'} ·{' '}
+                {entry.messageCount ?? entry.messages.length} messages
+              </span>
+            </button>
+          ))}
         </div>
       ) : (
         <>

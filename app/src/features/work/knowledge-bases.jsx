@@ -1,3 +1,4 @@
+import { CreateButton } from '../../components/create-button.jsx';
 import { RecordTabs } from '../../components/record-tabs.jsx';
 import { SearchInput } from '../../components/forms/search-input.jsx';
 import {
@@ -12,7 +13,6 @@ import { AutoTextarea } from '../../components/forms/auto-textarea.jsx';
 import { RecordHeader } from '../../components/record-actions.jsx';
 import { Modal } from '../../components/modal.jsx';
 import { AIAssistant } from '../ai/ai.jsx';
-import { PlusIcon } from '@heroicons/react/24/outline';
 import { Select } from '../../components/forms/select.jsx';
 import { ReferenceField } from '../../components/forms/reference-field.jsx';
 import { writeApi } from '../../data/query-client.js';
@@ -47,10 +47,9 @@ export function KnowledgeBasesPage() {
               All Articles
             </Link>
             {['admin', 'responder'].includes(user?.role) && (
-              <Link className="btn-primary" to="/knowledge/bases/new">
-                <PlusIcon className="h-5 w-5 shrink-0" aria-hidden="true" />
+              <CreateButton className="btn-primary" to="/knowledge/bases/new">
                 Create
-              </Link>
+              </CreateButton>
             )}
           </div>
         </header>
@@ -179,13 +178,12 @@ export function KnowledgeBasePage({ create = false }) {
           }
           actions={
             !editing && ['admin', 'responder'].includes(user?.role) && item.canManage !== false ? (
-              <Link
+              <CreateButton
                 className="btn-primary"
                 to={`/knowledge/new?knowledgeBaseId=${encodeURIComponent(id)}`}
               >
-                <PlusIcon className="h-5 w-5" aria-hidden="true" />
-                Create Article
-              </Link>
+                Create
+              </CreateButton>
             ) : undefined
           }
           secondaryActions={
@@ -284,9 +282,9 @@ function KnowledgeBaseForm({ item, onClose, readOnly = false }) {
           <button type="button" className="btn-secondary" disabled={save.busy} onClick={onClose}>
             Cancel
           </button>
-          <button className="btn-primary" disabled={save.busy}>
-            {item ? 'Save' : 'Create Knowledge Base'}
-          </button>
+          <CreateButton className="btn-primary" disabled={save.busy}>
+            {item ? 'Save' : 'Create'}
+          </CreateButton>
         </RecordActions>
       )}
     </ValidatedForm>

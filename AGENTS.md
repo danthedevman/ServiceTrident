@@ -1,3 +1,10 @@
+# Keep README high level
+
+- README.md is a concise product overview: purpose, value, broad capabilities, selected preview images, project maturity, contribution information, and license.
+- Do not add app-specific instructions or detailed references to controls, navigation paths, fields, settings, permissions, limits, defaults, workflows, or troubleshooting to README. Put essential user instructions in bundled Help (`app/src/features/help/topics.js`). Put installation commands, deployment, development, architecture, and operating details in the appropriate `docs/` guide; README may link to those guides.
+- Review README for each change, but edit it only when the high-level product overview changes. A feature change does not require adding a README paragraph. Remove obsolete details rather than appending new feature notes.
+- Apply this boundary to the documentation requirements below: document workflow and demo-data changes in Help and technical guides, and update README only when its product-level statements or preview images are affected.
+
 # Documentation is part of every change
 
 - For every change, review README.md, bundled Help in app/src/features/help/topics.js, and the relevant architecture, setup, or operating guides. Update affected workflows, visible labels, defaults, permissions, limits, prerequisites, and troubleshooting in the same delivery; remove contradictory or obsolete claims rather than only appending new text. If a document does not need changes, verify it still matches the implementation.
@@ -15,7 +22,7 @@
 
 # Keep the app self-documenting
 
-- Update the bundled Help guides in `app/src/features/help/topics.js` whenever user-facing behavior, workflows, permissions, or configuration changes. Update README and relevant deployment documentation when setup or operating requirements change; deliver documentation with the implementation.
+- Update the bundled Help guides in `app/src/features/help/topics.js` whenever user-facing behavior, workflows, permissions, or configuration changes. Update relevant setup or deployment guides when setup or operating requirements change; update README only if its high-level overview is affected; deliver documentation with the implementation.
 - Explain current behavior, prerequisites, and actionable steps. Keep documentation consistent with the actual UI and supported capabilities. Add concise code comments for non-obvious constraints and decisions, rather than restating code.
 - Add or refresh Help screenshots when a visual makes a workflow easier to follow. Capture the actual current app using an isolated browser with synthetic demo responses only. Never capture live workspace records, personal information, credentials, tokens, or integration secrets, even if later redacted. Do not seed or clean up a live workspace for screenshots.
 - Capture record-reading screenshots with Details and Field settings closed. Test information overlays separately without publishing an expanded-panel screenshot unless the user explicitly requests one.
@@ -74,4 +81,4 @@
 
 - Whenever adding or changing a table, record type, list/detail/related view, dashboard report, or Form Builder schema, update demo mode in the same change. Extend supported demo types/counts, safe internally linked fixtures, schema-compatible field values, record numbers, and workspace/batch-scoped cleanup as applicable. Include realistic populated states and supported statuses so the new workflow can be explored.
 - Verify the new demo records appear through normal authorized list, detail, related-list, search and report APIs where supported. Test tenant/role boundaries, links and cleanup; preserve unrelated records. Keep demo users unable to sign in, monitors paused, integrations disabled and notifications suppressed. Never seed or clean up a live workspace for development or screenshots.
-- Update README, bundled Help and isolated screenshot/browser fixtures with the demo workflow. Document whether an existing demo batch must be deleted and re-added to receive newly supported sample types; never silently replace or duplicate a user's existing batch.
+- Update bundled Help, relevant technical guides, and isolated screenshot/browser fixtures with the demo workflow; keep README at product-overview level. Document whether an existing demo batch must be deleted and re-added to receive newly supported sample types; never silently replace or duplicate a user's existing batch.

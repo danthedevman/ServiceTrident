@@ -1,3 +1,9 @@
+import { useUiPreferences } from '../preferences/ui-preferences.jsx';
+import {
+  recordTabToken,
+  orderedRecordTabs,
+  moveRecordTab,
+} from '../../../shared/domain/record-tab-order.js';
 import { useFirstFormFieldFocus } from './forms/autofocus.js';
 import React, {
   createContext,
@@ -17,6 +23,9 @@ import {
 } from 'react-router-dom';
 import {
   XMarkIcon,
+  ArrowsRightLeftIcon,
+  ArrowUpIcon,
+  ArrowDownIcon,
   DocumentTextIcon,
   ExclamationTriangleIcon,
   ClipboardDocumentCheckIcon,
@@ -128,6 +137,7 @@ function restoreTabs(owner) {
 }
 /** Persist bounded navigation links only; record data and unsaved drafts stay in memory. */
 export function RecordNavigationProvider({ children, owner }) {
+  const { recordTabOrder, setPreference, ready } = useUiPreferences();
   const location = useLocation(),
     navigate = useNavigate();
   const key = recordTabKey(location);
@@ -287,10 +297,23 @@ export function RecordNavigationProvider({ children, owner }) {
     setNotice('');
     if (key === tab.key) navigate(next.at(-1)?.to || '/');
   }
+  const visibleTabs = orderedRecordTabs(tabs, ready ? recordTabOrder : []);
+  function reorder(from, to) {
+    if (!ready) return;
+    const next = moveRecordTab(visibleTabs, from, to);
+    if (next === visibleTabs) return;
+    setPreference(
+      'recordTabOrder',
+      next.map((tab) => recordTabToken(tab.key)),
+    );
+  }
   return (
     <RecordNavigationContext.Provider
       value={{
-        tabs,
+        tabs: visibleTabs,
+        reorder,
+        resetOrder: () => setPreference('recordTabOrder', []),
+        ready,
         requestCloseAll,
         key,
         openRecord,
@@ -483,10 +506,30 @@ export function RecordTabOutlet({ header, className, recordLayout, enabled }) {
 }
 
 export function RecordNavigationBar({ onHeightChange }) {
-  const { tabs, key, notice, dismissNotice, requestClose, requestCloseAll } =
-    useContext(RecordNavigationContext);
+  const {
+    tabs,
+    key,
+    notice,
+    dismissNotice,
+    requestClose,
+    requestCloseAll,
+    reorder,
+    resetOrder,
+    ready,
+  } = useContext(RecordNavigationContext);
   const navigate = useNavigate();
   const bar = useRef(null);
+  const dragged = useRef(null);
+  const [reordering, setReordering] = useState(false);
+  const [dropTarget, setDropTarget] = useState(null);
+  const [announcement, setAnnouncement] = useState('');
+  function move(from, to) {
+    if (!ready || from === to) return;
+    reorder(from, to);
+    const tab = tabs.find((tab) => tab.key === from);
+    const position = tabs.findIndex((tab) => tab.key === to) + 1;
+    setAnnouncement(`${tab?.label || 'Tab'} moved to position ${position} of ${tabs.length}.`);
+  }
   useLayoutEffect(() => {
     const element = bar.current;
     const measure = () => onHeightChange?.(element?.getBoundingClientRect().height || 0);
@@ -521,11 +564,85 @@ export function RecordNavigationBar({ onHeightChange }) {
   }, [key, tabs]);
   return (
     <>
+      <span id="record-tab-reorder-help" className="sr-only">
+        Drag to reorder, use Alt+Shift+Left or Right, or choose Reorder Tabs.
+      </span>
+      <span className="sr-only" role="status" aria-live="polite">
+        {announcement}
+      </span>
+      {reordering && (
+        <Modal
+          title="Reorder Tabs"
+          onClose={() => setReordering(false)}
+          footer={
+            <>
+              <button className="btn-secondary" onClick={resetOrder}>
+                Reset Order
+              </button>
+              <button className="btn-primary" onClick={() => setReordering(false)}>
+                Done
+              </button>
+            </>
+          }
+        >
+          <p className="mb-4 text-sm text-slate-500">
+            Move tabs into your preferred order. Changes save to your account automatically.
+          </p>
+          <ol className="space-y-2">
+            {tabs.map((tab, index) => (
+              <li
+                key={tab.key}
+                className="flex items-center gap-2 rounded-lg border border-slate-200 p-3 dark:border-slate-700"
+              >
+                <span className="min-w-0 flex-1 truncate" title={tab.label}>
+                  {tab.label}
+                </span>
+                <button
+                  type="button"
+                  className="btn-secondary !p-2"
+                  aria-label={`Move ${tab.label} left`}
+                  disabled={index === 0}
+                  onClick={() => move(tab.key, tabs[index - 1].key)}
+                >
+                  <ArrowUpIcon className="h-4 w-4" aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary !p-2"
+                  aria-label={`Move ${tab.label} right`}
+                  disabled={index === tabs.length - 1}
+                  onClick={() => move(tab.key, tabs[index + 1].key)}
+                >
+                  <ArrowDownIcon className="h-4 w-4" aria-hidden="true" />
+                </button>
+              </li>
+            ))}
+          </ol>
+        </Modal>
+      )}
       {key && tabs.length > 1 && (
         <nav ref={bar} className="record-navigation-bar" aria-label="Open record tabs">
           <div role="tablist" aria-label="Record tabs" className="record-navigation-scroll">
             {tabs.map((tab) => (
-              <div className="record-navigation-tab" key={tab.key} data-active={tab.key === key}>
+              <div
+                className="record-navigation-tab"
+                key={tab.key}
+                data-active={tab.key === key}
+                data-drop-target={dropTarget === tab.key || undefined}
+                onDragOver={(event) => {
+                  if (!dragged.current || dragged.current === tab.key) return;
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect = 'move';
+                  setDropTarget(tab.key);
+                }}
+                onDrop={(event) => {
+                  if (!dragged.current) return;
+                  event.preventDefault();
+                  move(dragged.current, tab.key);
+                  dragged.current = null;
+                  setDropTarget(null);
+                }}
+              >
                 <button
                   type="button"
                   role="tab"
@@ -533,9 +650,30 @@ export function RecordNavigationBar({ onHeightChange }) {
                   aria-controls={panelId(tab.key)}
                   tabIndex={tab.key === key || !key ? 0 : -1}
                   title={`${recordTypeLabel(tab.to)}: ${tab.label}`}
+                  aria-describedby="record-tab-reorder-help"
+                  draggable={ready}
+                  onDragStart={(event) => {
+                    dragged.current = tab.key;
+                    event.dataTransfer.effectAllowed = 'move';
+                    event.dataTransfer.setData('text/plain', 'record-tab');
+                  }}
+                  onDragEnd={() => {
+                    dragged.current = null;
+                    setDropTarget(null);
+                  }}
                   onClick={() => navigate(tab.to)}
                   onKeyDown={(event) => {
                     let index = tabs.indexOf(tab);
+                    if (
+                      event.altKey &&
+                      event.shiftKey &&
+                      ['ArrowLeft', 'ArrowRight'].includes(event.key)
+                    ) {
+                      event.preventDefault();
+                      const target = tabs[index + (event.key === 'ArrowLeft' ? -1 : 1)];
+                      if (target) move(tab.key, target.key);
+                      return;
+                    }
                     if (event.key === 'ArrowRight') index = (index + 1) % tabs.length;
                     else if (event.key === 'ArrowLeft')
                       index = (index + tabs.length - 1) % tabs.length;
@@ -570,6 +708,16 @@ export function RecordNavigationBar({ onHeightChange }) {
               </div>
             ))}
           </div>
+          <button
+            type="button"
+            className="record-navigation-close-all"
+            aria-label="Reorder Tabs"
+            title="Reorder Tabs"
+            disabled={!ready}
+            onClick={() => setReordering(true)}
+          >
+            <ArrowsRightLeftIcon className="h-4 w-4" aria-hidden="true" />
+          </button>
           <span className="shrink-0 text-xs text-slate-500">
             {tabs.length}/{RECORD_TAB_LIMIT}
           </span>

@@ -47,7 +47,7 @@ export function GlobalSearch({ role, onClose }) {
       <div className="space-y-5">
         <div className="grid gap-4 sm:grid-cols-[1fr_180px]">
           <label className="field-label">
-            Search
+            <span className="sr-only">Search</span>
             <SearchInput
               ref={inputRef}
               autoFocus
@@ -59,7 +59,7 @@ export function GlobalSearch({ role, onClose }) {
             />
           </label>
           <label className="field-label">
-            Type
+            <span className="sr-only">Type</span>
             <Select value={type} onChange={(event) => setType(event.target.value)}>
               <option value="all">All types</option>
               {options.map(([value, label]) => (
@@ -70,17 +70,11 @@ export function GlobalSearch({ role, onClose }) {
             </Select>
           </label>
         </div>
-        <div role="status" className="text-sm text-slate-500" hidden={input.trim().length < 2}>
-          {input.trim().length < 2
-            ? ''
-            : waiting
-              ? 'Searching…'
-              : resource.error
-                ? ''
-                : resource.data?.results.length
-                  ? 'Up to 6 matches per type. Refine your search for more specific results.'
-                  : 'No matching records.'}
-        </div>
+        {!waiting && query.length >= 2 && !resource.error && !resource.data?.results.length && (
+          <p role="status" className="text-sm text-slate-500">
+            No matching records.
+          </p>
+        )}
         {resource.error && (
           <p role="alert" className="text-rose-700 dark:text-rose-300">
             {resource.error}

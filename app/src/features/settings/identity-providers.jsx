@@ -1,3 +1,4 @@
+import { CreateButton } from '../../components/create-button.jsx';
 import { ValidatedForm } from '../../components/forms/validated-form.jsx';
 import React, { useState } from 'react';
 import { IDENTITY_PROVIDERS } from '../../../../shared/domain/identity-provider-options.js';
@@ -139,9 +140,7 @@ function ProviderForm({ item, onClose, onSaved }) {
         <button type="button" className="btn-secondary" disabled={busy} onClick={onClose}>
           Cancel
         </button>
-        <button className="btn-primary" disabled={busy}>
-          Save
-        </button>
+        <CreateButton disabled={busy}>{item ? 'Save' : 'Create'}</CreateButton>
       </div>
     </ValidatedForm>
   );
@@ -174,7 +173,7 @@ export function IdentityProvidersPage() {
       <section className="panel space-y-4 p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-semibold">Identity Providers</h2>
-          <button
+          <CreateButton
             className="btn-primary"
             disabled={!resource.data || resource.data.providers.length >= 10}
             onClick={() => {
@@ -182,8 +181,8 @@ export function IdentityProvidersPage() {
               setMessage('');
             }}
           >
-            Add Provider
-          </button>
+            Create
+          </CreateButton>
         </div>
         <p>
           Connect OpenID Connect providers for workspace sign-in. Register a confidential web

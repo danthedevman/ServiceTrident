@@ -1,3 +1,4 @@
+import { CreateButton } from '../../components/create-button.jsx';
 import { WorkTable } from './work.jsx';
 import { TaskBoard } from './task-board.jsx';
 import { ProjectScopeBar, ProjectMetric, ProjectPanel, ProjectEmptyState } from './project-ui.jsx';
@@ -284,9 +285,12 @@ function ProjectTasks({ projectId }) {
           ))}
         </div>
         {canWrite(user) && (
-          <Link className="btn-primary" to={`/tasks/new?${new URLSearchParams({ projectId })}`}>
-            Create Task
-          </Link>
+          <CreateButton
+            className="btn-primary"
+            to={`/tasks/new?${new URLSearchParams({ projectId })}`}
+          >
+            Create
+          </CreateButton>
         )}
       </div>
       {view === 'board' ? (
@@ -333,12 +337,12 @@ export function MilestonesPage({ projectId: fixed }) {
       ]}
       actions={
         canWrite(user) && (
-          <Link
+          <CreateButton
             className="btn-primary"
             to={`/project-milestones/new?${new URLSearchParams({ projectId })}`}
           >
             Create
-          </Link>
+          </CreateButton>
         )
       }
       toolbar={
@@ -467,9 +471,9 @@ function MilestoneForm({ item, projectId, readOnly, onClose, onSaved }) {
           </p>
           <RecordActions>
             <CancelButton onCancel={onClose} disabled={save.busy} />
-            <button type="submit" className="btn-primary" disabled={save.busy}>
-              Save
-            </button>
+            <CreateButton type="submit" disabled={save.busy}>
+              {item ? 'Save' : 'Create'}
+            </CreateButton>
           </RecordActions>
         </>
       )}

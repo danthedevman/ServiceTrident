@@ -31,7 +31,12 @@ export function EventRelatedLists({ eventId, alertId, details, selectedId, onSel
                   label: 'Number',
                   value: (row) => row.number,
                   render: (row) => (
-                    <ReferenceValue type="incidents" id={row.id} label={row.number || row.title} />
+                    <ReferenceValue
+                      type="incidents"
+                      id={row.id}
+                      label={row.number || row.title}
+                      showIcon={false}
+                    />
                   ),
                 },
                 {

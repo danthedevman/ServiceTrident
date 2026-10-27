@@ -1,3 +1,4 @@
+import { CreateButton } from '../../components/create-button.jsx';
 import {
   StaticRecordFields,
   RecordFieldEditing,
@@ -253,9 +254,9 @@ function Calendar({ schedule, members, services, admin, form, id, onReset }) {
       <button type="button" disabled={save.busy} className="btn-secondary" onClick={closeEditor}>
         Cancel
       </button>
-      <button type="submit" form={formId} className="btn-primary" disabled={save.busy}>
-        {save.busy ? 'Saving…' : 'Save'}
-      </button>
+      <CreateButton type="submit" form={formId} disabled={save.busy}>
+        {schedule.shifts.some((shift) => shift.id === editor.id) ? 'Save' : 'Create'}
+      </CreateButton>
     </div>
   ) : null;
   const editorForm = editor ? (
