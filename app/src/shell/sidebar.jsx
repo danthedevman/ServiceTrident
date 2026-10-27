@@ -309,19 +309,21 @@ export function Sidebar({
         className={`sidebar-brand-row flex h-[45px] shrink-0 items-center gap-2 ${compact ? 'justify-center' : 'justify-between pl-6 pr-2'}`}
       >
         {compact ? (
-          <div className="group relative grid h-10 w-10 shrink-0 place-items-center">
+          <div className="group relative grid h-9 w-9 shrink-0 place-items-center">
             <span className="flex items-center justify-center group-hover:opacity-0 group-focus-within:opacity-0">
               {renderBrand(true)}
             </span>
             <Tooltip label={compact ? 'Expand Navigation' : null}>
               <button
                 type="button"
-                className="absolute inset-0 grid place-items-center rounded-lg bg-white opacity-0 hover:bg-slate-100 focus:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100 dark:bg-slate-900 dark:hover:bg-slate-800"
+                className="sidenav-toggle absolute inset-0 grid place-items-center opacity-0 focus:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100"
                 aria-label="Expand Navigation"
                 title="Expand Navigation"
                 onClick={() => setCollapsed(false)}
               >
-                <DrawerIcon className="h-5 w-5" aria-hidden="true" />
+                <span className="sidenav-link-icon">
+                  <DrawerIcon className="h-5 w-5" aria-hidden="true" />
+                </span>
               </button>
             </Tooltip>
           </div>

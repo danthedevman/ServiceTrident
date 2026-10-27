@@ -194,6 +194,16 @@ export function FloatingAIChat() {
   const enabled = preferences.aiChat && (available?.chatEnabled || available?.demoEnabled);
   const demo = mode === 'demo' || !available?.chatEnabled;
   useEffect(() => {
+    if (!busy || demo) return;
+    let step = 0;
+    const phases = ['thinking', 'working', 'preparing'];
+    const timer = setInterval(() => {
+      step = (step + 1) % phases.length;
+      setPhase(phases[step]);
+    }, 3000);
+    return () => clearInterval(timer);
+  }, [busy, demo]);
+  useEffect(() => {
     if (open && !historyOpen) input.current?.focus({ preventScroll: true });
   }, [open, historyOpen]);
   useLayoutEffect(() => {
@@ -316,7 +326,7 @@ export function FloatingAIChat() {
     setBusy(true);
     setError('');
     setPrompt('');
-    setPhase(demo ? 'thinking' : 'working');
+    setPhase('thinking');
     setScrollRequest((value) => value + 1);
     setMessages((rows) => [...rows.slice(-18), { role: 'user', text: message }]);
     try {
@@ -450,8 +460,8 @@ export function FloatingAIChat() {
           </button>
         </div>
       </header>
-      <div className="shrink-0 space-y-2 border-b border-slate-200 p-3 dark:border-slate-700">
-        {available.chatEnabled && available.demoEnabled && (
+      {available.chatEnabled && available.demoEnabled && (
+        <div className="shrink-0 border-b border-slate-200 p-3 dark:border-slate-700">
           <label className="field-label">
             Mode
             <Select
@@ -466,13 +476,8 @@ export function FloatingAIChat() {
               <option value="demo">Demo AI</option>
             </Select>
           </label>
-        )}
-        <p className="text-xs text-slate-500">
-          {demo
-            ? 'Demo AI · fictional output and simulated actions.'
-            : 'Uses authorized workspace context. Review cited evidence and confirm any record changes.'}
-        </p>
-      </div>
+        </div>
+      )}
       {historyOpen ? (
         <div className="ai-chat-transcript space-y-2 p-4" aria-label="Conversations">
           <h3 className="font-semibold">Conversations</h3>
@@ -535,7 +540,7 @@ export function FloatingAIChat() {
               <p className="text-sm">
                 {demo
                   ? 'Choose an example below to explore the assistant.'
-                  : 'Hi, I’m Athena. Ask a question, talk through a problem, or get help with your workspace. Open a record to discuss it with me.'}
+                  : 'Hi, I’m Athena. How can I help?'}
               </p>
             )}
             {messages.map((message, index) => (
@@ -729,13 +734,13 @@ export function FloatingAIChat() {
                 )}
               </article>
             ))}
-            {busy && demo && phase && (
+            {busy && phase && (
               <div
                 role="status"
                 className="ai-chat-progress flex items-center gap-3 rounded-lg border border-slate-200 p-3 text-sm dark:border-slate-700"
               >
                 <ArrowPathIcon
-                  className="h-4 w-4 shrink-0 motion-safe:animate-spin"
+                  className="h-5 w-5 shrink-0 text-blue-700 motion-safe:animate-spin dark:text-blue-400"
                   aria-hidden="true"
                 />
                 <div>
@@ -744,13 +749,10 @@ export function FloatingAIChat() {
                       ? 'Thinking'
                       : phase === 'retrieving'
                         ? 'Retrieving Example Data'
-                        : 'Thinking and Retrieving Authorized Context'}
+                        : phase === 'preparing'
+                          ? 'Preparing a response'
+                          : 'Working on your request'}
                   </p>
-                  {demo && (
-                    <p className="text-xs text-slate-500">
-                      Demo simulation · links use the active demo dataset.
-                    </p>
-                  )}
                 </div>
               </div>
             )}

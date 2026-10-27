@@ -2188,6 +2188,7 @@ body {
   box-shadow: 0 4px 18px #0003;
 }
 .ai-chat-panel {
+  border: 1px solid light-dark(var(--color-slate-200), var(--color-slate-600));
   position: fixed;
   z-index: 64;
   right: 1.25rem;
@@ -2221,7 +2222,7 @@ body {
   z-index: 45;
 }
 [data-app-shell] > #main {
-  border: 1px solid light-dark(var(--color-slate-200), var(--color-slate-800));
+  border: 0;
   border-radius: 16px;
   margin: 0 8px 8px;
   width: auto;
@@ -2719,7 +2720,8 @@ body:has([data-app-shell]) {
   height: 32px;
   border-radius: 4px;
 }
-.sidenav-toggle:hover .sidenav-toggle-icon {
+.sidenav-toggle:hover .sidenav-toggle-icon,
+.sidenav-toggle:hover .sidenav-link-icon {
   background: light-dark(var(--color-slate-200), var(--color-slate-800));
 }
 

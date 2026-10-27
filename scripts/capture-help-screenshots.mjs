@@ -2697,9 +2697,52 @@ try {
           }),
       );
       assert.ok(centered, `${role} compact links stay centered`);
+      const drawer = page.locator('.desktop-sidebar button[aria-label="Expand Navigation"]');
+      const link = page.locator('.desktop-sidebar nav .sidenav-link:not(.active):visible').first();
+      const hoverSurface = (node) => {
+        const box = node.getBoundingClientRect();
+        const style = getComputedStyle(node);
+        return {
+          width: box.width,
+          height: box.height,
+          radius: style.borderRadius,
+          background: style.backgroundColor,
+        };
+      };
+      for (const colorScheme of ['light', 'dark']) {
+        await page.emulateMedia({ colorScheme });
+        await link.hover();
+        const linkSurface = await link.locator('.sidenav-link-icon').evaluate(hoverSurface);
+        await drawer.hover();
+        assert.deepEqual(
+          await drawer.locator('.sidenav-link-icon').evaluate(hoverSurface),
+          linkSurface,
+          `${role} ${colorScheme} drawer hover matches navigation links`,
+        );
+        const buttonBox = await drawer.boundingBox();
+        const linkBox = await link.boundingBox();
+        assert.equal(buttonBox.width, linkBox.width);
+        assert.equal(buttonBox.height, linkBox.height);
+      }
+      await page.emulateMedia({ colorScheme: 'light' });
+      if (role === 'admin') {
+        await drawer.focus();
+        await page.screenshot({ path: `${output}/sidenav-drawer-toggle.png` });
+      }
+      await page.mouse.move(400, 100);
       assert.equal(
         await page.locator('#main').evaluate((node) => getComputedStyle(node).marginLeft),
         '0px',
+      );
+      assert.deepEqual(
+        await page
+          .locator('#main')
+          .evaluate((node) =>
+            ['Top', 'Right', 'Bottom', 'Left'].map(
+              (side) => getComputedStyle(node)[`border${side}Width`],
+            ),
+          ),
+        ['0px', '0px', '0px', '0px'],
       );
       assert.deepEqual(
         await page.locator('[data-app-shell]').evaluate((node) => ({
@@ -5942,7 +5985,7 @@ try {
     const main = document.querySelector('#main').getBoundingClientRect();
     const header = document.querySelector('.record-sticky-header').getBoundingClientRect();
     return {
-      top: Math.abs(header.top - main.top - 1),
+      top: Math.abs(header.top - main.top),
       left: Math.abs(main.left - header.left),
       right: Math.abs(main.right - header.right),
     };

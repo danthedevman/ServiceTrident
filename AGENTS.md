@@ -44,7 +44,7 @@
 - Use isolated synthetic data for development examples, tests, and screenshots. Do not copy production or live-workspace information into development artifacts. Review changed files and generated assets for accidental secret inclusion before completion; if a secret is discovered, stop exposing it, remove it from artifacts, and report the need to rotate it without repeating its value.
 - Check security-sensitive behavior with meaningful authorization, tenant isolation, validation, and safe-rendering tests. Preserve attachment authorization and secret encryption when adding workflows.
 
-- Do not display loading messages in the UI, including temporary permission or access warnings. Use skeleton placeholders, quiet pending states, and `aria-busy` where appropriate; preserve existing content during refresh. Show access-denied messages only after authentication and authorization have resolved. Keep meaningful errors and action confirmations visible.
+- Do not display loading messages in the UI, including temporary permission or access warnings. Exception: user-triggered Athena chat requests show visible progress messages (such as Thinking) with a spinner, as explicitly requested by the user; initial authentication, permission, and page loads remain quiet. Use skeleton placeholders, quiet pending states, and `aria-busy` where appropriate; preserve existing content during refresh. Show access-denied messages only after authentication and authorization have resolved. Keep meaningful errors and action confirmations visible.
 
 # Render conditional UI explicitly
 
