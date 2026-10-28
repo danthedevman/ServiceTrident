@@ -89,7 +89,10 @@ export async function writeApi(path, options) {
   const sessionUser = queryClient.getQueryData(['session'])?.user;
   const account = sessionUser?.email;
   const result = await api(path, options);
-  if ((!path.startsWith('/auth/') || path === '/auth/details') && account) {
+  if (
+    (!path.startsWith('/auth/') || path === '/auth/details' || path === '/auth/photo') &&
+    account
+  ) {
     const prefix = ['private', account];
     await queryClient.cancelQueries({ queryKey: prefix });
     if (queryClient.getQueryData(['session'])?.user !== sessionUser) return result;
@@ -114,6 +117,7 @@ export async function writeApi(path, options) {
     }
     await queryClient.invalidateQueries({ queryKey: prefix });
   }
-  if (path === '/auth/details') await queryClient.invalidateQueries({ queryKey: ['session'] });
+  if (path === '/auth/details' || path === '/auth/photo' || path.startsWith('/member-photos/'))
+    await queryClient.invalidateQueries({ queryKey: ['session'] });
   return result;
 }

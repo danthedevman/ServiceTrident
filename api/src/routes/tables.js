@@ -277,6 +277,7 @@ async function source(db, req) {
         'email',
         'role',
         'disabled',
+        'photoVersion',
         'jobTitle',
         'department',
         'phone',

@@ -15,13 +15,12 @@ export function ScrollToTop() {
   }, []);
   useLayoutEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
-    document.querySelector('#main')?.scrollTo({ top: 0, left: 0, behavior: 'instant' });
-    document
-      .querySelector('.record-scroll-area:not([hidden])')
-      ?.scrollTo({ top: 0, left: 0, behavior: 'instant' });
-    document
-      .querySelector('.record-sidebar-content')
-      ?.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    for (const node of document.querySelectorAll(
+      '#main, .page-scroll-area, .dashboard-scroll-area, .record-scroll-area, .record-sidebar-content, .table-rows',
+    )) {
+      if (!node.closest('[hidden], [inert]'))
+        node.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    }
   }, [key]);
   return null;
 }

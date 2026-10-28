@@ -754,16 +754,8 @@ function Overview({ data, chart, services, reportHref }) {
   const overview = data.overview;
   return (
     <div className="space-y-6">
-      <section className="space-y-3" aria-labelledby="overview-attention-title">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <h2 id="overview-attention-title" className="text-lg font-semibold">
-              Needs Attention
-            </h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Prioritize urgent incidents, find owners, and unblock overdue work.
-            </p>
-          </div>
+      <section className="space-y-3" aria-label="Priority reports">
+        <div className="flex justify-end">
           <Link
             className="text-sm font-medium text-blue-700 hover:underline dark:text-blue-300"
             to="/alerts"

@@ -1,3 +1,4 @@
+import { ProfilePhotoEditor, ProfileAvatar } from '../../components/profile-photo.jsx';
 import { StaticRecordFields } from '../../components/forms/record-field-layout.jsx';
 import { useResource } from '../../data/use-resource.js';
 import { ValidatedForm } from '../../components/forms/validated-form.jsx';
@@ -36,6 +37,11 @@ export function UserRecord({ member }) {
         ) : null
       }
     >
+      {own || user?.role === 'admin' ? (
+        <ProfilePhotoEditor member={member} own={own} />
+      ) : (
+        <ProfileAvatar member={member} className="profile-photo-large" />
+      )}
       <UserDetailsForm
         key={`${member.id}-${editing ? 'edit' : member.revision}`}
         readOnly={!editing || !(own || user?.role === 'admin')}

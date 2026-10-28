@@ -47,7 +47,7 @@ Demo chat link fixtures point only to synthetic demo records. Capture verifies t
 
 On-call fixtures include a millisecond-precision start. Capture verifies that Edit Coverage preserves the exact UTC value and accepts fractional seconds, preventing false overlaps at adjoining shift boundaries.
 
-The Overview screenshot shows compact Needs Attention reports first, followed by Quick Start and assignment panels. Check responsive wrapping and vertical scrolling when refreshing this screenshot.
+The Overview screenshot shows compact priority counts first, followed by Quick Start and assignment panels. Check responsive wrapping and vertical scrolling when refreshing this screenshot.
 
 `incident-comment-authors.png` uses synthetic comment and work-note authors. Verify both author names link to the synthetic user record; reference labels and icons in lists stay inline with long labels truncated. User records remain admin-only.
 

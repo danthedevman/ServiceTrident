@@ -11,6 +11,7 @@ export async function members(db, workspaceId) {
       projection: {
         email: 1,
         displayName: 1,
+        photoVersion: 1,
         jobTitle: 1,
         department: 1,
         phone: 1,

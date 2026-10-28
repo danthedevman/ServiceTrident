@@ -24,6 +24,9 @@ const { chromium } = await import(
   process.env.PLAYWRIGHT_MODULE ? pathToFileURL(process.env.PLAYWRIGHT_MODULE).href : 'playwright'
 );
 const incidentListSources = [];
+const profilePhotoFixtures = new Map();
+const photoWrites = [];
+
 const monitorIntervalSaves = [];
 let knowledgeFailPage = 0;
 const knowledgePages = [];
@@ -648,6 +651,22 @@ await context.route('**/api/**', async (route) => {
       const { owner: _owner, ownerRole: _role, ...item } = aiConversations.get(id);
       data = { item };
     }
+  } else if (path.startsWith('/member-photos/') || path === '/auth/photo') {
+    const memberId = path === '/auth/photo' ? user.id : path.split('/').pop();
+    if (request.method() === 'PUT') {
+      const body = request.postDataJSON();
+      photoWrites.push(body);
+      profilePhotoFixtures.set(memberId, body.base64);
+      data = { photoVersion: '00000000-0000-4000-8000-000000000001' };
+    } else if (request.method() === 'DELETE') {
+      profilePhotoFixtures.delete(memberId);
+      return route.fulfill({ status: 204 });
+    } else if (profilePhotoFixtures.has(memberId)) {
+      return route.fulfill({
+        contentType: 'image/png',
+        body: Buffer.from(profilePhotoFixtures.get(memberId), 'base64'),
+      });
+    } else return route.fulfill({ status: 404, json: { error: 'Profile photo not found.' } });
   } else if (path === '/ai/assistant') {
     const body = request.postDataJSON();
     aiAssistant = { responseStyle: body.responseStyle, instructions: body.instructions };
@@ -1368,6 +1387,9 @@ await context.route('**/api/**', async (route) => {
                 'Casey Brooks',
               ][index % 5],
               email: `member${index + 1}@example.invalid`,
+              photoVersion: profilePhotoFixtures.has((index + 100).toString(16).padStart(24, 'b'))
+                ? '00000000-0000-4000-8000-000000000001'
+                : '',
               role: ['admin', 'responder', 'viewer'][index % 3],
               disabled: index % 7 === 6,
               jobTitle: 'Service Operations',
@@ -1798,7 +1820,7 @@ async function captureOverview() {
     await page.locator('[aria-label="Assignment overview"] .assignment-report').count(),
     4,
   );
-  const attention = page.locator('[aria-labelledby="overview-attention-title"]');
+  const attention = page.locator('[aria-label="Priority reports"]');
   assert.equal(await attention.locator('[data-score-tone]').count(), 4);
   assert.ok(
     await attention.evaluate(
@@ -4745,15 +4767,92 @@ try {
       await page.screenshot({
         path: `${output}/settings-categories${width === 390 ? '-mobile' : ''}.png`,
       });
+      const scrollOwner = page
+        .locator('.page-scroll-area:visible, .record-scroll-area:visible')
+        .first();
+      await scrollOwner.evaluate((node) => {
+        node.scrollTop = node.scrollHeight;
+      });
+      assert.ok(
+        await scrollOwner.evaluate((node) => node.scrollTop > 0),
+        'Populated settings can scroll',
+      );
+      await page
+        .locator('.record-sticky-header')
+        .getByRole('link', { name: 'Create', exact: true })
+        .click();
+      await page.waitForURL(`${base}/groups/new`);
+      await page.waitForFunction(() =>
+        [...document.querySelectorAll('.page-scroll-area, .record-scroll-area')]
+          .filter((node) => !node.closest('[hidden], [inert]'))
+          .every((node) => node.scrollTop === 0),
+      );
+      await page.goBack();
+      await page.getByRole('heading', { name: 'Groups', exact: true }).waitFor();
+
       const panels = page.locator('.settings-record-panels');
       const next = panels.getByRole('button', { name: 'Next', exact: true });
       await next.click();
       await page.getByText('Page 2 of 3', { exact: false }).waitFor();
-      await panels.locator('.settings-record-card').last().scrollIntoViewIfNeeded();
+      await panels
+        .locator('.settings-record-card, .settings-directory-row')
+        .last()
+        .scrollIntoViewIfNeeded();
       await panels.getByRole('searchbox', { name: 'Search Groups', exact: true }).fill('Platform');
       await page.getByText('5 records · Page 1 of 1', { exact: true }).waitFor();
       await panels.getByRole('searchbox', { name: 'Search Groups', exact: true }).fill('');
 
+      await page
+        .getByRole('navigation', { name: 'Settings categories' })
+        .getByRole('button', { name: 'Users', exact: true })
+        .click();
+      await page.locator('.settings-directory-row').first().waitFor();
+      await page
+        .locator('.settings-directory-row')
+        .first()
+        .getByRole('button', { name: /^Actions for/ })
+        .click();
+      await page.getByRole('button', { name: 'Change Photo', exact: true }).click();
+      const photoDialog = page.getByRole('dialog', { name: /^Profile Photo:/ });
+      const chooser = photoDialog.getByLabel('Upload Profile Photo', { exact: true });
+      await chooser.setInputFiles({
+        name: 'unsupported.svg',
+        mimeType: 'image/svg+xml',
+        buffer: Buffer.from('<svg/>'),
+      });
+      await photoDialog.getByRole('alert').waitFor();
+      const syntheticPhoto = await page.evaluate(() => {
+        const canvas = document.createElement('canvas');
+        canvas.width = canvas.height = 32;
+        const context = canvas.getContext('2d');
+        context.fillStyle = '#2563eb';
+        context.fillRect(0, 0, 32, 32);
+        context.fillStyle = '#bfdbfe';
+        context.beginPath();
+        context.arc(16, 12, 6, 0, Math.PI * 2);
+        context.fill();
+        context.fillRect(7, 21, 18, 11);
+        return canvas.toDataURL('image/png').split(',')[1];
+      });
+      await chooser.setInputFiles({
+        name: 'profile.png',
+        mimeType: 'image/png',
+        buffer: Buffer.from(syntheticPhoto, 'base64'),
+      });
+      await photoDialog.getByRole('button', { name: 'Remove Photo', exact: true }).waitFor();
+      assert.ok(
+        await photoDialog
+          .locator('img')
+          .evaluate((node) => node.complete && node.naturalWidth === 256),
+      );
+      await page.screenshot({
+        path: `${output}/profile-photo-upload${width === 390 ? '-mobile' : ''}.png`,
+      });
+      await photoDialog.getByRole('button', { name: 'Remove Photo', exact: true }).click();
+      const removal = page.getByRole('dialog', { name: 'Remove Profile Photo', exact: true });
+      await removal.getByRole('button', { name: 'Delete', exact: true }).click();
+      await photoDialog.locator('img').waitFor({ state: 'hidden' });
+      await photoDialog.getByRole('button', { name: 'Done', exact: true }).click();
       await page.getByRole('button', { name: /^Search Workspace/ }).click();
       const dialog = page.getByRole('dialog', { name: 'Search Workspace', exact: true });
       const input = dialog.getByRole('searchbox', { name: 'Search', exact: true });
@@ -6743,9 +6842,7 @@ try {
   const dashboardGap = () =>
     page.evaluate(
       () =>
-        document
-          .querySelector('[aria-labelledby="overview-attention-title"]')
-          .getBoundingClientRect().top -
+        document.querySelector('[aria-label="Priority reports"]').getBoundingClientRect().top -
         document.querySelector('.dashboard-header').getBoundingClientRect().bottom,
     );
   await page.reload();
@@ -6775,7 +6872,7 @@ try {
     const picker = document.querySelector('[aria-label="Dashboard View"]').getBoundingClientRect();
     const refresh = document.querySelector('button[title="Refresh dashboard"]');
     const cards = document
-      .querySelector('.dashboard-scroll-area [aria-labelledby="overview-attention-title"]')
+      .querySelector('.dashboard-scroll-area [aria-label="Priority reports"]')
       .getBoundingClientRect();
     const button = refresh.getBoundingClientRect();
     const greeting = document.querySelector('.dashboard-header p').getBoundingClientRect();
@@ -6811,7 +6908,7 @@ try {
   assert.equal(dashboardAlignment.background, 'rgba(0, 0, 0, 0)');
   assert.ok(
     await page
-      .locator('#overview-attention-title')
+      .locator('[aria-label="Priority reports"]')
       .evaluate(
         (el) =>
           el.getBoundingClientRect().top <

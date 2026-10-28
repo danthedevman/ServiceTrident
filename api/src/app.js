@@ -1,3 +1,4 @@
+import { installProfilePhotos } from './routes/profile-photos.js';
 import { installComponentRoutes } from './routes/components.js';
 import { installPinRoutes } from './routes/pins.js';
 import { installProjectHubRoutes } from './routes/project-hub.js';
@@ -158,6 +159,7 @@ export function createApp(db, { aiFetch, oidcFetch, integrationRequest } = {}) {
   app.use('/api', requireUser(db));
   installServiceAccountSettings(app, db);
   installAccountRoutes(app, db, authLimit);
+  installProfilePhotos(app, db);
   installIdentitySettings(app, db, appOrigin, oidcFetch, authLimit);
   installWorkspaceSettings(app, db);
   installTableRoutes(app, db);

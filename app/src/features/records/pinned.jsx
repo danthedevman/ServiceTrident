@@ -284,7 +284,7 @@ export function PinnedPage() {
                     <h2 className="min-w-0 break-words font-semibold">{group.name}</h2>
                     <button
                       type="button"
-                      className="btn-secondary h-8 w-8 shrink-0 !p-0"
+                      className="inline-flex shrink-0 border-0 bg-transparent p-0 text-slate-500 hover:text-blue-700 focus-visible:outline-2 focus-visible:outline-blue-500 dark:hover:text-blue-300"
                       disabled={save.busy || editingGroup !== null}
                       aria-label={`Edit Group Name: ${group.name}`}
                       title="Edit Group Name"

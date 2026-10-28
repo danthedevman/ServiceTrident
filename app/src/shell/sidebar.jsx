@@ -1,3 +1,4 @@
+import { ProfileAvatar } from '../components/profile-photo.jsx';
 import { SearchInput } from '../components/forms/search-input.jsx';
 import { navigationActive } from '../lib/navigation-active.js';
 import { useUiPreferences } from '../preferences/ui-preferences.jsx';
@@ -135,9 +136,7 @@ function ProfileMenu({ user, compact, logout, busy, onNavigate, dropdown = false
           aria-label="Profile and appearance settings"
           title={compact ? 'Profile and appearance settings' : undefined}
         >
-          <span className="profile-avatar grid h-8 w-8 shrink-0 place-items-center rounded-full bg-blue-100 font-semibold text-blue-800 dark:bg-blue-950 dark:text-blue-300">
-            {(user.displayName || user.email).slice(0, 1).toUpperCase()}
-          </span>
+          <ProfileAvatar member={user} className="profile-avatar" />
           {!compact && (
             <>
               <span className="min-w-0 flex-1">

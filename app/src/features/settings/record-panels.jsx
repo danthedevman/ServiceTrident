@@ -1,3 +1,5 @@
+import { SettingsDirectoryRows } from './directory-rows.jsx';
+import { downloadCsv } from '../../lib/csv-download.js';
 import { RECORD_PANEL_PAGE_SIZE, recordPanelParams } from './record-panel-query.js';
 import { RecordHeader } from '../../components/record-actions.jsx';
 import React, { useContext, useEffect, useState } from 'react';
@@ -58,12 +60,16 @@ export function SettingsRecordPanels({ section }) {
     [query, setQuery] = useState(''),
     [page, setPage] = useState(1);
   useEffect(() => {
+    if (search.trim() === query) return;
     const timer = setTimeout(() => {
       setQuery(search.trim());
       setPage(1);
     }, 250);
     return () => clearTimeout(timer);
-  }, [search]);
+  }, [search, query]);
+  const [exporting, setExporting] = useState(false),
+    [exportError, setExportError] = useState('');
+  const directory = ['users', 'groups'].includes(section);
   const params = recordPanelParams({
     search: query,
     sortBy: config.sort,
@@ -86,7 +92,12 @@ export function SettingsRecordPanels({ section }) {
     >
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
-          <h2 className="text-lg font-semibold">{config.title}</h2>
+          <h2 className="text-xl font-semibold">
+            {config.title}
+            {resource.data && (
+              <span className="ml-2 text-sm font-normal text-slate-500">{total}</span>
+            )}
+          </h2>
           <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{config.description}</p>
         </div>
         <RecordHeader>
@@ -95,6 +106,29 @@ export function SettingsRecordPanels({ section }) {
             label={`Refresh ${config.title}`}
             onClick={resource.refresh}
           />
+          <button
+            type="button"
+            className="btn-secondary"
+            disabled={exporting || !resource.data}
+            onClick={async () => {
+              setExporting(true);
+              setExportError('');
+              try {
+                const exportParams = new URLSearchParams(params);
+                exportParams.set('export', 'csv');
+                await downloadCsv(
+                  `/tables/${config.source}?${exportParams}`,
+                  `${config.source}.csv`,
+                );
+              } catch (failure) {
+                setExportError(failure.message);
+              } finally {
+                setExporting(false);
+              }
+            }}
+          >
+            Download CSV
+          </button>
           {admin && config.create && (
             <Link className="btn-primary gap-2" to={config.create}>
               <PlusIcon className="h-4 w-4" aria-hidden="true" />
@@ -112,13 +146,15 @@ export function SettingsRecordPanels({ section }) {
           placeholder={`Search ${config.title}`}
         />
       </label>
-      <Notice error={resource.error} />
+      <Notice error={resource.error || exportError} />
       {!resource.data && resource.pending ? (
         <div className="grid gap-4 xl:grid-cols-2" aria-hidden="true">
           {[1, 2, 3, 4].map((value) => (
             <Skeleton key={value} className="h-48" />
           ))}
         </div>
+      ) : directory && rows.length ? (
+        <SettingsDirectoryRows section={section} rows={rows} refresh={resource.refresh} />
       ) : (
         <ul
           className={`grid gap-4 ${['users', 'groups'].includes(section) ? 'xl:grid-cols-2' : ''}`}

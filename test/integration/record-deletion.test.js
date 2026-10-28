@@ -19,6 +19,7 @@ test('admin record deletion enforces role, tenant and revision, cleans files and
   });
   const base = `http://127.0.0.1:${server.address().port}/api`;
   async function request(path, cookie, method = 'GET', body) {
+    if (method === 'DELETE' && body === undefined) body = {};
     const response = await fetch(base + path, {
       method,
       headers: {
@@ -61,6 +62,54 @@ test('admin record deletion enforces role, tenant and revision, cleans files and
         .cookie,
     );
   }
+  const photo =
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j5xkAAAAASUVORK5CYII=';
+  const photoPath = `/member-photos/${owner.data.user.id}`;
+  assert.equal((await request('/auth/photo', null, 'PUT', { base64: photo })).status, 401);
+  for (const cookie of cookies)
+    assert.equal((await request(photoPath, cookie, 'PUT', { base64: photo })).status, 403);
+  assert.equal((await request(photoPath, foreign.cookie, 'PUT', { base64: photo })).status, 404);
+  assert.equal(
+    (await request('/auth/photo', owner.cookie, 'PUT', { base64: 'not an image' })).status,
+    400,
+  );
+  assert.equal(
+    (
+      await request('/auth/photo', owner.cookie, 'PUT', {
+        base64: photo,
+        workspaceId: foreign.data.user.id,
+      })
+    ).status,
+    400,
+  );
+  const uploaded = await request('/auth/photo', owner.cookie, 'PUT', { base64: photo });
+  assert.equal(uploaded.status, 200);
+  assert.ok(uploaded.data.photoVersion);
+  assert.equal(uploaded.data.base64, undefined);
+  const preview = await fetch(base + photoPath, { headers: { Cookie: owner.cookie } });
+  assert.equal(preview.status, 200);
+  assert.equal(preview.headers.get('content-type'), 'image/png');
+  assert.equal(preview.headers.get('cache-control'), 'no-store');
+  assert.equal(Buffer.from(await preview.arrayBuffer()).toString('base64'), photo);
+  assert.equal((await request(photoPath, foreign.cookie)).status, 404);
+  assert.equal((await request(photoPath, cookies[2])).status, 403);
+  assert.equal(
+    (await request('/auth/me', owner.cookie)).data.user.photoVersion,
+    uploaded.data.photoVersion,
+  );
+  assert.equal(
+    (await request('/auth/photo', cookies[1], 'PUT', { base64: photo })).status,
+    200,
+    'viewers can manage their own photo',
+  );
+  assert.equal((await request('/auth/photo', owner.cookie, 'DELETE')).status, 204);
+  assert.equal((await request('/auth/photo', owner.cookie)).status, 404);
+  assert.ok(
+    !JSON.stringify(await db.collection('auditEvents').find({ workspaceId }).toArray()).includes(
+      photo,
+    ),
+    'photo bytes never enter audit metadata',
+  );
   for (const [source, sortBy] of [
     ['groups', 'name'],
     ['members', 'displayName'],

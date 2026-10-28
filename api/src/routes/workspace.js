@@ -239,6 +239,7 @@ export function installWorkspaceRoutes(app, db, appOrigin) {
       );
     await db.collection('users').deleteOne({ ...memberFilter(req.workspaceId), _id: userId });
     await db.collection('sessions').deleteMany({ userId });
+    await db.collection('profilePhotos').deleteOne({ _id: userId, workspaceId: req.workspaceId });
     await db
       .collection('aiConversations')
       .deleteMany({ workspaceId: req.workspaceId, actorId: userId });

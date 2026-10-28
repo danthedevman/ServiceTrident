@@ -94,6 +94,7 @@ export function requireUser(db) {
         projection: {
           email: 1,
           displayName: 1,
+          photoVersion: 1,
           timeZone: 1,
           uiPreferences: 1,
           notificationsSeenAt: 1,
@@ -134,6 +135,7 @@ export function serializeUser(user) {
     id: String(user._id),
     email: user.email,
     displayName: user.displayName ?? '',
+    photoVersion: user.photoVersion || '',
     timeZone: user.timeZone ?? '',
     uiPreferences: user.uiPreferences ? uiPreferences(user.uiPreferences) : null,
     workspaceId: String(user.workspaceId ?? user._id),
