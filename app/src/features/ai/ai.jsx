@@ -1,3 +1,4 @@
+import { CpuChipIcon } from '@heroicons/react/24/outline';
 import { AI_MODELS } from './models.js';
 import { AIChatSettings } from './chat.jsx';
 import { ValidatedForm } from '../../components/forms/validated-form.jsx';
@@ -28,14 +29,14 @@ export function AIProviderPage() {
   if (user?.role !== 'admin') return <Notice error="Workspace admin access is required." />;
   if (!settings.data) return <Notice error={settings.error} />;
   return (
-    <>
-      <AIChatSettings data={settings.data} refresh={settings.refresh} />
+    <div className="ai-configuration panel p-5 sm:p-6">
       <ProviderForm
         key={`${settings.data.revision}:${settings.data.provider?.type}`}
         data={settings.data}
         refresh={settings.refresh}
       />
-    </>
+      <AIChatSettings data={settings.data} refresh={settings.refresh} />
+    </div>
   );
 }
 function ProviderForm({ data, refresh }) {
@@ -54,7 +55,7 @@ function ProviderForm({ data, refresh }) {
     [message, setMessage] = useState('');
   return (
     <ValidatedForm
-      className="form-page form-body"
+      className="ai-provider-form space-y-4"
       validateValues={() =>
         custom && model.trim() && !/^[a-zA-Z0-9._:-]+$/.test(model.trim())
           ? {
@@ -82,7 +83,13 @@ function ProviderForm({ data, refresh }) {
         }
       }}
     >
-      <p>
+      <header className="ai-settings-heading">
+        <span className="ai-settings-icon">
+          <CpuChipIcon className="h-5 w-5" aria-hidden="true" />
+        </span>
+        <h2 className="font-semibold">AI Provider</h2>
+      </header>
+      <p className="text-sm text-slate-600 dark:text-slate-400">
         Connect a workspace AI provider to enable summaries, knowledge drafting, and answers. Each
         user can turn features off in Profile settings. Selected record text and prompts are sent to
         your provider; generated content requires review.

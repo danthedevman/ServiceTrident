@@ -45,6 +45,7 @@ export function RcaList({ incidentId = '', taskId = '', related = false }) {
       source={`rcas?${scope}`}
       title="Root Cause Analyses"
       filename="root-cause-analyses.csv"
+      deletePath="/rcas"
       defaultSort="updatedAt:desc"
       dateColumn="updatedAt"
       actions={

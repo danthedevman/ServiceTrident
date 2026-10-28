@@ -1,16 +1,27 @@
+import { SettingsRecordPanels } from './record-panels.jsx';
+import { IdentityProvidersPage } from './identity-providers.jsx';
+import { ServiceAccountsPage } from './service-accounts.jsx';
+import {
+  UserGroupIcon,
+  UsersIcon,
+  ShieldCheckIcon,
+  KeyIcon,
+  ClockIcon,
+  CircleStackIcon,
+  CpuChipIcon,
+  InboxIcon,
+} from '@heroicons/react/24/outline';
 import { AIProviderPage } from '../ai/ai.jsx';
 import { DEMO_INDUSTRIES, demoIndustry } from '../../../../shared/domain/demo-industries.js';
 import { Select } from '../../components/forms/select.jsx';
 import { PageTitle } from '../../components/page-title.jsx';
 import { AuthContext } from '../../auth/auth-context.js';
-import { ConfirmDeleteButton } from '../../components/confirm-delete-button.jsx';
 import { DateTime } from '../../preferences/date-time.jsx';
 import React, { useContext, useState } from 'react';
-import { Link, Navigate, useSearchParams } from 'react-router-dom';
+import { Navigate, useSearchParams } from 'react-router-dom';
 import { useResource } from '../../data/use-resource.js';
 import { Notice } from '../../components/forms/fields.jsx';
 import { useSave } from '../../data/use-save.js';
-import { DataTable } from '../../components/data-table.jsx';
 import { Modal } from '../../components/modal.jsx';
 import { validateDemoAction } from '../../../../shared/domain/demo-data.js';
 
@@ -18,8 +29,6 @@ import { validateDemoAction } from '../../../../shared/domain/demo-data.js';
 function AdminSettings({ section }) {
   const resource = useResource(section === 'demo-data' ? '/settings/demo-data' : null, 3000),
     save = useSave();
-  const marketing = useResource(section === 'hosting' ? '/settings/marketing' : null);
-  const inbox = useResource(null);
   const [industry, setIndustry] = useState('saas');
   const [confirm, setConfirm] = useState(false),
     [message, setMessage] = useState(''),
@@ -54,42 +63,6 @@ function AdminSettings({ section }) {
   }
   return (
     <div className="space-y-6">
-      {section === 'audit' && (
-        <section className="panel space-y-4 p-6">
-          <h2 className="text-lg font-semibold">Audit Log</h2>
-          <p>
-            Review record activity, including who performed an action and when. Search, filter by
-            date, and export matching entries.
-          </p>
-          <Link className="btn-primary" to="/settings/audit">
-            View audit log
-          </Link>
-        </section>
-      )}
-      {section === 'identity-providers' && (
-        <section className="panel space-y-4 p-6">
-          <h2 className="text-lg font-semibold">Identity Providers</h2>
-          <p>
-            Connect Auth0, Okta, Microsoft Entra ID, Google, and other OpenID Connect providers for
-            workspace sign-in.
-          </p>
-          <Link className="btn-primary" to="/settings/identity-providers">
-            Manage Identity Providers
-          </Link>
-        </section>
-      )}
-      {section === 'service-accounts' && (
-        <section className="panel space-y-4 p-6">
-          <h2 className="text-lg font-semibold">Service Accounts</h2>
-          <p>
-            Allow external integrations to create records with scoped API keys or OAuth client
-            credentials.
-          </p>
-          <Link className="btn-primary" to="/settings/service-accounts">
-            Manage Service Accounts
-          </Link>
-        </section>
-      )}
       {section === 'demo-data' && (
         <section id="demo-data" className="panel space-y-4 p-6">
           <h2 className="text-lg font-semibold">Demo Data</h2>
@@ -163,55 +136,6 @@ function AdminSettings({ section }) {
           )}
         </section>
       )}
-      {section === 'hosting' && marketing.data?.available && (
-        <>
-          <Notice error={inbox.error} />
-          <DataTable
-            source="inquiries"
-            title="Hosting Inquiries"
-            rows={inbox.data?.inquiries ?? []}
-            loading={!inbox.data}
-            rowKey={(row) => row.id}
-            defaultSort="createdAt:desc"
-            filename="hosting-inquiries.csv"
-            deletePath="/settings/marketing/inquiries"
-            description="Inquiries are retained for 90 days."
-            columns={[
-              { key: 'createdAt', label: 'Received', value: (row) => row.createdAt },
-              { key: 'name', label: 'Name', value: (row) => row.name },
-              { key: 'email', label: 'Email', value: (row) => row.email },
-              { key: 'company', label: 'Organization', value: (row) => row.company },
-              { key: 'interest', label: 'Interest', value: (row) => row.interest },
-              {
-                key: 'message',
-                label: 'Message',
-                value: (row) => row.message,
-                className: 'whitespace-pre-wrap max-w-sm',
-              },
-              {
-                key: 'actions',
-                label: 'Actions',
-                sortable: false,
-                value: () => '',
-                render: (row) => (
-                  <ConfirmDeleteButton
-                    confirmation="Delete this inquiry permanently?"
-                    confirmLabel="Remove"
-                    className="btn-danger"
-                    type="button"
-                    disabled={save.busy}
-                    onConfirm={() =>
-                      save.run(`/settings/marketing/inquiries/${row.id}`, 'DELETE', {})
-                    }
-                  >
-                    Delete inquiry
-                  </ConfirmDeleteButton>
-                ),
-              },
-            ]}
-          />
-        </>
-      )}
       {confirm && (
         <Modal
           title="Delete Demo Data?"
@@ -267,26 +191,26 @@ export function SettingsPage() {
     return <Navigate to={`/${moved[params.get('section')]}`} replace />;
   const admin = user.role === 'admin';
   const entries = [
-    ['groups', 'Groups', '/groups', 'View groups and their members.'],
+    ['groups', 'Groups', UserGroupIcon],
     ...(admin
       ? [
-          ['users', 'Users', '/workspace', 'Manage user profiles, roles, and account access.'],
-          ['identity-providers', 'Identity Providers'],
-          ['service-accounts', 'Service Accounts'],
-          ['audit', 'Audit Log'],
-          ['demo-data', 'Demo Data'],
-          ['ai', 'AI Provider'],
-          ...(marketing.data?.available ? [['hosting', 'Hosting Inquiries']] : []),
+          ['users', 'Users', UsersIcon],
+          ['identity-providers', 'Identity Providers', ShieldCheckIcon],
+          ['service-accounts', 'Service Accounts', KeyIcon],
+          ['audit', 'Audit Log', ClockIcon],
+          ['demo-data', 'Demo Data', CircleStackIcon],
+          ['ai', 'AI Provider', CpuChipIcon],
+          ...(marketing.data?.available ? [['hosting', 'Hosting Inquiries', InboxIcon]] : []),
         ]
       : []),
   ];
   const selected = entries.find(([id]) => id === params.get('section')) || entries[0];
   return (
-    <div className="space-y-5">
+    <div className="settings-page space-y-5">
       <PageTitle>Settings</PageTitle>
       <div className="settings-layout">
         <nav aria-label="Settings categories" className="settings-categories">
-          {entries.map(([id, label]) => (
+          {entries.map(([id, label, Icon]) => (
             <button
               key={id}
               type="button"
@@ -294,23 +218,26 @@ export function SettingsPage() {
               className="settings-category"
               onClick={() => setParams({ section: id }, { replace: true })}
             >
-              {label}
+              <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
+              <span>{label}</span>
             </button>
           ))}
         </nav>
         <div className="min-w-0" key={selected[0]}>
           {selected[0] === 'ai' ? (
-            <div className="space-y-5">
-              <AIProviderPage />
-            </div>
-          ) : selected[2] ? (
-            <section className="panel space-y-4 p-6">
-              <h2 className="text-lg font-semibold">{selected[1]}</h2>
-              <p>{selected[3]}</p>
-              <Link className="btn-primary" to={selected[2]}>
-                Manage {selected[1]}
-              </Link>
-            </section>
+            <AIProviderPage />
+          ) : selected[0] === 'groups' ? (
+            <SettingsRecordPanels section="groups" />
+          ) : selected[0] === 'users' ? (
+            <SettingsRecordPanels section="users" />
+          ) : selected[0] === 'audit' ? (
+            <SettingsRecordPanels section="audit" />
+          ) : selected[0] === 'identity-providers' ? (
+            <IdentityProvidersPage />
+          ) : selected[0] === 'service-accounts' ? (
+            <ServiceAccountsPage embedded />
+          ) : selected[0] === 'hosting' ? (
+            <SettingsRecordPanels section="hosting" />
           ) : (
             <AdminSettings section={selected[0]} />
           )}

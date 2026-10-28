@@ -465,7 +465,7 @@ function AccountRecord({ id }) {
   );
 }
 
-export function ServiceAccountsPage() {
+export function ServiceAccountsPage({ embedded = false }) {
   const { id } = useParams();
   const resource = useResource(id ? null : '/settings/service-accounts');
   const [adding, setAdding] = useState(false),
@@ -474,7 +474,11 @@ export function ServiceAccountsPage() {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <PageTitle>Service Accounts</PageTitle>
+        {embedded ? (
+          <h2 className="text-lg font-semibold">Service Accounts</h2>
+        ) : (
+          <PageTitle>Service Accounts</PageTitle>
+        )}
         {!adding && (
           <CreateButton
             className="btn-primary"

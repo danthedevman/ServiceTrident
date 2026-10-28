@@ -1,3 +1,4 @@
+import { RecordDeleteAction } from './record-delete-action.jsx';
 import { PinRecordAction } from '../features/records/pinned.jsx';
 import { RecordFieldEditing } from './forms/record-field-layout.jsx';
 import { Modal } from './modal.jsx';
@@ -135,6 +136,7 @@ export function RecordWorkspace({
                     <ActionMenu label="Record actions">
                       <PinRecordAction item={item} kind={kind} />
                       {secondaryActions}
+                      <RecordDeleteAction kind={kind} item={item} />
                       <RecordExportActions kind={kind} item={item} path={exportPath} />
                       {showFormBuilder && (
                         <Link to={`/${kind}/fields`}>

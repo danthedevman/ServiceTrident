@@ -9,6 +9,7 @@ export function installRecordDeletionRoutes(app, db) {
     incidents: 'incidents',
     tasks: 'tasks',
     knowledge: 'articles',
+    rcas: 'rcas',
   })) {
     app.delete(`/api/${kind}/:id`, requireAdmin, async (req, res) => {
       const _id = id(req.params.id);

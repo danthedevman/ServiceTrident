@@ -45,8 +45,8 @@ export function GlobalSearch({ role, onClose }) {
       initialFocusRef={inputRef}
     >
       <div className="space-y-5">
-        <div className="grid gap-4 sm:grid-cols-[1fr_180px]">
-          <label className="field-label">
+        <div className="global-search-controls grid items-start gap-4 sm:grid-cols-[minmax(0,1fr)_180px]">
+          <label className="field-label block min-w-0">
             <span className="sr-only">Search</span>
             <SearchInput
               ref={inputRef}
@@ -58,9 +58,14 @@ export function GlobalSearch({ role, onClose }) {
               onChange={(event) => setInput(event.target.value)}
             />
           </label>
-          <label className="field-label">
+          <label className="field-label block min-w-0">
             <span className="sr-only">Type</span>
-            <Select value={type} onChange={(event) => setType(event.target.value)}>
+            <Select
+              aria-label="Type"
+              className="!mt-0"
+              value={type}
+              onChange={(event) => setType(event.target.value)}
+            >
               <option value="all">All types</option>
               {options.map(([value, label]) => (
                 <option key={value} value={value}>

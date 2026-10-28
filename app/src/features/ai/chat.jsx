@@ -25,7 +25,7 @@ import { Field, Notice } from '../../components/forms/fields.jsx';
 import { ConfirmDeleteButton } from '../../components/confirm-delete-button.jsx';
 import { AI_DEMO_EXAMPLES } from '../../../../shared/domain/ai-chat.js';
 
-/** Workspace controls are separate from write-only provider credentials, so Demo AI needs no key. */
+/** Feature and assistant writes keep their own endpoints; Demo AI needs no provider key. */
 export function AIChatSettings({ data, refresh }) {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -60,8 +60,18 @@ export function AIChatSettings({ data, refresh }) {
     }
   }
   return (
-    <section className="panel space-y-4 p-6" aria-label="AI Chat Settings">
-      <h2 className="font-semibold">Athena</h2>
+    <section className="ai-chat-settings space-y-4" aria-label="AI Chat Settings">
+      <header className="ai-settings-heading">
+        <span className="ai-settings-icon">
+          <ChatBubbleLeftRightIcon className="h-5 w-5" aria-hidden="true" />
+        </span>
+        <div>
+          <h2 className="font-semibold">Athena</h2>
+          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+            Configure your workspace chatbot.
+          </p>
+        </div>
+      </header>
       <label className="field-label flex items-center justify-between gap-3">
         Enable AI Chat
         <Toggle
@@ -129,9 +139,12 @@ function AthenaSettings({ data, refresh }) {
         />
       </Field>
       <Notice error={error} />
-      <button className="btn-primary" disabled={busy} aria-busy={busy}>
-        Save Athena Settings
-      </button>
+      <div className="flex justify-end">
+        <button className="btn-primary gap-2" disabled={busy} aria-busy={busy}>
+          <ChatBubbleLeftRightIcon className="h-4 w-4" aria-hidden="true" />
+          Save Athena Settings
+        </button>
+      </div>
     </ValidatedForm>
   );
 }

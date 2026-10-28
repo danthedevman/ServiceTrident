@@ -311,6 +311,7 @@ export function RecordNavigationProvider({ children, owner }) {
     <RecordNavigationContext.Provider
       value={{
         tabs: visibleTabs,
+        forgetRecord: (path) => update((list) => list.filter((tab) => tab.key !== path)),
         reorder,
         resetOrder: () => setPreference('recordTabOrder', []),
         ready,
@@ -410,6 +411,11 @@ export function RecordLink({ to, children, onClick, recordLabel, ...props }) {
 }
 
 /** Mark action-driven form changes that do not emit an input change event. */
+/** A confirmed server deletion may discard the deleted record tab, including its draft. */
+export function useForgetRecordTab() {
+  return useContext(RecordNavigationContext)?.forgetRecord;
+}
+
 export function useRecordEditMarker() {
   const navigation = useContext(RecordNavigationContext);
   const location = useLocation();

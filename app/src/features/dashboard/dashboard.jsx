@@ -1,7 +1,16 @@
 import { ScoreGroup } from './score-group.jsx';
 import { queryClient } from '../../data/query-client.js';
 import { OperationalReporting } from './operational-reporting.jsx';
-import { UserCircleIcon, UserGroupIcon, ArrowUpRightIcon } from '@heroicons/react/24/outline';
+import {
+  UserCircleIcon,
+  UserGroupIcon,
+  ArrowUpRightIcon,
+  ServerStackIcon,
+  SignalIcon,
+  BellAlertIcon,
+  CalendarDaysIcon,
+  ArrowRightIcon,
+} from '@heroicons/react/24/outline';
 import { ReferenceField } from '../../components/forms/reference-field.jsx';
 import { RecordHeader } from '../../components/record-actions.jsx';
 import { useUiPreferences } from '../../preferences/ui-preferences.jsx';
@@ -38,7 +47,7 @@ function Score({ label, value, note, href, tone = 'blue', compact = false }) {
         to={href}
         aria-label={`View data: ${label}`}
         data-score-tone={tone}
-        className={`flex items-center justify-between gap-3 p-5 hover:bg-slate-50 dark:hover:bg-slate-800/40 focus-visible:outline-2 focus-visible:-outline-offset-2 ${scoreColors[tone]}`}
+        className={`dashboard-score dashboard-score-compact flex items-center justify-between gap-3 p-5 focus-visible:outline-2 focus-visible:-outline-offset-2 ${scoreColors[tone]}`}
       >
         <div className="min-w-0">
           <h3 className="text-xs font-semibold">{label}</h3>
@@ -50,7 +59,7 @@ function Score({ label, value, note, href, tone = 'blue', compact = false }) {
       </Link>
     );
   return (
-    <section className={`p-5 ${scoreColors[tone]}`} data-score-tone={tone}>
+    <section className={`dashboard-score p-5 ${scoreColors[tone]}`} data-score-tone={tone}>
       <h2 className="text-xs font-medium text-slate-500 dark:text-slate-400">{label}</h2>
       <p className="mt-2 text-3xl font-semibold tabular-nums">
         {typeof value === 'number' ? number(value) : value}
@@ -74,7 +83,7 @@ function PieChart({ title, rows, note, href }) {
     .value((row) => row.value)
     .sort(null)(rows);
   return (
-    <section className="panel min-w-0 p-6">
+    <section className="dashboard-chart panel min-w-0 p-6">
       <div className="flex items-center justify-between gap-3">
         <h2 className="font-semibold">{title}</h2>
         <Link
@@ -86,59 +95,61 @@ function PieChart({ title, rows, note, href }) {
         </Link>
       </div>
       <p className="mt-1 text-xs text-slate-500">{note}</p>
-      <svg
-        viewBox="-120 -120 240 240"
-        className="mx-auto my-3 w-full max-w-60"
-        role="group"
-        aria-label={title}
-      >
-        {!total && (
-          <circle
-            r="82"
-            fill="none"
-            strokeWidth="34"
-            className="stroke-slate-200 dark:stroke-slate-700"
-          />
-        )}
-        {slices
-          .filter((row) => row.value)
-          .map((slice, index) => (
-            <path
-              key={slice.data.label}
-              d={shape(slice)}
-              fill={slice.data.color ?? palette[index % palette.length]}
-              tabIndex={0}
-              role="img"
-              aria-label={`${slice.data.label}: ${slice.value}, ${format('.1%')(slice.value / total)}`}
-            >
-              <title>
-                {slice.data.label}: {number(slice.value)} ({format('.1%')(slice.value / total)})
-              </title>
-            </path>
-          ))}
-        <text textAnchor="middle" className="fill-current text-3xl font-semibold" y="8">
-          {number(total)}
-        </text>
-      </svg>
-      <ul className="space-y-2">
-        {rows.map((row, index) => (
-          <li key={row.label} className="flex justify-between gap-3 text-sm">
-            <span className="inline-flex items-center gap-2">
-              <svg width="10" height="10" aria-hidden="true">
-                <circle cx="5" cy="5" r="5" fill={row.color ?? palette[index % palette.length]} />
-              </svg>
-              <Link
-                className="text-blue-700 dark:text-blue-300"
-                to={row.href}
-                aria-label={`View ${row.label} data: ${title}`}
+      <div className="dashboard-donut">
+        <svg
+          viewBox="-120 -120 240 240"
+          className="mx-auto my-3 w-full max-w-60"
+          role="group"
+          aria-label={title}
+        >
+          {!total && (
+            <circle
+              r="82"
+              fill="none"
+              strokeWidth="34"
+              className="stroke-slate-200 dark:stroke-slate-700"
+            />
+          )}
+          {slices
+            .filter((row) => row.value)
+            .map((slice, index) => (
+              <path
+                key={slice.data.label}
+                d={shape(slice)}
+                fill={slice.data.color ?? palette[index % palette.length]}
+                tabIndex={0}
+                role="img"
+                aria-label={`${slice.data.label}: ${slice.value}, ${format('.1%')(slice.value / total)}`}
               >
-                {row.label}
-              </Link>
-            </span>
-            <strong>{number(row.value)}</strong>
-          </li>
-        ))}
-      </ul>
+                <title>
+                  {slice.data.label}: {number(slice.value)} ({format('.1%')(slice.value / total)})
+                </title>
+              </path>
+            ))}
+          <text textAnchor="middle" className="fill-current text-3xl font-semibold" y="8">
+            {number(total)}
+          </text>
+        </svg>
+        <ul className="dashboard-legend space-y-2">
+          {rows.map((row, index) => (
+            <li key={row.label} className="flex justify-between gap-3 text-sm">
+              <span className="inline-flex items-center gap-2">
+                <svg width="10" height="10" aria-hidden="true">
+                  <circle cx="5" cy="5" r="5" fill={row.color ?? palette[index % palette.length]} />
+                </svg>
+                <Link
+                  className="text-blue-700 dark:text-blue-300"
+                  to={row.href}
+                  aria-label={`View ${row.label} data: ${title}`}
+                >
+                  {row.label}
+                </Link>
+              </span>
+              <strong>{number(row.value)}</strong>
+            </li>
+          ))}
+        </ul>
+      </div>
       {!total && <p className="mt-3 text-sm text-slate-500">No records to report.</p>}
     </section>
   );
@@ -149,7 +160,7 @@ function BarChart({ title, rows, note, href }) {
     .domain([0, Math.max(1, ...rows.map((row) => row.value))])
     .range([0, 360]);
   return (
-    <section className="panel min-w-0 p-6">
+    <section className="dashboard-chart panel min-w-0 p-6">
       <div className="flex items-center justify-between gap-3">
         <h2 className="font-semibold">{title}</h2>
         <Link
@@ -553,7 +564,7 @@ export function Dashboard() {
       </p>
     );
   return (
-    <div className="space-y-6">
+    <div className="dashboard-page space-y-6">
       <RecordHeader>
         <div className="flex w-full flex-wrap items-center justify-between gap-4">
           <p className="min-w-0 flex-1 basis-full text-xl font-semibold break-words sm:basis-0">
@@ -656,47 +667,79 @@ function QuickStartGuide() {
   const { user } = useContext(AuthContext);
   const admin = user?.role === 'admin';
   const steps = [
-    ['Create a service', 'Define what your team supports.', '/services/new', 'services'],
-    ['Add a monitor', 'Choose an endpoint and check interval.', '/monitors/new', 'monitoring'],
-    ['Configure notifications', 'Connect an alert destination.', '/integrations', 'integrations'],
-    ['Set on-call coverage', 'Choose who responds to incidents.', '/on-call', 'people'],
+    [
+      'Create a service',
+      'Define what your team supports.',
+      '/services/new',
+      'services',
+      ServerStackIcon,
+    ],
+    [
+      'Add a monitor',
+      'Choose an endpoint and check interval.',
+      '/monitors/new',
+      'monitoring',
+      SignalIcon,
+    ],
+    [
+      'Configure notifications',
+      'Connect an alert destination.',
+      '/integrations',
+      'integrations',
+      BellAlertIcon,
+    ],
+    [
+      'Set on-call coverage',
+      'Choose who responds to incidents.',
+      '/on-call',
+      'people',
+      CalendarDaysIcon,
+    ],
   ];
   return (
-    <section className="panel space-y-3 p-4" aria-labelledby="quick-start-heading">
+    <section
+      className="dashboard-quick-start panel space-y-3 p-4"
+      aria-labelledby="quick-start-heading"
+    >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 id="quick-start-heading" className="font-semibold">
           Quick Start
         </h2>
-        {admin && (
+        <div className="flex flex-wrap items-center gap-4">
           <Link
-            className="text-sm font-medium text-blue-700 hover:underline dark:text-blue-300"
-            to="/quick-start"
+            className="text-sm text-blue-700 hover:underline dark:text-blue-300"
+            to="/help?topic=getting-started"
           >
-            Quick Setup
+            Getting Started guide
           </Link>
-        )}
-        <Link
-          className="text-sm text-blue-700 hover:underline dark:text-blue-300"
-          to="/help?topic=getting-started"
-        >
-          Getting Started guide
-        </Link>
+          {admin && (
+            <Link className="quick-start-setup" to="/quick-start">
+              Quick Setup <ArrowRightIcon className="h-4 w-4" aria-hidden="true" />
+            </Link>
+          )}
+        </div>
       </div>
-      <ol className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-        {steps.map(([title, description, to, topic], index) => (
-          <li key={title}>
-            <Link
-              className="flex h-full items-center gap-3 rounded-lg p-2 hover:bg-slate-50 dark:hover:bg-slate-800"
-              to={admin ? to : `/help?topic=${topic}`}
-            >
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-semibold text-blue-800 dark:bg-blue-950 dark:text-blue-200">
-                {index + 1}
-              </span>
-              <span className="min-w-0">
-                <strong className="text-sm">{title}</strong>
-                <span className="mt-1 block text-xs text-slate-500 dark:text-slate-400">
-                  {description}
+      <ol className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {steps.map(([title, description, to, topic, Icon], index) => (
+          <li key={title} className="min-w-0">
+            <Link className="quick-start-card group" to={admin ? to : `/help?topic=${topic}`}>
+              <span className="flex items-center justify-between gap-3" aria-hidden="true">
+                <span className="quick-start-icon">
+                  <Icon className="h-5 w-5" />
                 </span>
+                <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                  0{index + 1}
+                </span>
+              </span>
+              <span className="mt-4 flex items-start justify-between gap-2">
+                <strong className="text-sm font-semibold">{title}</strong>
+                <ArrowUpRightIcon
+                  className="h-4 w-4 shrink-0 text-blue-700 dark:text-blue-300"
+                  aria-hidden="true"
+                />
+              </span>
+              <span className="mt-2 block text-xs leading-5 text-slate-600 dark:text-slate-400">
+                {description}
               </span>
             </Link>
           </li>
@@ -778,7 +821,10 @@ function Overview({ data, chart, services, reportHref }) {
           ['My Assignments', 'my', UserCircleIcon],
           ['My Team', 'team', UserGroupIcon],
         ].map(([title, scope, Icon]) => (
-          <article key={scope} className="panel min-w-0 space-y-4 rounded-xl p-5">
+          <article
+            key={scope}
+            className="dashboard-assignment panel min-w-0 space-y-4 rounded-xl p-5"
+          >
             <header className="flex items-center justify-between gap-3">
               <h2 className="flex items-center gap-2 font-semibold">
                 <Icon className="h-5 w-5 text-blue-700 dark:text-blue-300" aria-hidden="true" />
@@ -860,6 +906,7 @@ function Overview({ data, chart, services, reportHref }) {
           rows={['up', 'degraded', 'down', 'unknown'].map((key) => ({
             label: key === 'up' ? 'Operational' : displayValue(key),
             value: services.filter((service) => (service.status || 'unknown') === key).length,
+            color: { up: '#059669', degraded: '#d97706', down: '#e11d48', unknown: '#64748b' }[key],
             href: reportHref('serviceHealth', key),
           }))}
         />
@@ -952,6 +999,7 @@ function EventDashboard({ state, serviceId, setService }) {
               rows={outcomes.map((row) => ({
                 label: row.status === 'up' ? 'Operational' : 'Down',
                 value: row.count,
+                color: row.status === 'up' ? '#059669' : '#e11d48',
                 href: eventsHref,
               }))}
               href={eventsHref}

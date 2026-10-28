@@ -208,28 +208,30 @@ export function NotificationsPage() {
   }, [search]);
   return (
     <section className="space-y-4" aria-label="Notification history">
-      <NotificationTabs value={tab} onChange={setTab} all prefix="notification-page" />
-      <div className="flex flex-wrap items-end justify-end gap-3">
-        <label className="field-label flex-1 sm:max-w-sm">
-          <span className="sr-only">Search Notifications</span>
-          <SearchInput
-            value={search}
-            maxLength={100}
-            placeholder="Search title, number, or author"
-            onChange={(event) => setSearch(event.target.value)}
-          />
-        </label>
-        <label className="field-label">
-          Created
-          <Select
-            aria-label="Created"
-            value={order}
-            onChange={(event) => setOrder(event.target.value)}
-          >
-            <option value="desc">Newest First</option>
-            <option value="asc">Oldest First</option>
-          </Select>
-        </label>
+      <div className="notification-history-toolbar flex flex-wrap items-end justify-between gap-4">
+        <NotificationTabs value={tab} onChange={setTab} all prefix="notification-page" />
+        <div className="notification-history-fields flex min-w-0 flex-1 items-end justify-end gap-3">
+          <label className="field-label block min-w-0 flex-1 sm:max-w-sm">
+            <span className="sr-only">Search Notifications</span>
+            <SearchInput
+              value={search}
+              maxLength={100}
+              placeholder="Search title, number, or author"
+              onChange={(event) => setSearch(event.target.value)}
+            />
+          </label>
+          <label className="field-label">
+            Created
+            <Select
+              aria-label="Created"
+              value={order}
+              onChange={(event) => setOrder(event.target.value)}
+            >
+              <option value="desc">Newest First</option>
+              <option value="asc">Oldest First</option>
+            </Select>
+          </label>
+        </div>
       </div>
       <NotificationHistory
         key={`${tab}-${query}-${order}`}

@@ -7,7 +7,7 @@
       name="description"
       content="Monitor websites and web APIs, aggregate events, and manage incidents with ServiceTrident. Free, open source, and self-hosted with Docker."
     />
-    <title>ServiceTrident — Monitor. Connect. Resolve.</title>
+    <title>ServiceTrident — Detect, Respond, Resolve</title>
     <link rel="icon" href="./favicon.ico" sizes="32x32" />
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
     <style>
@@ -453,39 +453,12 @@
       section > p {
         color: var(--muted);
       }
-      .number {
-        display: inline-block;
+      #features .card {
+        padding-top: 20px;
+      }
+      .card h3 {
         color: var(--accent);
-        font-size: 11px;
-        font-weight: 650;
-        letter-spacing: 1.4px;
-      }
-      .flow {
-        display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        list-style: none;
-        margin: 24px 0 0;
-        padding: 22px 24px;
-        border: 1px solid var(--line);
-        border-radius: 12px;
-        background: #121c2766;
-        gap: 16px;
-      }
-      .flow li {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        padding: 0;
-        color: var(--muted);
-        font-size: 13px;
-      }
-      .flow li::before {
-        content: '→';
-        color: var(--accent);
-      }
-      .flow li:first-child::before {
-        content: '●';
-        font-size: 8px;
+        margin-top: 0;
       }
       .integrations {
         display: grid;
@@ -606,6 +579,11 @@
         color: var(--text);
         font-weight: 650;
       }
+      .setup-prerequisite,
+      .setup-prerequisite:hover {
+        color: var(--accent);
+        text-decoration: none;
+      }
       .text-link {
         color: var(--accent);
         text-decoration: underline;
@@ -663,7 +641,6 @@
           section > h2,
           section > p,
           .card,
-          .flow,
           .integration,
           .setup-grid {
             animation: fade-in linear both;
@@ -744,13 +721,6 @@
         }
         .card {
           padding: 26px;
-        }
-        .flow {
-          grid-template-columns: 1fr 1fr;
-          padding: 20px;
-        }
-        .flow li {
-          align-items: start;
         }
         pre {
           padding: 18px;
@@ -979,7 +949,6 @@
           <h2>Turn signals into action</h2>
           <div class="grid">
             <article class="card">
-              <span class="number">01 / MONITOR</span>
               <h3>Websites &amp; web APIs</h3>
               <p>
                 Run scheduled HTTP/HTTPS checks, track response time and availability, and check
@@ -988,7 +957,6 @@
               </p>
             </article>
             <article class="card">
-              <span class="number">02 / AGGREGATE</span>
               <h3>Events in one place</h3>
               <p>
                 Bring monitor checks and external events into one workspace. Collect signals through
@@ -996,7 +964,6 @@
               </p>
             </article>
             <article class="card">
-              <span class="number">03 / RESPOND</span>
               <h3>Incidents with context</h3>
               <p>
                 Connect alerts to incidents, assign responders, and coordinate on-call coverage,
@@ -1005,12 +972,6 @@
               </p>
             </article>
           </div>
-          <ol class="flow" aria-label="Incident response workflow">
-            <li>Check or external signal</li>
-            <li>Correlated alert</li>
-            <li>Linked incident</li>
-            <li>Response &amp; recovery</li>
-          </ol>
         </section>
         <section id="integrations">
           <div class="eyebrow">Work with your existing tools</div>
@@ -1074,8 +1035,10 @@
           <div class="eyebrow">Your infrastructure. Your data.</div>
           <h2>Your first monitor starts here</h2>
           <p>
-            Install Git and Docker with Compose, start Docker, and keep port 8090 available. Run
-            these commands in a macOS/Linux shell or Windows PowerShell:
+            Install <a class="setup-prerequisite" href="https://git-scm.com/install/">Git</a> and
+            <a class="setup-prerequisite" href="https://docs.docker.com/compose/install/">Docker</a>
+            with Compose, start Docker, and keep port 8090 available. Run these commands in a
+            macOS/Linux shell or Windows PowerShell:
           </p>
           <div class="setup-grid">
             <div class="terminal">

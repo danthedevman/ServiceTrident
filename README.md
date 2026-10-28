@@ -27,7 +27,17 @@ ServiceTrident is self-hosted and supports MongoDB or PostgreSQL with Redis. Hos
 
 ![Incident response workspace](app/public/help/readme-incident-dark.png)
 
-![Public service status](app/public/help/readme-status-dark.png)
+Work across linked records and their related views.
+
+![Tabbed service workspace with open records and related incidents](app/public/help/readme-tabs-dark.png)
+
+Keep investigation notes and recovery knowledge close at hand.
+
+![Published knowledge article in reading view](app/public/help/readme-knowledge-dark.png)
+
+Share service health through a dedicated public page.
+
+![Public service status page with service health and history](app/public/help/readme-public-status-dark.png)
 
 ## Learn more
 

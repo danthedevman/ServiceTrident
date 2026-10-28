@@ -39,7 +39,10 @@
     @apply bg-slate-50/80 dark:bg-slate-800/80 px-6 py-3 text-xs font-medium text-slate-500 dark:text-slate-400;
   }
   td {
-    @apply border-t border-slate-100 dark:border-slate-800 px-6 py-4;
+    @apply px-6 py-4;
+  }
+  thead {
+    @apply border-b border-slate-200 dark:border-slate-700;
   }
 }
 @layer components {
@@ -3009,4 +3012,187 @@ body:has([data-app-shell]) {
 }
 .record-navigation-tab > [draggable='true']:active {
   cursor: grabbing;
+}
+
+/* Dashboard surfaces share a quiet hierarchy; content keeps its native scroll owner. */
+.dashboard-page .dashboard-chart,
+.dashboard-page .dashboard-assignment,
+.dashboard-page .dashboard-quick-start,
+.dashboard-page .dashboard-scores {
+  border-radius: 12px;
+  border-color: light-dark(var(--color-slate-200), var(--color-slate-700));
+  box-shadow: 0 2px 6px light-dark(rgb(15 23 42 / 3%), rgb(0 0 0 / 10%));
+}
+.dashboard-page .dashboard-score {
+  position: relative;
+  padding: 22px 24px;
+}
+.dashboard-page .dashboard-score-compact {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 16px;
+}
+.dashboard-score-compact strong {
+  font-size: 2rem;
+  line-height: 1.1;
+  letter-spacing: -0.04em;
+}
+.dashboard-score-compact h3 {
+  color: light-dark(var(--color-slate-700), var(--color-slate-200));
+  font-size: 0.8125rem;
+}
+.dashboard-score-compact p:empty {
+  display: none;
+}
+.dashboard-page a.dashboard-score:hover,
+.dashboard-page .assignment-report:hover {
+  background: light-dark(var(--color-blue-50), rgb(30 58 138 / 16%));
+}
+.dashboard-chart > div:first-child {
+  align-items: flex-start;
+}
+.dashboard-chart > div:first-child h2 {
+  line-height: 1.5;
+}
+.dashboard-chart > div:first-child > a {
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: light-dark(var(--color-blue-50), rgb(30 58 138 / 20%));
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.dashboard-donut {
+  display: grid;
+  align-items: center;
+  gap: 12px 24px;
+  margin-top: 16px;
+}
+.dashboard-legend li {
+  padding: 9px 0;
+  border-bottom: 1px solid light-dark(var(--color-slate-100), var(--color-slate-800));
+}
+.dashboard-legend strong {
+  font-variant-numeric: tabular-nums;
+}
+.dashboard-page .assignment-report {
+  border-radius: 8px;
+  background: light-dark(var(--color-slate-50), rgb(15 23 42 / 25%));
+}
+.dashboard-page .dashboard-quick-start {
+  padding: 20px;
+}
+.quick-start-card {
+  display: block;
+  height: 100%;
+  padding: 16px;
+  border: 1px solid light-dark(var(--color-slate-200), var(--color-slate-700));
+  border-radius: 8px;
+  background: light-dark(var(--color-slate-50), rgb(15 23 42 / 25%));
+}
+.quick-start-card:hover {
+  border-color: light-dark(var(--color-blue-400), var(--color-blue-500));
+  background: light-dark(var(--color-blue-50), rgb(30 58 138 / 16%));
+}
+.quick-start-card:focus-visible {
+  outline: 2px solid var(--color-blue-500);
+  outline-offset: 3px;
+}
+.quick-start-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  color: light-dark(var(--color-blue-700), var(--color-blue-300));
+  background: light-dark(var(--color-blue-100), rgb(30 58 138 / 35%));
+}
+.quick-start-setup {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: light-dark(var(--color-blue-700), var(--color-blue-200));
+  background: light-dark(var(--color-blue-50), rgb(30 58 138 / 30%));
+}
+.quick-start-setup:hover {
+  background: light-dark(var(--color-blue-100), rgb(30 58 138 / 50%));
+}
+@media (min-width: 640px) {
+  .dashboard-donut {
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+    min-height: 240px;
+  }
+}
+.dashboard-score-compact strong {
+  margin-top: auto;
+}
+
+/* Provider and chatbot controls share one settings surface and field alignment. */
+.ai-configuration {
+  min-width: 0;
+}
+.ai-settings-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.ai-settings-icon,
+.settings-record-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 36px;
+  height: 36px;
+  border-radius: 8px;
+  color: light-dark(var(--color-blue-700), var(--color-blue-300));
+  background: light-dark(var(--color-blue-50), rgb(30 58 138 / 25%));
+}
+.ai-chat-settings {
+  margin-top: 28px;
+  padding-top: 24px;
+  border-top: 1px solid light-dark(var(--color-slate-200), var(--color-slate-700));
+}
+.settings-category {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  border-radius: 4px;
+  font-size: 0.875rem;
+}
+.settings-category[aria-current='page'] {
+  color: light-dark(var(--color-blue-800), var(--color-blue-200));
+  background: light-dark(var(--color-blue-50), rgb(30 58 138 / 25%));
+  font-weight: 600;
+}
+.settings-category:focus-visible {
+  outline: 2px solid var(--color-blue-500);
+  outline-offset: -2px;
+}
+.notification-history-toolbar > .notification-tabs {
+  align-items: center;
+  min-height: 46px;
+  padding: 0;
+}
+.notification-history-fields > label:last-child {
+  flex-shrink: 0;
+}
+@media (max-width: 639px) {
+  .notification-history-fields {
+    flex-basis: 100%;
+  }
+}
+
+.settings-record-card {
+  display: flex;
+  flex-direction: column;
+  border-radius: 10px;
+}
+.settings-record-card > div:last-child {
+  margin-top: auto;
+  padding-top: 20px;
 }
