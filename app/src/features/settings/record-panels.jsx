@@ -1,3 +1,5 @@
+import { RECORD_PANEL_PAGE_SIZE, recordPanelParams } from './record-panel-query.js';
+import { RecordHeader } from '../../components/record-actions.jsx';
 import React, { useContext, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
@@ -62,17 +64,16 @@ export function SettingsRecordPanels({ section }) {
     }, 250);
     return () => clearTimeout(timer);
   }, [search]);
-  const params = new URLSearchParams({
+  const params = recordPanelParams({
     search: query,
     sortBy: config.sort,
     order: ['audit', 'hosting'].includes(section) ? 'desc' : 'asc',
-    page: String(page),
-    pageSize: '12',
+    page,
   });
   const resource = useResource(`/tables/${config.source}?${params}`, 30000);
   const rows = resource.data?.rows ?? [],
     total = resource.data?.total ?? 0;
-  const pages = Math.max(1, Math.ceil(total / 12));
+  const pages = Math.max(1, Math.ceil(total / RECORD_PANEL_PAGE_SIZE));
   useEffect(() => {
     if (resource.data && page > pages) setPage(pages);
   }, [resource.data, page, pages]);
@@ -88,7 +89,7 @@ export function SettingsRecordPanels({ section }) {
           <h2 className="text-lg font-semibold">{config.title}</h2>
           <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{config.description}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <RecordHeader>
           <RefreshButton
             busy={resource.pending}
             label={`Refresh ${config.title}`}
@@ -100,7 +101,7 @@ export function SettingsRecordPanels({ section }) {
               Create
             </Link>
           )}
-        </div>
+        </RecordHeader>
       </header>
       <label className="field-label block">
         <span className="sr-only">Search {config.title}</span>

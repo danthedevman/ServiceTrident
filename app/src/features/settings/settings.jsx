@@ -1,3 +1,4 @@
+import { RecordHeader } from '../../components/record-actions.jsx';
 import { SettingsRecordPanels } from './record-panels.jsx';
 import { IdentityProvidersPage } from './identity-providers.jsx';
 import { ServiceAccountsPage } from './service-accounts.jsx';
@@ -116,7 +117,7 @@ function AdminSettings({ section }) {
                   Added by {batch.createdBy} · {<DateTime value={batch.createdAt} />}
                 </p>
               )}
-              <div className="flex flex-wrap gap-3">
+              <RecordHeader>
                 <button
                   className="btn-primary"
                   disabled={save.busy || working || !!batch}
@@ -131,7 +132,7 @@ function AdminSettings({ section }) {
                 >
                   Delete demo data
                 </button>
-              </div>
+              </RecordHeader>
             </>
           )}
         </section>

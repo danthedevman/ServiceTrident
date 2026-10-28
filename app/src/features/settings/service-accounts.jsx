@@ -1,3 +1,4 @@
+import { RecordHeader, RecordActions } from '../../components/record-actions.jsx';
 import { CreateButton } from '../../components/create-button.jsx';
 import { StaticRecordFields } from '../../components/forms/record-field-layout.jsx';
 import React, { useState } from 'react';
@@ -238,14 +239,14 @@ function AccountForm({ item, onCancel, onSaved, readOnly = false }) {
         )}
       </StaticRecordFields>
       {!readOnly && (
-        <div className="form-actions">
+        <RecordActions>
           <button type="button" className="btn-secondary" disabled={busy} onClick={onCancel}>
             Cancel
           </button>
           <CreateButton className="btn-primary" disabled={busy}>
             {item ? 'Save' : 'Create'}
           </CreateButton>
-        </div>
+        </RecordActions>
       )}
     </ValidatedForm>
   );
@@ -479,17 +480,19 @@ export function ServiceAccountsPage({ embedded = false }) {
         ) : (
           <PageTitle>Service Accounts</PageTitle>
         )}
-        {!adding && (
-          <CreateButton
-            className="btn-primary"
-            onClick={() => {
-              setRevealed(null);
-              setAdding(true);
-            }}
-          >
-            Create
-          </CreateButton>
-        )}
+        <RecordHeader>
+          {!adding && (
+            <CreateButton
+              className="btn-primary"
+              onClick={() => {
+                setRevealed(null);
+                setAdding(true);
+              }}
+            >
+              Create
+            </CreateButton>
+          )}
+        </RecordHeader>
       </div>
       <p>Give external integrations only the record scopes and service access they need.</p>
       <Notice error={resource.error} />

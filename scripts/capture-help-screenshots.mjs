@@ -1,3 +1,4 @@
+import { tableQuery } from '../api/src/repositories/table-page.js';
 import { DEMO_INDUSTRIES, demoIndustry, demoTypeCount } from '../shared/domain/demo-industries.js';
 import { DEFAULT_FORM_LAYOUT, validateFormLayout } from '../shared/forms/layout.js';
 import { helpTopics } from '../app/src/features/help/topics.js';
@@ -1329,6 +1330,12 @@ await context.route('**/api/**', async (route) => {
       process.env.HELP_CAPTURE_FOCUS === 'settings-polish' &&
       ['/tables/groups', '/tables/members'].includes(path)
     ) {
+      tableQuery(
+        Object.fromEntries(url.searchParams),
+        path.endsWith('/groups')
+          ? ['name', 'description', 'members']
+          : ['displayName', 'email', 'role'],
+      );
       const names = [
         'Platform Operations',
         'Customer Experience',
@@ -1372,7 +1379,7 @@ await context.route('**/api/**', async (route) => {
           .toLowerCase()
           .includes((url.searchParams.get('search') || '').toLowerCase()),
       );
-      const size = Number(url.searchParams.get('pageSize') || 12),
+      const size = Number(url.searchParams.get('pageSize') || 10),
         start = (Number(url.searchParams.get('page') || 1) - 1) * size;
       return route.fulfill({ json: { rows: rows.slice(start, start + size), total: rows.length } });
     }
@@ -4698,6 +4705,17 @@ try {
           .locator('.settings-layout > div')
           .getByRole('heading', { name: label, exact: true })
           .waitFor();
+        if (['Groups', 'Users', 'Identity Providers', 'Service Accounts'].includes(label)) {
+          await page
+            .locator('.record-sticky-header')
+            .getByRole('link', { name: 'Create', exact: true })
+            .or(
+              page
+                .locator('.record-sticky-header')
+                .getByRole('button', { name: 'Create', exact: true }),
+            )
+            .waitFor();
+        }
         const content = page.locator('.settings-layout > div');
         await content.waitFor({ state: 'visible' });
         const bounds = await content.boundingBox();
@@ -4712,8 +4730,9 @@ try {
         });
       }
       await page
+        .locator('.record-sticky-header')
         .getByRole('button', { name: 'Save Athena Settings', exact: true })
-        .scrollIntoViewIfNeeded();
+        .waitFor();
       await page
         .getByRole('navigation', { name: 'Settings categories' })
         .getByRole('button', { name: 'Groups', exact: true })

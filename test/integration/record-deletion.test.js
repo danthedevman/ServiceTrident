@@ -61,6 +61,18 @@ test('admin record deletion enforces role, tenant and revision, cleans files and
         .cookie,
     );
   }
+  for (const [source, sortBy] of [
+    ['groups', 'name'],
+    ['members', 'displayName'],
+    ['audit', 'createdAt'],
+  ]) {
+    const response = await request(
+      `/tables/${source}?page=1&pageSize=10&sortBy=${sortBy}&order=asc&search=`,
+      owner.cookie,
+    );
+    assert.equal(response.status, 200, `${source} supports settings panel requests`);
+    assert.ok(Array.isArray(response.data.rows));
+  }
   for (const [kind, collection] of Object.entries({
     incidents: 'incidents',
     tasks: 'tasks',

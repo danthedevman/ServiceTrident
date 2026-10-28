@@ -1,3 +1,4 @@
+import { RecordHeader, RecordActions } from '../../components/record-actions.jsx';
 import { CreateButton } from '../../components/create-button.jsx';
 import { ValidatedForm } from '../../components/forms/validated-form.jsx';
 import React, { useState } from 'react';
@@ -136,12 +137,12 @@ function ProviderForm({ item, onClose, onSaved }) {
           />
         </label>
       </div>
-      <div className="flex justify-end gap-3">
+      <RecordActions>
         <button type="button" className="btn-secondary" disabled={busy} onClick={onClose}>
           Cancel
         </button>
         <CreateButton disabled={busy}>{item ? 'Save' : 'Create'}</CreateButton>
-      </div>
+      </RecordActions>
     </ValidatedForm>
   );
 }
@@ -173,16 +174,20 @@ export function IdentityProvidersPage() {
       <section className="panel space-y-4 p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-semibold">Identity Providers</h2>
-          <CreateButton
-            className="btn-primary"
-            disabled={!resource.data || resource.data.providers.length >= 10}
-            onClick={() => {
-              setEditing(empty);
-              setMessage('');
-            }}
-          >
-            Create
-          </CreateButton>
+          {!editing && (
+            <RecordHeader>
+              <CreateButton
+                className="btn-primary"
+                disabled={!resource.data || resource.data.providers.length >= 10}
+                onClick={() => {
+                  setEditing(empty);
+                  setMessage('');
+                }}
+              >
+                Create
+              </CreateButton>
+            </RecordHeader>
+          )}
         </div>
         <p>
           Connect OpenID Connect providers for workspace sign-in. Register a confidential web

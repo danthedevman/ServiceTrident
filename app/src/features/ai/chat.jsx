@@ -1,5 +1,6 @@
+import { RecordHeader } from '../../components/record-actions.jsx';
 import { createPortal } from 'react-dom';
-import React, { useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { useContext, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   ChatBubbleLeftRightIcon,
@@ -99,12 +100,14 @@ export function AIChatSettings({ data, refresh }) {
 }
 
 function AthenaSettings({ data, refresh }) {
+  const formId = useId();
   const [style, setStyle] = useState(data.assistant?.responseStyle ?? 'balanced');
   const [instructions, setInstructions] = useState(data.assistant?.instructions ?? '');
   const [busy, setBusy] = useState(false),
     [error, setError] = useState('');
   return (
     <ValidatedForm
+      id={formId}
       className="space-y-4"
       onSubmit={async (event) => {
         event.preventDefault();
@@ -139,12 +142,12 @@ function AthenaSettings({ data, refresh }) {
         />
       </Field>
       <Notice error={error} />
-      <div className="flex justify-end">
-        <button className="btn-primary gap-2" disabled={busy} aria-busy={busy}>
+      <RecordHeader>
+        <button className="btn-primary gap-2" form={formId} disabled={busy} aria-busy={busy}>
           <ChatBubbleLeftRightIcon className="h-4 w-4" aria-hidden="true" />
           Save Athena Settings
         </button>
-      </div>
+      </RecordHeader>
     </ValidatedForm>
   );
 }
