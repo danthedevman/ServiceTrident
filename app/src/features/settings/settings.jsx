@@ -19,7 +19,7 @@ import { PageTitle } from '../../components/page-title.jsx';
 import { AuthContext } from '../../auth/auth-context.js';
 import { DateTime } from '../../preferences/date-time.jsx';
 import React, { useContext, useState } from 'react';
-import { Navigate, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, useSearchParams } from 'react-router-dom';
 import { useResource } from '../../data/use-resource.js';
 import { Notice } from '../../components/forms/fields.jsx';
 import { useSave } from '../../data/use-save.js';
@@ -181,6 +181,7 @@ export function SettingsPage() {
   if (loading) return null;
   if (!user || user.role === 'user') return <p>Workspace access is required.</p>;
   const moved = {
+    audit: 'settings/audit',
     'alert-grouping': 'alert-grouping',
     integrations: 'integrations',
     eventRules: 'event-rules',
@@ -211,18 +212,25 @@ export function SettingsPage() {
       <PageTitle>Settings</PageTitle>
       <div className="settings-layout">
         <nav aria-label="Settings categories" className="settings-categories">
-          {entries.map(([id, label, Icon]) => (
-            <button
-              key={id}
-              type="button"
-              aria-current={id === selected[0] ? 'page' : undefined}
-              className="settings-category"
-              onClick={() => setParams({ section: id }, { replace: true })}
-            >
-              <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
-              <span>{label}</span>
-            </button>
-          ))}
+          {entries.map(([id, label, Icon]) =>
+            id === 'audit' ? (
+              <Link key={id} className="settings-category" to="/settings/audit">
+                <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
+                <span>{label}</span>
+              </Link>
+            ) : (
+              <button
+                key={id}
+                type="button"
+                aria-current={id === selected[0] ? 'page' : undefined}
+                className="settings-category"
+                onClick={() => setParams({ section: id }, { replace: true })}
+              >
+                <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
+                <span>{label}</span>
+              </button>
+            ),
+          )}
         </nav>
         <div className="min-w-0" key={selected[0]}>
           {selected[0] === 'ai' ? (
@@ -231,8 +239,6 @@ export function SettingsPage() {
             <SettingsRecordPanels section="groups" />
           ) : selected[0] === 'users' ? (
             <SettingsRecordPanels section="users" />
-          ) : selected[0] === 'audit' ? (
-            <SettingsRecordPanels section="audit" />
           ) : selected[0] === 'identity-providers' ? (
             <IdentityProvidersPage />
           ) : selected[0] === 'service-accounts' ? (

@@ -29,8 +29,8 @@ export function SettingsDirectoryRows({ section, rows, refresh }) {
       >
         <div className="settings-directory-columns" aria-hidden="true">
           <span>Name</span>
-          <span>{people ? 'Role' : 'Members'}</span>
-          <span>{people ? 'Access' : 'Description'}</span>
+          <span>{people ? 'Role' : 'Description'}</span>
+          {people && <span>Access</span>}
           <span />
         </div>
         <ul>
@@ -58,16 +58,14 @@ export function SettingsDirectoryRows({ section, rows, refresh }) {
                     </p>
                   </div>
                 </div>
-                <div className="settings-directory-meta">
-                  <span className="sr-only">{people ? 'Role: ' : 'Members: '}</span>
-                  {people ? (
+                {people && (
+                  <div className="settings-directory-meta">
+                    <span className="sr-only">Role: </span>
                     <span className="settings-directory-tag">
                       {row.owner ? 'Admin (owner)' : displayValue(row.role)}
                     </span>
-                  ) : (
-                    <span className="break-words text-sm">{row.members || 'No members'}</span>
-                  )}
-                </div>
+                  </div>
+                )}
                 <div className="settings-directory-meta">
                   {people ? (
                     <StateBadge status={row.disabled ? 'disabled' : 'active'} />

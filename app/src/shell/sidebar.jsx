@@ -136,7 +136,7 @@ function ProfileMenu({ user, compact, logout, busy, onNavigate, dropdown = false
           aria-label="Profile and appearance settings"
           title={compact ? 'Profile and appearance settings' : undefined}
         >
-          <ProfileAvatar member={user} className="profile-avatar" />
+          <ProfileAvatar member={user} initialsCount={1} className="profile-avatar !h-8 !w-8" />
           {!compact && (
             <>
               <span className="min-w-0 flex-1">

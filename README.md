@@ -59,4 +59,4 @@ Issues and focused contributions are welcome. See [AGENTS.md](AGENTS.md) for rep
 
 ## License
 
-[MIT](LICENSE).
+[Apache License 2.0](LICENSE).

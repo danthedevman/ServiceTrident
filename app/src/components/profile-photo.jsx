@@ -1,16 +1,17 @@
-import React, { useEffect, useId, useRef, useState } from 'react';
+import { AuthContext } from '../auth/auth-context.js';
+import React, { useContext, useEffect, useId, useRef, useState } from 'react';
 import { CameraIcon } from '@heroicons/react/24/outline';
 import { ConfirmDeleteButton } from './confirm-delete-button.jsx';
 import { writeApi } from '../data/query-client.js';
 
-export function ProfileAvatar({ member, className = '' }) {
+export function ProfileAvatar({ member, className = '', initialsCount = 2 }) {
   const [failed, setFailed] = useState(false);
   useEffect(() => setFailed(false), [member.id, member.photoVersion]);
   const label = member.displayName || member.email || 'User';
   const initials = label
     .trim()
     .split(/\s+/)
-    .slice(0, 2)
+    .slice(0, initialsCount)
     .map((value) => value[0])
     .join('')
     .toUpperCase();
@@ -44,24 +45,29 @@ async function normalizedPhoto(file) {
     if (bitmap.width > 8192 || bitmap.height > 8192)
       throw new Error('Choose an image no larger than 8192 pixels on either side.');
     const canvas = document.createElement('canvas');
-    canvas.width = canvas.height = 256;
     const size = Math.min(bitmap.width, bitmap.height);
-    canvas
-      .getContext('2d')
-      .drawImage(
-        bitmap,
-        (bitmap.width - size) / 2,
-        (bitmap.height - size) / 2,
-        size,
-        size,
-        0,
-        0,
-        256,
-        256,
-      );
-    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+    let blob;
+    // Photographs may need a smaller raster to stay within the server's byte budget.
+    for (const edge of [256, 192, 128]) {
+      canvas.width = canvas.height = edge;
+      canvas
+        .getContext('2d')
+        .drawImage(
+          bitmap,
+          (bitmap.width - size) / 2,
+          (bitmap.height - size) / 2,
+          size,
+          size,
+          0,
+          0,
+          edge,
+          edge,
+        );
+      blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+      if (blob && blob.size <= 102400) break;
+    }
     if (!blob || blob.size > 102400)
-      throw new Error('Choose a simpler image; the resized photo must be no larger than 100 KB.');
+      throw new Error('This image could not be resized. Choose another image.');
     const data = await new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => resolve(reader.result);
@@ -75,6 +81,12 @@ async function normalizedPhoto(file) {
 }
 
 export function ProfilePhotoEditor({ member, own = false }) {
+  const { user } = useContext(AuthContext);
+  const actor = `${user?.id}:${user?.workspaceId}:${user?.role}`;
+  const owner = useRef(actor),
+    pending = useRef(null);
+  owner.current = actor;
+  useEffect(() => () => pending.current?.abort(), [actor]);
   const id = useId();
   const fileInput = useRef(null);
   const [busy, setBusy] = useState(false),
@@ -108,6 +120,7 @@ export function ProfilePhotoEditor({ member, own = false }) {
               id={id}
               ref={fileInput}
               hidden
+              className="hidden"
               type="file"
               accept="image/png,image/jpeg,image/webp"
               disabled={busy}
@@ -116,13 +129,22 @@ export function ProfilePhotoEditor({ member, own = false }) {
                 const file = event.target.files?.[0];
                 event.target.value = '';
                 if (!file) return;
+                const controller = new AbortController();
+                pending.current = controller;
+                const uploader = actor;
                 setBusy(true);
                 setError('');
                 try {
                   const base64 = await normalizedPhoto(file);
-                  const result = await writeApi(path, { method: 'PUT', body: { base64 } });
+                  if (controller.signal.aborted || owner.current !== uploader) return;
+                  const result = await writeApi(path, {
+                    method: 'PUT',
+                    body: { base64 },
+                    signal: controller.signal,
+                  });
                   setVersion(result.photoVersion);
                 } catch (failure) {
+                  if (controller.signal.aborted) return;
                   setError(
                     failure.message || 'The image could not be uploaded. Choose another image.',
                   );

@@ -2,7 +2,7 @@ import { SettingsDirectoryRows } from './directory-rows.jsx';
 import { downloadCsv } from '../../lib/csv-download.js';
 import { RECORD_PANEL_PAGE_SIZE, recordPanelParams } from './record-panel-query.js';
 import { RecordHeader } from '../../components/record-actions.jsx';
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useContext, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   UserCircleIcon,
@@ -55,7 +55,9 @@ const definitions = {
 /** Cards reuse bounded, authorized server paging; private records never enter browser storage. */
 export function SettingsRecordPanels({ section }) {
   const config = definitions[section];
+  const exportRequest = useRef(null);
   const { user } = useContext(AuthContext);
+  useEffect(() => () => exportRequest.current?.abort(), [user?.id, user?.workspaceId, user?.role]);
   const [search, setSearch] = useState(''),
     [query, setQuery] = useState(''),
     [page, setPage] = useState(1);
@@ -95,7 +97,9 @@ export function SettingsRecordPanels({ section }) {
           <h2 className="text-xl font-semibold">
             {config.title}
             {resource.data && (
-              <span className="ml-2 text-sm font-normal text-slate-500">{total}</span>
+              <span aria-hidden="true" className="ml-2 text-sm font-normal text-slate-500">
+                {total}
+              </span>
             )}
           </h2>
           <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{config.description}</p>
@@ -111,6 +115,8 @@ export function SettingsRecordPanels({ section }) {
             className="btn-secondary"
             disabled={exporting || !resource.data}
             onClick={async () => {
+              const controller = new AbortController();
+              exportRequest.current = controller;
               setExporting(true);
               setExportError('');
               try {
@@ -119,9 +125,10 @@ export function SettingsRecordPanels({ section }) {
                 await downloadCsv(
                   `/tables/${config.source}?${exportParams}`,
                   `${config.source}.csv`,
+                  controller.signal,
                 );
               } catch (failure) {
-                setExportError(failure.message);
+                if (!controller.signal.aborted) setExportError(failure.message);
               } finally {
                 setExporting(false);
               }

@@ -26,7 +26,7 @@ export function installProfilePhotos(app, db) {
     return user;
   }
   const paths = ['/api/auth/photo', '/api/member-photos/:id'];
-  app.get(paths, async (req, res) => {
+  const read = async (req, res) => {
     const user = await target(req);
     const photo = await db
       .collection('profilePhotos')
@@ -37,8 +37,8 @@ export function installProfilePhotos(app, db) {
       .set('X-Content-Type-Options', 'nosniff')
       .type('image/png')
       .send(Buffer.from(photo.base64, 'base64'));
-  });
-  app.put(paths, limit, async (req, res) => {
+  };
+  const upload = async (req, res) => {
     const user = await target(req, true);
     const value = req.body?.base64;
     if (
@@ -73,8 +73,8 @@ export function installProfilePhotos(app, db) {
       .collection('users')
       .updateOne({ _id: user._id, ...memberFilter(req.workspaceId) }, { $set: { photoVersion } });
     res.json({ photoVersion });
-  });
-  app.delete(paths, limit, async (req, res) => {
+  };
+  const remove = async (req, res) => {
     const user = await target(req, true);
     await db.collection('profilePhotos').deleteOne({ _id: user._id, workspaceId: req.workspaceId });
     await db
@@ -84,5 +84,10 @@ export function installProfilePhotos(app, db) {
         { $unset: { photoVersion: '' } },
       );
     res.status(204).end();
-  });
+  };
+  for (const path of paths) {
+    app.get(path, read);
+    app.put(path, limit, upload);
+    app.delete(path, limit, remove);
+  }
 }

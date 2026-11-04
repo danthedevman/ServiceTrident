@@ -4698,6 +4698,16 @@ try {
         ['Demo Data', '#demo-data'],
         ['AI Provider', '.ai-configuration'],
       ]) {
+        if (label === 'Audit Log') {
+          await page
+            .getByRole('navigation', { name: 'Settings categories' })
+            .getByRole('link', { name: label, exact: true })
+            .click();
+          await page.waitForURL(`${base}/settings/audit`);
+          await page.locator('.data-table.list-table table').waitFor();
+          await page.goto(`${base}/settings?section=groups`);
+          continue;
+        }
         await page
           .getByRole('navigation', { name: 'Settings categories' })
           .getByRole('button', { name: label, exact: true })
@@ -4764,6 +4774,13 @@ try {
         () => !document.querySelector('.settings-record-panels .skeleton'),
       );
       assert.equal(await page.locator('.settings-layout table').count(), 0);
+      assert.equal(
+        await page
+          .locator('.settings-directory-columns')
+          .getByText('Members', { exact: true })
+          .count(),
+        0,
+      );
       await page.screenshot({
         path: `${output}/settings-categories${width === 390 ? '-mobile' : ''}.png`,
       });
@@ -4840,6 +4857,9 @@ try {
         buffer: Buffer.from(syntheticPhoto, 'base64'),
       });
       await photoDialog.getByRole('button', { name: 'Remove Photo', exact: true }).waitFor();
+      await page.waitForFunction(
+        () => document.querySelector('dialog .profile-photo img')?.naturalWidth === 256,
+      );
       assert.ok(
         await photoDialog
           .locator('img')

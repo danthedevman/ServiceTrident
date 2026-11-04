@@ -1,5 +1,6 @@
 FROM node:24-alpine
 WORKDIR /srv
+COPY LICENSE NOTICE ./
 COPY package.json package-lock.json ./
 COPY api/package.json api/package.json
 COPY app/package.json app/package.json

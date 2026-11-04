@@ -14,5 +14,6 @@
     "helmet": "^8.1.0",
     "mongodb": "^6.20.0",
     "openid-client": "^6.8.8"
-  }
+  },
+  "license": "Apache-2.0"
 }

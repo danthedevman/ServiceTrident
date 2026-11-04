@@ -15,5 +15,6 @@
     "ioredis": "^5.8.0",
     "mongodb": "^6.20.0",
     "nodemailer": "^10.0.14"
-  }
+  },
+  "license": "Apache-2.0"
 }
