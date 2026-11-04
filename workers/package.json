@@ -14,7 +14,7 @@
     "bullmq": "^5.61.0",
     "ioredis": "^5.8.0",
     "mongodb": "^6.20.0",
-    "nodemailer": "^10.0.14"
+    "nodemailer": "^10.1.4"
   },
   "license": "Apache-2.0"
 }
